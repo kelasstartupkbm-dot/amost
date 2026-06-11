@@ -25,15 +25,15 @@ const stats = [
 
 export default function Stats() {
   return (
-    <section className="relative z-20 mx-5 -mt-14 rounded-2xl border border-slate-200 bg-white px-3 py-4 shadow-xl shadow-slate-200/80 md:mx-10 md:px-5">
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+    <section className="relative z-20 mx-5 -mt-12 rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-xl shadow-slate-200/80 md:mx-10">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {stats.map((item) => (
           <div
             key={item.label}
-            className="flex items-center justify-center gap-4 rounded-xl px-3 py-4"
+            className="flex items-center justify-center gap-4 px-3 py-4"
           >
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-purple-100 text-purple-700">
-              <item.icon size={24} />
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-purple-100 text-purple-700">
+              <item.icon size={23} />
             </div>
 
             <div>
