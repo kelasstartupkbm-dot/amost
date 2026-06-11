@@ -9,17 +9,20 @@ import Footer from "./components/Footer";
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen bg-white text-slate-950">
-      <div className="mx-auto max-w-[1440px] overflow-hidden border border-slate-200 bg-white shadow-sm">
-        <Header />
-        <HeroSlider />
+    <main className="min-h-screen bg-white pt-[96px] text-slate-950">
+      <Header />
+
+      <HeroSlider />
+
+      <section className="mx-auto max-w-[1280px] bg-white">
         <Features />
         <Stats />
         <EventsSection />
         <DownloadSection />
         <CtaSection />
-        <Footer />
-      </div>
+      </section>
+
+      <Footer />
     </main>
   );
 }
