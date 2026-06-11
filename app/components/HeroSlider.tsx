@@ -1,39 +1,33 @@
 import Link from "next/link";
-import {
-  ArrowRight,
-  Download,
-  Lock,
-  Pause,
-  Square,
-} from "lucide-react";
+import { ArrowRight, Download, Lock, Pause, Square } from "lucide-react";
 
 export default function HeroSlider() {
   return (
-    <section className="relative min-h-[590px] overflow-hidden bg-white">
+    <section className="relative w-full overflow-hidden border-b border-slate-200 bg-white">
       <div className="absolute inset-0 hero-bg" />
 
-      <div className="relative grid min-h-[590px] grid-cols-[1fr_520px] items-center px-[94px]">
-        <div className="relative z-10 pt-4">
-          <p className="mb-7 text-[14px] font-black uppercase tracking-wide text-purple-700">
+      <div className="relative mx-auto grid min-h-[620px] max-w-[1440px] grid-cols-1 items-center px-4 py-12 sm:px-6 md:px-8 lg:grid-cols-[1fr_420px] lg:px-[94px] xl:grid-cols-[1fr_520px]">
+        <div className="relative z-10">
+          <p className="mb-5 text-[12px] font-black uppercase tracking-wide text-purple-700 sm:text-[14px]">
             Track. Achieve. Share.
           </p>
 
-          <h1 className="max-w-[620px] text-[56px] font-black leading-[1.05] tracking-[-1.5px] text-black">
+          <h1 className="max-w-[620px] text-[38px] font-black leading-[1.08] tracking-[-1.2px] text-black sm:text-[46px] md:text-[54px] lg:text-[56px]">
             Platform Tracking
             <br />
             <span className="text-purple-700">Olahraga Outdoor</span>
           </h1>
 
-          <p className="mt-7 max-w-[560px] text-[18px] leading-[1.75] text-slate-700">
+          <p className="mt-6 max-w-[560px] text-[15px] leading-[1.75] text-slate-700 sm:text-[17px] md:text-[18px]">
             AMOST adalah platform untuk tracking berbagai aktivitas olahraga
             outdoor seperti sepeda, lari, jalan sehat, trail run, dan aktivitas
             lainnya secara realtime.
           </p>
 
-          <div className="mt-9 flex items-center gap-6">
+          <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
             <Link
               href="/events"
-              className="flex h-[54px] min-w-[205px] items-center justify-center gap-4 rounded-md bg-purple-700 px-8 text-[15px] font-bold text-white shadow-lg shadow-purple-200 transition hover:bg-purple-800"
+              className="flex h-[52px] w-full items-center justify-center gap-3 rounded-md bg-purple-700 px-7 text-[15px] font-bold text-white shadow-lg shadow-purple-200 transition hover:bg-purple-800 sm:w-auto sm:min-w-[190px]"
             >
               Jelajahi Event
               <ArrowRight size={18} />
@@ -41,14 +35,14 @@ export default function HeroSlider() {
 
             <Link
               href="/download"
-              className="flex h-[54px] min-w-[225px] items-center justify-center gap-4 rounded-md border border-purple-700 bg-white px-8 text-[15px] font-bold text-slate-950 transition hover:bg-purple-50"
+              className="flex h-[52px] w-full items-center justify-center gap-3 rounded-md border border-purple-700 bg-white px-7 text-[15px] font-bold text-slate-950 transition hover:bg-purple-50 sm:w-auto sm:min-w-[205px]"
             >
               Download App
               <Download size={18} />
             </Link>
           </div>
 
-          <div className="mt-24 grid max-w-[650px] grid-cols-4 gap-7">
+          <div className="mt-12 grid max-w-[650px] grid-cols-2 gap-5 sm:grid-cols-4 lg:mt-20">
             <FeatureMini icon="target" title="Tracking Realtime" />
             <FeatureMini icon="route" title="Route & Statistik" />
             <FeatureMini icon="shield" title="Aman & Akurat" />
@@ -56,7 +50,7 @@ export default function HeroSlider() {
           </div>
         </div>
 
-        <div className="relative z-10 flex justify-center">
+        <div className="relative z-10 mt-10 hidden justify-center lg:flex">
           <PhoneMockup />
         </div>
       </div>
@@ -66,7 +60,7 @@ export default function HeroSlider() {
 
 function FeatureMini({ icon, title }: { icon: string; title: string }) {
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-2 sm:gap-3">
       <div className="mini-icon">
         {icon === "target" && <span>◎</span>}
         {icon === "route" && <span>⌁</span>}
@@ -74,7 +68,7 @@ function FeatureMini({ icon, title }: { icon: string; title: string }) {
         {icon === "users" && <span>♙</span>}
       </div>
 
-      <p className="whitespace-nowrap text-[13px] font-bold text-slate-900">
+      <p className="text-[12px] font-bold text-slate-900 sm:whitespace-nowrap sm:text-[13px]">
         {title}
       </p>
     </div>
@@ -83,7 +77,7 @@ function FeatureMini({ icon, title }: { icon: string; title: string }) {
 
 function PhoneMockup() {
   return (
-    <div className="relative">
+    <div className="relative scale-[0.85] xl:scale-100">
       <div className="phone-shadow" />
 
       <div className="phone">
