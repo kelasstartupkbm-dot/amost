@@ -6,12 +6,8 @@ import Footer from "./components/Footer";
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen bg-[#f6f7fb] text-slate-950">
-      <section className="mx-auto max-w-6xl px-4 py-8 md:px-6">
-        <p className="mb-5 text-xl font-bold text-slate-900">
-          Landing Page (Website)
-        </p>
-
+    <main className="min-h-screen bg-[#f4f6fb] text-slate-950">
+      <section className="mx-auto max-w-6xl px-4 py-10 md:px-6">
         <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl shadow-slate-200/80">
           <Header />
           <HeroSlider />
