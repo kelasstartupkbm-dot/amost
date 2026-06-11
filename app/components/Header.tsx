@@ -1,33 +1,53 @@
 import Link from "next/link";
+import { Search } from "lucide-react";
 
 export default function Header() {
   return (
-    <header className="relative z-30 flex h-20 items-center justify-between bg-white px-8 md:px-10">
-      <Link href="/" className="flex items-center gap-2">
-        <div className="amost-mark" />
-        <div className="text-xl font-black tracking-wide text-purple-700">
-          AMOST
+    <header className="relative z-50 flex h-[110px] items-center justify-between border-b border-slate-200 bg-white px-[88px]">
+      <Link href="/" className="flex items-center gap-4">
+        <div className="logo-symbol">A</div>
+
+        <div>
+          <div className="text-[34px] font-black leading-none tracking-wide text-purple-700">
+            AMOST
+          </div>
+          <div className="mt-1 text-[9px] font-black uppercase leading-[1.05] tracking-wide text-purple-700">
+            Amikom Mobile Outdoor Tracking
+            <br />
+            Sport Tracking
+          </div>
         </div>
       </Link>
 
-      <nav className="hidden items-center gap-10 text-sm font-bold text-slate-900 md:flex">
-        <Link href="/">Beranda</Link>
-        <Link href="/events">Event</Link>
+      <nav className="flex items-center gap-10 text-[15px] font-medium text-slate-800">
+        <Link className="font-bold text-purple-700" href="/">
+          Beranda
+        </Link>
+        <Link href="/events">Events</Link>
+        <Link href="#cara-kerja">Cara Kerja</Link>
         <Link href="/fitur">Fitur</Link>
         <Link href="/komunitas">Komunitas</Link>
         <Link href="/tentang">Tentang</Link>
+        <Link href="/kontak">Kontak</Link>
       </nav>
 
       <div className="flex items-center gap-4">
-        <Link href="/login" className="hidden text-sm font-black text-slate-950 sm:block">
-          Masuk
+        <button className="flex h-11 w-11 items-center justify-center rounded-full text-slate-950 transition hover:bg-slate-100">
+          <Search size={25} strokeWidth={2.3} />
+        </button>
+
+        <Link
+          href="/login"
+          className="flex h-12 items-center justify-center rounded-md border border-purple-700 px-7 text-[15px] font-bold text-purple-700 transition hover:bg-purple-50"
+        >
+          Login
         </Link>
 
         <Link
           href="/register"
-          className="rounded-xl bg-purple-700 px-6 py-3 text-sm font-black text-white shadow-lg shadow-purple-200 transition hover:bg-purple-800"
+          className="flex h-12 items-center justify-center rounded-md bg-purple-700 px-7 text-[15px] font-bold text-white shadow-md shadow-purple-200 transition hover:bg-purple-800"
         >
-          Daftar
+          Register
         </Link>
       </div>
     </header>
