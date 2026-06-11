@@ -2,9 +2,9 @@ import Link from "next/link";
 
 export default function DownloadSection() {
   return (
-    <section className="bg-white px-[88px] pb-4 pt-0">
-      <div className="grid min-h-[260px] grid-cols-[560px_1fr] overflow-hidden rounded-xl border border-purple-200 bg-gradient-to-r from-purple-50 via-white to-purple-50">
-        <div className="relative overflow-hidden">
+    <section className="bg-white px-4 pb-4 pt-0 sm:px-6 md:px-8 lg:px-[70px]">
+      <div className="grid overflow-hidden rounded-xl border border-purple-200 bg-gradient-to-r from-purple-50 via-white to-purple-50 lg:min-h-[260px] lg:grid-cols-[480px_1fr] xl:grid-cols-[560px_1fr]">
+        <div className="relative hidden min-h-[260px] overflow-hidden md:block">
           <div className="download-phone phone-left">
             <div className="download-notch" />
             <div className="px-6 pt-12">
@@ -60,9 +60,6 @@ export default function DownloadSection() {
                 <span className="rounded-full bg-slate-100 px-3 py-1 text-[8px] font-bold">
                   Lari
                 </span>
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-[8px] font-bold">
-                  Trail
-                </span>
               </div>
 
               <div className="mt-4 space-y-3">
@@ -94,22 +91,21 @@ export default function DownloadSection() {
           </div>
         </div>
 
-        <div className="flex flex-col justify-center px-10">
+        <div className="flex flex-col justify-center px-6 py-9 sm:px-8 lg:px-10">
           <p className="text-[15px] font-black text-purple-700">
             Track. Achieve. Share.
           </p>
 
-          <h2 className="mt-4 text-[31px] font-black text-black">
+          <h2 className="mt-4 text-[26px] font-black text-black sm:text-[31px]">
             Download Aplikasi AMOST
           </h2>
 
-          <p className="mt-4 max-w-[500px] text-[16px] leading-[1.6] text-slate-700">
-            Dapatkan pengalaman tracking terbaik di mobile.
-            <br />
-            Tersedia di Android dan iOS.
+          <p className="mt-4 max-w-[500px] text-[15px] leading-[1.6] text-slate-700 sm:text-[16px]">
+            Dapatkan pengalaman tracking terbaik di mobile. Tersedia di Android
+            dan iOS.
           </p>
 
-          <div className="mt-6 flex items-center gap-4">
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
             <Link href="/download" className="store-button">
               <span>GET IT ON</span>
               <strong>Google Play</strong>
