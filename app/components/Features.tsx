@@ -1,9 +1,4 @@
-import {
-  BarChart3,
-  CalendarCheck,
-  MapPin,
-  Ticket,
-} from "lucide-react";
+import { BarChart3, CalendarCheck, MapPin, Ticket } from "lucide-react";
 
 const steps = [
   {
@@ -30,29 +25,32 @@ const steps = [
 
 export default function Features() {
   return (
-    <section id="cara-kerja" className="border-t border-slate-200 bg-white px-[94px] pb-8 pt-8">
-      <h2 className="text-center text-[18px] font-black uppercase tracking-wide text-purple-700">
+    <section
+      id="cara-kerja"
+      className="border-t border-slate-200 bg-white px-4 pb-8 pt-8 sm:px-6 md:px-8 lg:px-[70px]"
+    >
+      <h2 className="text-center text-[16px] font-black uppercase tracking-wide text-purple-700 sm:text-[18px]">
         Cara Kerja AMOST
       </h2>
 
-      <div className="mx-auto mt-8 grid max-w-[1060px] grid-cols-4 items-start gap-12">
+      <div className="mx-auto mt-8 grid max-w-[1060px] grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4 lg:gap-12">
         {steps.map((step, index) => (
           <div key={step.title} className="relative text-center">
             {index !== steps.length - 1 && (
-              <div className="absolute right-[-33px] top-[37px] text-[44px] font-light leading-none text-purple-600">
+              <div className="absolute right-[-33px] top-[37px] hidden text-[44px] font-light leading-none text-purple-600 lg:block">
                 ›
               </div>
             )}
 
-            <div className="mx-auto flex h-[74px] w-[74px] items-center justify-center rounded-full bg-purple-100 text-purple-700">
-              <step.icon size={35} strokeWidth={1.9} />
+            <div className="mx-auto flex h-[70px] w-[70px] items-center justify-center rounded-full bg-purple-100 text-purple-700 sm:h-[74px] sm:w-[74px]">
+              <step.icon size={34} strokeWidth={1.9} />
             </div>
 
             <h3 className="mt-5 text-[15px] font-black text-black">
               {step.title}
             </h3>
 
-            <p className="mx-auto mt-2 max-w-[210px] text-[14px] leading-[1.45] text-slate-600">
+            <p className="mx-auto mt-2 max-w-[230px] text-[14px] leading-[1.5] text-slate-600">
               {step.desc}
             </p>
           </div>
