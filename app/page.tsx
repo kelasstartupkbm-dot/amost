@@ -1,21 +1,25 @@
 import Header from "./components/Header";
 import HeroSlider from "./components/HeroSlider";
-import Stats from "./components/Stats";
 import Features from "./components/Features";
+import Stats from "./components/Stats";
+import EventsSection from "./components/EventsSection";
+import DownloadSection from "./components/DownloadSection";
+import CtaSection from "./components/CtaSection";
 import Footer from "./components/Footer";
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen bg-[#f4f6fb] text-slate-950">
-      <section className="mx-auto max-w-6xl px-4 py-10 md:px-6">
-        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl shadow-slate-200/80">
-          <Header />
-          <HeroSlider />
-          <Stats />
-          <Features />
-          <Footer />
-        </div>
-      </section>
+    <main className="min-h-screen bg-white text-slate-950">
+      <div className="mx-auto max-w-[1440px] overflow-hidden border border-slate-200 bg-white shadow-sm">
+        <Header />
+        <HeroSlider />
+        <Features />
+        <Stats />
+        <EventsSection />
+        <DownloadSection />
+        <CtaSection />
+        <Footer />
+      </div>
     </main>
   );
 }
