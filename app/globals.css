@@ -23,7 +23,13 @@ body {
   background:
     radial-gradient(circle at 8% 77%, rgba(126, 34, 206, 0.14) 0 3px, transparent 3px),
     radial-gradient(circle at 91% 28%, rgba(126, 34, 206, 0.14) 0 3px, transparent 3px),
-    linear-gradient(110deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0.96) 39%, rgba(255,255,255,0.52) 58%, rgba(255,255,255,0.78) 100%),
+    linear-gradient(
+      110deg,
+      rgba(255, 255, 255, 1) 0%,
+      rgba(255, 255, 255, 0.96) 39%,
+      rgba(255, 255, 255, 0.52) 58%,
+      rgba(255, 255, 255, 0.78) 100%
+    ),
     url("https://images.unsplash.com/photo-1486218119243-13883505764c?q=80&w=1600&auto=format&fit=crop");
   background-size:
     28px 28px,
@@ -43,7 +49,7 @@ body {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(to bottom, transparent 0%, rgba(255,255,255,0.86) 100%),
+    linear-gradient(to bottom, transparent 0%, rgba(255, 255, 255, 0.86) 100%),
     radial-gradient(circle at 55% 57%, rgba(100, 116, 139, 0.15), transparent 28%);
 }
 
@@ -55,8 +61,18 @@ body {
   width: 360px;
   height: 260px;
   background:
-    linear-gradient(135deg, transparent 0 40%, rgba(15, 23, 42, 0.22) 40% 48%, transparent 48%),
-    linear-gradient(45deg, transparent 0 42%, rgba(15, 23, 42, 0.16) 42% 48%, transparent 48%);
+    linear-gradient(
+      135deg,
+      transparent 0 40%,
+      rgba(15, 23, 42, 0.22) 40% 48%,
+      transparent 48%
+    ),
+    linear-gradient(
+      45deg,
+      transparent 0 42%,
+      rgba(15, 23, 42, 0.16) 42% 48%,
+      transparent 48%
+    );
   opacity: 0.45;
 }
 
@@ -74,7 +90,14 @@ body {
   line-height: 64px;
   text-align: center;
   background: linear-gradient(135deg, #7e22ce, #581c87);
-  clip-path: polygon(47% 0%, 100% 100%, 68% 100%, 51% 64%, 26% 100%, 0 100%);
+  clip-path: polygon(
+    47% 0%,
+    100% 100%,
+    68% 100%,
+    51% 64%,
+    26% 100%,
+    0 100%
+  );
 }
 
 .logo-symbol.small {
@@ -152,7 +175,7 @@ body {
 
 .phone-map-bg {
   background:
-    linear-gradient(140deg, rgba(255,255,255,0.8), rgba(255,255,255,0.1)),
+    linear-gradient(140deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.1)),
     radial-gradient(circle at 25% 35%, #cbd5e1 0 2px, transparent 2px),
     radial-gradient(circle at 68% 70%, #cbd5e1 0 2px, transparent 2px),
     repeating-linear-gradient(45deg, #f1f5f9 0 13px, #e2e8f0 13px 14px);
@@ -291,20 +314,123 @@ body {
 }
 
 /* =========================
-   RESPONSIVE
+   RESPONSIVE TABLET
 ========================= */
 
 @media (max-width: 1024px) {
-  header {
-    padding-left: 24px !important;
-    padding-right: 24px !important;
-  }
-
-  header nav {
-    display: none !important;
-  }
-
   .hero-bg {
-    opacity: 0.42;
+    background-position: center;
+  }
+
+  .phone {
+    display: none;
+  }
+
+  .logo-symbol.responsive-logo {
+    width: 44px;
+    height: 44px;
+    font-size: 23px;
+    line-height: 44px;
+  }
+
+  .phone-left {
+    left: 40px;
+  }
+
+  .phone-right {
+    left: 210px;
+  }
+
+  .download-phone {
+    transform: scale(0.92);
+    transform-origin: bottom left;
+  }
+}
+
+/* =========================
+   RESPONSIVE MOBILE
+========================= */
+
+@media (max-width: 768px) {
+  .hero-bg {
+    background:
+      linear-gradient(
+        110deg,
+        rgba(255, 255, 255, 0.96) 0%,
+        rgba(255, 255, 255, 0.88) 100%
+      ),
+      url("https://images.unsplash.com/photo-1486218119243-13883505764c?q=80&w=1600&auto=format&fit=crop");
+    background-size: cover;
+    background-position: center;
+  }
+
+  .hero-bg::before {
+    background:
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.85)),
+      radial-gradient(circle at 50% 50%, rgba(126, 34, 206, 0.06), transparent 30%);
+  }
+
+  .hero-bg::after {
+    display: none;
+  }
+
+  .store-button {
+    width: 100%;
+    max-width: 220px;
+  }
+
+  .footer-store {
+    width: 150px;
+  }
+
+  .logo-symbol {
+    width: 48px;
+    height: 48px;
+    font-size: 25px;
+    line-height: 48px;
+  }
+
+  .logo-symbol.small {
+    width: 46px;
+    height: 46px;
+    font-size: 24px;
+    line-height: 46px;
+  }
+}
+
+/* =========================
+   RESPONSIVE SMALL MOBILE
+========================= */
+
+@media (max-width: 480px) {
+  .mini-icon {
+    width: 24px;
+    height: 24px;
+    font-size: 19px;
+  }
+
+  .logo-symbol.responsive-logo {
+    width: 38px;
+    height: 38px;
+    font-size: 20px;
+    line-height: 38px;
+  }
+
+  .logo-symbol {
+    width: 42px;
+    height: 42px;
+    font-size: 22px;
+    line-height: 42px;
+  }
+
+  .logo-symbol.small {
+    width: 42px;
+    height: 42px;
+    font-size: 22px;
+    line-height: 42px;
+  }
+
+  .store-button {
+    max-width: 100%;
   }
 }
