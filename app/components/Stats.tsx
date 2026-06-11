@@ -1,49 +1,48 @@
-import { Activity, CalendarDays, ShieldCheck, Users } from "lucide-react";
+import { Flag, Map, PersonStanding, Route } from "lucide-react";
 
 const stats = [
   {
-    icon: Activity,
-    value: "12.5K+",
-    label: "Pengguna Aktif",
+    icon: PersonStanding,
+    value: "25.6K+",
+    label: "Total Pengguna",
   },
   {
-    icon: CalendarDays,
-    value: "350+",
-    label: "Event Terselenggara",
+    icon: Flag,
+    value: "512+",
+    label: "Event Diselenggarakan",
   },
   {
-    icon: ShieldCheck,
-    value: "98.6%",
-    label: "Tracking Akurat",
+    icon: PersonStanding,
+    value: "128K+",
+    label: "Aktivitas Tracking",
   },
   {
-    icon: Users,
-    value: "25+",
-    label: "Komunitas",
+    icon: Route,
+    value: "1.2M+",
+    label: "Kilometer Tercatat",
   },
 ];
 
 export default function Stats() {
   return (
-    <section className="relative z-20 mx-5 -mt-12 rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-xl shadow-slate-200/80 md:mx-10">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {stats.map((item) => (
+    <section className="bg-white px-[88px] pb-10 pt-4">
+      <div className="grid grid-cols-4 overflow-hidden rounded-xl border border-purple-200 bg-purple-50/50 shadow-sm">
+        {stats.map((item, index) => (
           <div
             key={item.label}
-            className="flex items-center justify-center gap-4 px-3 py-4"
+            className={`relative flex min-h-[160px] flex-col items-center justify-center text-center ${
+              index !== stats.length - 1 ? "border-r border-purple-200" : ""
+            }`}
           >
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-purple-100 text-purple-700">
-              <item.icon size={23} />
-            </div>
+            <item.icon className="mb-3 text-purple-700" size={37} strokeWidth={1.8} />
 
-            <div>
-              <p className="text-2xl font-black leading-none text-slate-950">
-                {item.value}
-              </p>
-              <p className="mt-1 text-xs font-semibold text-slate-500">
-                {item.label}
-              </p>
-            </div>
+            <p className="text-[39px] font-black leading-none text-purple-700">
+              {item.value}
+            </p>
+
+            <p className="mt-2 text-[16px] font-medium text-slate-700">
+              {item.label}
+            </p>
           </div>
         ))}
       </div>
