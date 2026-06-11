@@ -3,8 +3,8 @@ import { Facebook, Instagram, Youtube } from "lucide-react";
 
 export default function Footer() {
   return (
-    <footer className="bg-white px-[88px] pb-9 pt-10">
-      <div className="grid grid-cols-[280px_180px_210px_220px_1fr] gap-8">
+    <footer className="w-full border-t border-slate-200 bg-white">
+      <div className="mx-auto grid max-w-[1440px] grid-cols-1 gap-10 px-4 pb-9 pt-12 sm:px-6 md:grid-cols-2 md:px-8 lg:grid-cols-[280px_180px_210px_220px_1fr] lg:px-[88px]">
         <div>
           <Link href="/" className="flex items-center gap-4">
             <div className="logo-symbol small">A</div>
@@ -21,7 +21,7 @@ export default function Footer() {
             </div>
           </Link>
 
-          <p className="mt-12 text-[13px] text-slate-500">
+          <p className="mt-8 text-[13px] text-slate-500 lg:mt-12">
             © 2024 AMOST. All rights reserved.
           </p>
         </div>
