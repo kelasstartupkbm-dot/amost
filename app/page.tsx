@@ -9,12 +9,12 @@ import Footer from "./components/Footer";
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen bg-white pt-[96px] text-slate-950">
+    <main className="min-h-screen bg-white pt-[78px] text-slate-950 lg:pt-[96px]">
       <Header />
 
       <HeroSlider />
 
-      <section className="mx-auto max-w-[1280px] bg-white">
+      <section className="mx-auto w-full max-w-[1280px] bg-white">
         <Features />
         <Stats />
         <EventsSection />
