@@ -1,8 +1,8 @@
-import Header from "../components/Header";
-import HeroSlider from "../components/HeroSlider";
-import Stats from "../components/Stats";
-import Features from "../components/Features";
-import Footer from "../components/Footer";
+import Header from "./components/Header";
+import HeroSlider from "./components/HeroSlider";
+import Stats from "./components/Stats";
+import Features from "./components/Features";
+import Footer from "./components/Footer";
 
 export default function HomePage() {
   return (
