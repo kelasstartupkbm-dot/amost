@@ -1,61 +1,102 @@
 import Link from "next/link";
+import { Facebook, Instagram, Youtube } from "lucide-react";
 
 export default function Footer() {
   return (
-    <footer className="border-t border-slate-100 bg-white px-6 py-8 md:px-10">
-      <div className="grid gap-8 md:grid-cols-4">
+    <footer className="bg-white px-[88px] pb-9 pt-10">
+      <div className="grid grid-cols-[280px_180px_210px_220px_1fr] gap-8">
         <div>
-          <Link href="/" className="flex items-center gap-2">
-            <div className="amost-mark" />
-            <div className="text-xl font-black tracking-wide text-purple-700">
-              AMOST
+          <Link href="/" className="flex items-center gap-4">
+            <div className="logo-symbol small">A</div>
+
+            <div>
+              <div className="text-[27px] font-black leading-none tracking-wide text-purple-700">
+                AMOST
+              </div>
+              <div className="mt-1 text-[9px] font-black uppercase leading-[1.05] tracking-wide text-purple-700">
+                Amikom Mobile Outdoor
+                <br />
+                Sport Tracking
+              </div>
             </div>
           </Link>
 
-          <p className="mt-4 max-w-xs text-sm leading-6 text-slate-500">
-            Platform tracking olahraga outdoor dan monitoring event secara
-            realtime.
+          <p className="mt-12 text-[13px] text-slate-500">
+            © 2024 AMOST. All rights reserved.
           </p>
         </div>
 
+        <FooterColumn
+          title="Platform"
+          links={["Beranda", "Events", "Fitur", "Komunitas", "Cara Kerja"]}
+        />
+
+        <FooterColumn
+          title="Bantuan"
+          links={[
+            "FAQ",
+            "Panduan",
+            "Kebijakan Privasi",
+            "Syarat & Ketentuan",
+            "Kontak Kami",
+          ]}
+        />
+
         <div>
-          <h4 className="text-sm font-black text-slate-950">Platform</h4>
-          <div className="mt-4 flex flex-col gap-2 text-sm text-slate-600">
-            <Link href="/">Beranda</Link>
-            <Link href="/events">Event</Link>
-            <Link href="/fitur">Fitur</Link>
-            <Link href="/komunitas">Komunitas</Link>
+          <h4 className="text-[14px] font-black text-black">Ikuti Kami</h4>
+
+          <div className="mt-6 flex items-center gap-4">
+            <Link href="#" className="social-icon">
+              <Facebook size={18} fill="currentColor" />
+            </Link>
+            <Link href="#" className="social-icon">
+              <Instagram size={18} />
+            </Link>
+            <Link href="#" className="social-icon">
+              <Youtube size={19} fill="currentColor" />
+            </Link>
+            <Link href="#" className="social-icon text-[18px] font-black">
+              ♪
+            </Link>
           </div>
         </div>
 
         <div>
-          <h4 className="text-sm font-black text-slate-950">Bantuan</h4>
-          <div className="mt-4 flex flex-col gap-2 text-sm text-slate-600">
-            <Link href="/panduan">Panduan</Link>
-            <Link href="/faq">FAQ</Link>
-            <Link href="/kontak">Kontak</Link>
-            <Link href="/privacy">Kebijakan Privasi</Link>
+          <h4 className="text-[14px] font-black text-black">Download App</h4>
+
+          <div className="mt-5 flex flex-col gap-3">
+            <Link href="/download" className="store-button footer-store">
+              <span>GET IT ON</span>
+              <strong>Google Play</strong>
+            </Link>
+
+            <Link href="/download" className="store-button footer-store">
+              <span>Download on the</span>
+              <strong>App Store</strong>
+            </Link>
           </div>
         </div>
-
-        <div>
-          <h4 className="text-sm font-black text-slate-950">Download App</h4>
-          <p className="mt-4 text-sm leading-6 text-slate-500">
-            Aplikasi AMOST tersedia untuk Android dan iOS.
-          </p>
-
-          <Link
-            href="/download"
-            className="mt-4 inline-flex rounded-lg bg-purple-700 px-5 py-3 text-sm font-bold text-white hover:bg-purple-800"
-          >
-            Download Aplikasi
-          </Link>
-        </div>
-      </div>
-
-      <div className="mt-8 border-t border-slate-100 pt-5 text-sm text-slate-500">
-        © 2026 AMOST. All rights reserved.
       </div>
     </footer>
+  );
+}
+
+function FooterColumn({ title, links }: { title: string; links: string[] }) {
+  return (
+    <div>
+      <h4 className="text-[14px] font-black text-black">{title}</h4>
+
+      <div className="mt-5 flex flex-col gap-2">
+        {links.map((link) => (
+          <Link
+            href="#"
+            key={link}
+            className="text-[14px] font-medium text-slate-700 hover:text-purple-700"
+          >
+            {link}
+          </Link>
+        ))}
+      </div>
+    </div>
   );
 }
