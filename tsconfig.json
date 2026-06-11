@@ -1,4 +1,9 @@
+import Header from "@/components/Header";
 {
+  "baseUrl": ".",
+"paths": {
+  "@/*": ["./*"]
+}
   "compilerOptions": {
     "target": "es5",
     "lib": ["dom", "dom.iterable", "es6"],
