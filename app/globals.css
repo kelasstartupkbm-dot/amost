@@ -1,0 +1,162 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --purple-main: #6d28d9;
+  --purple-dark: #581c87;
+  --purple-soft: #f3e8ff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: #ffffff;
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex h-12 items-center justify-center gap-3 rounded-md bg-purple-700 px-8 text-sm font-black text-white shadow-lg shadow-purple-200 transition hover:bg-purple-800;
+  }
+
+  .btn-secondary {
+    @apply inline-flex h-12 items-center justify-center gap-3 rounded-md border border-purple-700 bg-white px-8 text-sm font-black text-slate-950 transition hover:bg-purple-50;
+  }
+
+  .btn-login {
+    @apply hidden rounded-md border border-purple-700 px-5 py-2 text-sm font-bold text-purple-700 transition hover:bg-purple-50 sm:inline-flex;
+  }
+
+  .btn-register {
+    @apply rounded-md bg-purple-700 px-5 py-2 text-sm font-bold text-white transition hover:bg-purple-800;
+  }
+
+  .btn-white {
+    @apply inline-flex h-12 items-center justify-center gap-3 rounded-md bg-white px-8 text-sm font-black text-slate-950 transition hover:bg-purple-50;
+  }
+
+  .store-btn {
+    @apply inline-flex min-w-[150px] flex-col rounded-lg bg-black px-5 py-3 leading-tight text-white transition hover:bg-slate-800;
+  }
+
+  .store-btn.small {
+    @apply min-w-[150px] py-2;
+  }
+}
+
+.hero-pattern {
+  background-image:
+    radial-gradient(circle at 8% 20%, rgba(109, 40, 217, 0.08) 0 2px, transparent 2px),
+    radial-gradient(circle at 91% 18%, rgba(109, 40, 217, 0.12) 0 3px, transparent 3px),
+    linear-gradient(120deg, transparent 0%, rgba(109, 40, 217, 0.03) 50%, transparent 100%);
+  background-size: 30px 30px, 18px 18px, 100% 100%;
+}
+
+.logo-mark {
+  width: 42px;
+  height: 42px;
+  background: linear-gradient(135deg, #7e22ce, #581c87);
+  color: white;
+  font-weight: 900;
+  font-size: 25px;
+  line-height: 42px;
+  text-align: center;
+  clip-path: polygon(45% 0%, 100% 100%, 66% 100%, 50% 66%, 26% 100%, 0% 100%);
+}
+
+.phone-shell {
+  position: relative;
+  width: 280px;
+  height: 520px;
+  border-radius: 44px;
+  border: 4px solid #6d28d9;
+  background: #ffffff;
+  box-shadow:
+    0 25px 50px rgba(88, 28, 135, 0.18),
+    inset 0 0 0 8px #f8fafc;
+  overflow: hidden;
+}
+
+.phone-shell::before {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border-radius: 36px;
+  border: 1px solid #d1d5db;
+  pointer-events: none;
+}
+
+.phone-notch {
+  position: absolute;
+  top: 13px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 92px;
+  height: 22px;
+  border-radius: 0 0 16px 16px;
+  background: #f8fafc;
+  border: 1px solid #d1d5db;
+  border-top: 0;
+  z-index: 10;
+}
+
+.map-bg {
+  background:
+    linear-gradient(140deg, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0.1)),
+    radial-gradient(circle at 25% 30%, #cbd5e1 0 2px, transparent 2px),
+    radial-gradient(circle at 60% 70%, #cbd5e1 0 2px, transparent 2px),
+    repeating-linear-gradient(45deg, #f1f5f9 0 12px, #e2e8f0 12px 13px);
+}
+
+.phone-action {
+  display: flex;
+  height: 46px;
+  width: 46px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #111827;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
+}
+
+.phone-pause {
+  display: flex;
+  height: 62px;
+  width: 62px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #6d28d9;
+  color: white;
+  box-shadow: 0 12px 24px rgba(109, 40, 217, 0.35);
+}
+
+.mini-phone {
+  position: absolute;
+  bottom: -36px;
+  width: 150px;
+  height: 245px;
+  border-radius: 28px;
+  border: 3px solid #6d28d9;
+  background: white;
+  box-shadow: 0 18px 35px rgba(88, 28, 135, 0.15);
+}
+
+.mini-phone::before {
+  content: "";
+  position: absolute;
+  top: 9px;
+  left: 50%;
+  width: 55px;
+  height: 10px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: #e5e7eb;
+}
