@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
+import { ArrowRight, MapPin } from "lucide-react";
 
 const events = [
   {
@@ -34,9 +34,9 @@ const events = [
 
 export default function EventsSection() {
   return (
-    <section className="relative bg-white px-[88px] pb-8 pt-4">
-      <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-[20px] font-black uppercase text-purple-700">
+    <section className="relative bg-white px-4 pb-8 pt-4 sm:px-6 md:px-8 lg:px-[70px]">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-[19px] font-black uppercase text-purple-700 sm:text-[20px]">
           Event Terdekat
         </h2>
 
@@ -49,19 +49,11 @@ export default function EventsSection() {
         </Link>
       </div>
 
-      <button className="absolute left-[48px] top-[155px] z-10 flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-lg">
-        <ChevronLeft size={24} />
-      </button>
-
-      <button className="absolute right-[48px] top-[155px] z-10 flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-lg">
-        <ChevronRight size={24} />
-      </button>
-
-      <div className="grid grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {events.map((event) => (
           <article
             key={event.title}
-            className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
+            className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
           >
             <div className="relative h-[124px] bg-slate-100">
               <div className="absolute left-4 top-4 rounded border border-purple-600 bg-white px-3 py-1 text-[10px] font-black uppercase text-purple-700">
