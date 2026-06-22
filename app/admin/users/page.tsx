@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   LogOut,
@@ -26,8 +25,6 @@ type AdminUser = {
 };
 
 export default function AdminUsersPage() {
-  const router = useRouter();
-
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -48,12 +45,12 @@ export default function AdminUsersPage() {
       const data = await response.json();
 
       if (response.status === 401) {
-        router.replace("/login");
+        window.location.href = "/login";
         return;
       }
 
       if (response.status === 403) {
-        router.replace("/admin");
+        window.location.href = "/account";
         return;
       }
 
@@ -83,8 +80,7 @@ export default function AdminUsersPage() {
         method: "POST",
       });
 
-      router.replace("/login");
-      router.refresh();
+      window.location.href = "/login";
     } catch (error) {
       console.error(error);
       alert("Logout gagal. Coba lagi.");
@@ -125,6 +121,7 @@ export default function AdminUsersPage() {
 
   const filteredUsers = useMemo(() => {
     const keyword = query.trim().toLowerCase();
+
     if (!keyword) return users;
 
     return users.filter((user) => {
@@ -163,7 +160,7 @@ export default function AdminUsersPage() {
           <div className="flex items-center gap-3">
             <Link
               href="/admin"
-              className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
+              className="hidden items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 sm:flex"
             >
               <ArrowLeft size={17} />
               Dashboard
