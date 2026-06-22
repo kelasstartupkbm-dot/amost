@@ -1,4 +1,3 @@
-import bcrypt from "bcryptjs";
 import crypto from "crypto";
 
 export type UserRole = "super_admin" | "staff_amost" | "umum";
@@ -9,12 +8,46 @@ export const ROLES = {
   UMUM: "umum",
 } as const;
 
-export async function hashPassword(password: string) {
-  return bcrypt.hash(password, 12);
+const PASSWORD_ALGORITHM = "scrypt";
+const PASSWORD_KEY_LENGTH = 64;
+
+function scryptPassword(password: string, salt: string): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    crypto.scrypt(password, salt, PASSWORD_KEY_LENGTH, (error, derivedKey) => {
+      if (error) reject(error);
+      else resolve(derivedKey);
+    });
+  });
 }
 
-export async function verifyPassword(password: string, hashedPassword: string) {
-  return bcrypt.compare(password, hashedPassword);
+export async function hashPassword(password: string) {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const derivedKey = await scryptPassword(password, salt);
+
+  return `${PASSWORD_ALGORITHM}:${salt}:${derivedKey.toString("hex")}`;
+}
+
+export async function verifyPassword(password: string, storedPassword: string) {
+  const parts = storedPassword.split(":");
+
+  if (parts.length !== 3) {
+    return false;
+  }
+
+  const [algorithm, salt, storedHash] = parts;
+
+  if (algorithm !== PASSWORD_ALGORITHM || !salt || !storedHash) {
+    return false;
+  }
+
+  const derivedKey = await scryptPassword(password, salt);
+  const storedBuffer = Buffer.from(storedHash, "hex");
+
+  if (storedBuffer.length !== derivedKey.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(storedBuffer, derivedKey);
 }
 
 export function createSessionToken() {
