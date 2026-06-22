@@ -30,22 +30,16 @@ export async function hashPassword(password: string) {
 export async function verifyPassword(password: string, storedPassword: string) {
   const parts = storedPassword.split(":");
 
-  if (parts.length !== 3) {
-    return false;
-  }
+  if (parts.length !== 3) return false;
 
   const [algorithm, salt, storedHash] = parts;
 
-  if (algorithm !== PASSWORD_ALGORITHM || !salt || !storedHash) {
-    return false;
-  }
+  if (algorithm !== PASSWORD_ALGORITHM || !salt || !storedHash) return false;
 
   const derivedKey = await scryptPassword(password, salt);
   const storedBuffer = Buffer.from(storedHash, "hex");
 
-  if (storedBuffer.length !== derivedKey.length) {
-    return false;
-  }
+  if (storedBuffer.length !== derivedKey.length) return false;
 
   return crypto.timingSafeEqual(storedBuffer, derivedKey);
 }
@@ -72,10 +66,4 @@ export function getLoginRedirectPath(role: string | null | undefined) {
   }
 
   return "/account";
-}
-
-export function normalizeRole(role: string | null | undefined): UserRole {
-  if (role === ROLES.SUPER_ADMIN) return ROLES.SUPER_ADMIN;
-  if (role === ROLES.STAFF_AMOST) return ROLES.STAFF_AMOST;
-  return ROLES.UMUM;
 }
