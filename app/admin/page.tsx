@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
+  LogOut,
   Loader2,
   MoreHorizontal,
   Search,
@@ -24,7 +25,7 @@ type AdminUser = {
   createdAt: string;
 };
 
-export default function AdminUsersPage() {
+export default function AdminPage() {
   const router = useRouter();
 
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -32,6 +33,7 @@ export default function AdminUsersPage() {
   const [message, setMessage] = useState("");
   const [query, setQuery] = useState("");
   const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [logoutLoading, setLogoutLoading] = useState(false);
 
   async function loadUsers() {
     try {
@@ -51,7 +53,7 @@ export default function AdminUsersPage() {
       }
 
       if (response.status === 403) {
-        router.replace("/admin");
+        router.replace("/account");
         return;
       }
 
@@ -72,6 +74,24 @@ export default function AdminUsersPage() {
   useEffect(() => {
     loadUsers();
   }, []);
+
+  async function handleLogout() {
+    setLogoutLoading(true);
+
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+      });
+
+      router.replace("/login");
+      router.refresh();
+    } catch (error) {
+      console.error(error);
+      alert("Logout gagal. Coba lagi.");
+    } finally {
+      setLogoutLoading(false);
+    }
+  }
 
   async function updateRole(userId: number, role: "staff_amost" | "umum") {
     try {
@@ -105,7 +125,6 @@ export default function AdminUsersPage() {
 
   const filteredUsers = useMemo(() => {
     const keyword = query.trim().toLowerCase();
-
     if (!keyword) return users;
 
     return users.filter((user) => {
@@ -141,13 +160,25 @@ export default function AdminUsersPage() {
             </div>
           </Link>
 
-          <Link
-            href="/admin"
-            className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
-          >
-            <ArrowLeft size={17} />
-            Dashboard
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/admin"
+              className="hidden items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 sm:flex"
+            >
+              <ArrowLeft size={17} />
+              Dashboard
+            </Link>
+
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={logoutLoading}
+              className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-bold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <LogOut size={17} />
+              {logoutLoading ? "Keluar..." : "Keluar"}
+            </button>
+          </div>
         </div>
       </header>
 
