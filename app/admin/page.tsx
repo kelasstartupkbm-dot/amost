@@ -2,45 +2,49 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
-  LogOut,
+  CalendarDays,
+  Gift,
   Loader2,
-  MoreHorizontal,
+  MapPin,
+  Plus,
   Search,
-  ShieldCheck,
-  UserCog,
+  Ticket,
   Users,
 } from "lucide-react";
 
-type AdminUser = {
+type EventItem = {
   id: number;
-  fullName: string;
-  email: string;
-  phone?: string | null;
+  title: string;
+  slug: string;
+  description?: string | null;
+  eventType?: string | null;
+  location?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  distanceKm?: string | number | null;
+  ticketPrice?: string | number | null;
+  maxParticipants?: number | null;
+  doorprizeCount?: number | null;
   status: string;
-  role: string;
-  roleLabel: string;
-  createdAt: string;
+  coverImage?: string | null;
+  createdAt?: string | null;
+  participantCount: number;
 };
 
-export default function AdminPage() {
-  const router = useRouter();
-
-  const [users, setUsers] = useState<AdminUser[]>([]);
+export default function AdminEventsPage() {
+  const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [query, setQuery] = useState("");
-  const [updatingId, setUpdatingId] = useState<number | null>(null);
-  const [logoutLoading, setLogoutLoading] = useState(false);
 
-  async function loadUsers() {
+  async function loadEvents() {
     try {
       setLoading(true);
       setMessage("");
 
-      const response = await fetch("/api/admin/users", {
+      const response = await fetch("/api/admin/events", {
         method: "GET",
         cache: "no-store",
       });
@@ -48,21 +52,21 @@ export default function AdminPage() {
       const data = await response.json();
 
       if (response.status === 401) {
-        router.replace("/login");
+        window.location.href = "/login";
         return;
       }
 
       if (response.status === 403) {
-        router.replace("/account");
+        window.location.href = "/account";
         return;
       }
 
       if (!response.ok || !data.ok) {
-        setMessage(data.message || "Gagal mengambil data user.");
+        setMessage(data.message || "Gagal mengambil data event.");
         return;
       }
 
-      setUsers(data.users || []);
+      setEvents(data.events || []);
     } catch (error) {
       console.error(error);
       setMessage("Terjadi kesalahan koneksi.");
@@ -72,77 +76,38 @@ export default function AdminPage() {
   }
 
   useEffect(() => {
-    loadUsers();
+    loadEvents();
   }, []);
 
-  async function handleLogout() {
-    setLogoutLoading(true);
-
-    try {
-      await fetch("/api/auth/logout", {
-        method: "POST",
-      });
-
-      router.replace("/login");
-      router.refresh();
-    } catch (error) {
-      console.error(error);
-      alert("Logout gagal. Coba lagi.");
-    } finally {
-      setLogoutLoading(false);
-    }
-  }
-
-  async function updateRole(userId: number, role: "staff_amost" | "umum") {
-    try {
-      setUpdatingId(userId);
-      setMessage("");
-
-      const response = await fetch(`/api/admin/users/${userId}/role`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ role }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.ok) {
-        setMessage(data.message || "Gagal mengubah role user.");
-        return;
-      }
-
-      setMessage(data.message || "Role user berhasil diperbarui.");
-      await loadUsers();
-    } catch (error) {
-      console.error(error);
-      setMessage("Terjadi kesalahan koneksi.");
-    } finally {
-      setUpdatingId(null);
-    }
-  }
-
-  const filteredUsers = useMemo(() => {
+  const filteredEvents = useMemo(() => {
     const keyword = query.trim().toLowerCase();
-    if (!keyword) return users;
 
-    return users.filter((user) => {
+    if (!keyword) return events;
+
+    return events.filter((event) => {
       return (
-        user.fullName.toLowerCase().includes(keyword) ||
-        user.email.toLowerCase().includes(keyword) ||
-        user.roleLabel.toLowerCase().includes(keyword)
+        event.title.toLowerCase().includes(keyword) ||
+        String(event.location || "").toLowerCase().includes(keyword) ||
+        String(event.eventType || "").toLowerCase().includes(keyword) ||
+        event.status.toLowerCase().includes(keyword)
       );
     });
-  }, [query, users]);
+  }, [events, query]);
 
-  const roleCounts = useMemo(() => {
-    return {
-      superAdmin: users.filter((user) => user.role === "super_admin").length,
-      staff: users.filter((user) => user.role === "staff_amost").length,
-      umum: users.filter((user) => user.role === "umum").length,
-    };
-  }, [users]);
+  const totalParticipants = events.reduce(
+    (sum, event) => sum + Number(event.participantCount || 0),
+    0
+  );
+
+  const totalTickets = events.reduce(
+    (sum, event) => sum + Number(event.maxParticipants || 0),
+    0
+  );
+
+  const totalDoorprizes = events.reduce(
+    (sum, event) => sum + Number(event.doorprizeCount || 0),
+    0
+  );
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
@@ -155,7 +120,7 @@ export default function AdminPage() {
                 AMOST
               </div>
               <div className="mt-1 text-[8px] font-black uppercase leading-[1.05] tracking-wide text-purple-700">
-                User Management
+                Event Management
               </div>
             </div>
           </Link>
@@ -163,21 +128,19 @@ export default function AdminPage() {
           <div className="flex items-center gap-3">
             <Link
               href="/admin"
-              className="hidden items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 sm:flex"
+              className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
             >
               <ArrowLeft size={17} />
               Dashboard
             </Link>
 
-            <button
-              type="button"
-              onClick={handleLogout}
-              disabled={logoutLoading}
-              className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-bold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+            <Link
+              href="/admin/events/new"
+              className="flex items-center gap-2 rounded-lg bg-purple-700 px-4 py-2 text-sm font-black text-white hover:bg-purple-800"
             >
-              <LogOut size={17} />
-              {logoutLoading ? "Keluar..." : "Keluar"}
-            </button>
+              <Plus size={17} />
+              Tambah Event
+            </Link>
           </div>
         </div>
       </header>
@@ -187,65 +150,22 @@ export default function AdminPage() {
           <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-sm font-black uppercase tracking-wide text-purple-700">
-                Super Admin Only
+                Admin Event
               </p>
               <h1 className="mt-2 text-3xl font-black text-slate-950">
-                Manajemen User
+                Daftar Event
               </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                User baru otomatis menjadi <strong>Umum</strong>. Role{" "}
-                <strong>Staff AMOST</strong> hanya dapat ditentukan oleh{" "}
-                <strong>Super Admin</strong>.
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Kelola event AMOST dari database PostgreSQL. Event di halaman
+                ini sudah bukan data dummy.
               </p>
             </div>
 
-            <div className="rounded-xl bg-purple-50 p-4 text-purple-900">
-              <div className="flex items-center gap-3">
-                <ShieldCheck size={24} />
-                <div>
-                  <p className="text-sm font-black">Role Policy</p>
-                  <p className="text-xs font-semibold">
-                    Register otomatis Umum
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {message && (
-            <div className="mt-5 rounded-xl border border-purple-100 bg-purple-50 p-4 text-sm font-bold text-purple-800">
-              {message}
-            </div>
-          )}
-
-          <div className="mt-7 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <RoleCard
-              title="Super Admin"
-              count={String(roleCounts.superAdmin)}
-              desc="Akses penuh sistem."
-            />
-            <RoleCard
-              title="Staff AMOST"
-              count={String(roleCounts.staff)}
-              desc="Akses admin terbatas."
-            />
-            <RoleCard
-              title="Umum"
-              count={String(roleCounts.umum)}
-              desc="Pengguna reguler."
-            />
-          </div>
-        </div>
-
-        <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <h2 className="text-xl font-black text-slate-950">Daftar User</h2>
-
-            <div className="flex h-11 w-full items-center gap-3 rounded-xl border border-slate-200 px-4 md:w-[360px]">
+            <div className="flex h-12 w-full items-center gap-3 rounded-xl border border-slate-200 px-4 md:w-[360px]">
               <Search size={18} className="text-slate-400" />
               <input
                 type="text"
-                placeholder="Cari nama, email, atau role..."
+                placeholder="Cari event..."
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 className="w-full border-0 bg-transparent text-sm font-medium outline-none"
@@ -253,174 +173,196 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {loading ? (
-            <div className="flex min-h-[260px] items-center justify-center rounded-2xl border border-slate-100 bg-slate-50">
-              <div className="text-center">
-                <Loader2 className="mx-auto animate-spin text-purple-700" />
-                <p className="mt-3 text-sm font-bold text-slate-600">
-                  Memuat data user...
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px] border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-200 text-left text-xs font-black uppercase tracking-wide text-slate-500">
-                    <th className="py-4 pr-4">User</th>
-                    <th className="py-4 pr-4">Role</th>
-                    <th className="py-4 pr-4">Status</th>
-                    <th className="py-4 pr-4">Tanggal Daftar</th>
-                    <th className="py-4 pr-4">Aksi Role</th>
-                    <th className="py-4 text-right">Menu</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {filteredUsers.map((user) => (
-                    <tr
-                      key={user.id}
-                      className="border-b border-slate-100 text-sm"
-                    >
-                      <td className="py-4 pr-4">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-purple-100 text-purple-700">
-                            <Users size={20} />
-                          </div>
-                          <div>
-                            <p className="font-black text-slate-950">
-                              {user.fullName}
-                            </p>
-                            <p className="text-slate-500">{user.email}</p>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="py-4 pr-4">
-                        <RoleBadge role={user.role} label={user.roleLabel} />
-                      </td>
-
-                      <td className="py-4 pr-4">
-                        <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-black text-green-700">
-                          {user.status}
-                        </span>
-                      </td>
-
-                      <td className="py-4 pr-4 text-slate-600">
-                        {formatDate(user.createdAt)}
-                      </td>
-
-                      <td className="py-4 pr-4">
-                        {user.role === "umum" && (
-                          <button
-                            type="button"
-                            disabled={updatingId === user.id}
-                            onClick={() => updateRole(user.id, "staff_amost")}
-                            className="rounded-lg bg-purple-700 px-4 py-2 text-xs font-black text-white hover:bg-purple-800 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {updatingId === user.id
-                              ? "Memproses..."
-                              : "Jadikan Staff AMOST"}
-                          </button>
-                        )}
-
-                        {user.role === "staff_amost" && (
-                          <button
-                            type="button"
-                            disabled={updatingId === user.id}
-                            onClick={() => updateRole(user.id, "umum")}
-                            className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-black text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {updatingId === user.id
-                              ? "Memproses..."
-                              : "Jadikan Umum"}
-                          </button>
-                        )}
-
-                        {user.role === "super_admin" && (
-                          <span className="text-xs font-bold text-slate-400">
-                            Tidak dapat diubah
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="py-4 text-right">
-                        <button className="inline-flex h-9 w-9 items-center justify-center rounded-lg hover:bg-slate-100">
-                          <MoreHorizontal size={19} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-
-                  {filteredUsers.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={6}
-                        className="py-10 text-center text-sm font-bold text-slate-500"
-                      >
-                        Tidak ada user yang cocok.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+          {message && (
+            <div className="mt-5 rounded-xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700">
+              {message}
             </div>
           )}
 
-          <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
-            <div className="flex gap-3">
-              <UserCog className="mt-0.5 text-amber-700" size={20} />
-              <div>
-                <p className="text-sm font-black text-amber-900">
-                  Catatan Hak Akses
-                </p>
-                <p className="mt-1 text-sm leading-6 text-amber-800">
-                  Tombol ubah role hanya aktif untuk Super Admin. Staff AMOST
-                  tidak boleh mengubah role user.
+          <div className="mt-7 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <SummaryCard
+              icon={CalendarDays}
+              label="Total Event"
+              value={events.length.toString()}
+            />
+            <SummaryCard
+              icon={Users}
+              label="Total Peserta"
+              value={totalParticipants.toLocaleString("id-ID")}
+            />
+            <SummaryCard
+              icon={Ticket}
+              label="Total Kuota"
+              value={totalTickets.toLocaleString("id-ID")}
+            />
+            <SummaryCard
+              icon={Gift}
+              label="Doorprize"
+              value={totalDoorprizes.toLocaleString("id-ID")}
+            />
+          </div>
+        </div>
+
+        <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          {loading ? (
+            <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-slate-100 bg-slate-50">
+              <div className="text-center">
+                <Loader2 className="mx-auto animate-spin text-purple-700" />
+                <p className="mt-3 text-sm font-bold text-slate-600">
+                  Memuat event...
                 </p>
               </div>
             </div>
-          </div>
+          ) : filteredEvents.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center">
+              <CalendarDays className="mx-auto text-slate-400" size={42} />
+              <h2 className="mt-4 text-xl font-black text-slate-950">
+                Belum ada event
+              </h2>
+              <p className="mt-2 text-sm text-slate-500">
+                Tambahkan event pertama untuk mulai memakai AMOST Event
+                Management.
+              </p>
+              <Link
+                href="/admin/events/new"
+                className="mt-5 inline-flex rounded-lg bg-purple-700 px-5 py-3 text-sm font-black text-white hover:bg-purple-800"
+              >
+                Tambah Event
+              </Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+              {filteredEvents.map((event) => (
+                <article
+                  key={event.id}
+                  className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+                >
+                  <div className="relative h-40 bg-gradient-to-br from-purple-50 to-slate-100">
+                    {event.coverImage ? (
+                      <img
+                        src={event.coverImage}
+                        alt={event.title}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-slate-300">
+                        <CalendarDays size={54} />
+                      </div>
+                    )}
+
+                    <span
+                      className={`absolute right-4 top-4 rounded-full px-3 py-1 text-xs font-black ${
+                        event.status === "published"
+                          ? "bg-green-100 text-green-700"
+                          : event.status === "draft"
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-slate-100 text-slate-700"
+                      }`}
+                    >
+                      {formatStatus(event.status)}
+                    </span>
+
+                    <span className="absolute left-4 top-4 rounded-full bg-white px-3 py-1 text-xs font-black text-purple-700 shadow-sm">
+                      {event.eventType || "Event"}
+                    </span>
+                  </div>
+
+                  <div className="p-5">
+                    <h2 className="text-xl font-black text-slate-950">
+                      {event.title}
+                    </h2>
+
+                    <div className="mt-3 space-y-2 text-sm text-slate-600">
+                      <p className="flex items-center gap-2">
+                        <MapPin size={16} className="text-purple-700" />
+                        {event.location || "-"}
+                      </p>
+                      <p className="flex items-center gap-2">
+                        <CalendarDays size={16} className="text-purple-700" />
+                        {formatDate(event.startDate)}
+                      </p>
+                    </div>
+
+                    <div className="mt-5 grid grid-cols-3 gap-3">
+                      <MiniStat
+                        value={Number(event.participantCount || 0).toString()}
+                        label="Peserta"
+                      />
+                      <MiniStat
+                        value={String(event.maxParticipants || 0)}
+                        label="Kuota"
+                      />
+                      <MiniStat
+                        value={String(event.doorprizeCount || 0)}
+                        label="Hadiah"
+                      />
+                    </div>
+
+                    <div className="mt-5 grid grid-cols-2 gap-3">
+                      <Link
+                        href={`/admin/events/${event.id}`}
+                        className="rounded-xl bg-purple-700 px-4 py-3 text-center text-sm font-black text-white hover:bg-purple-800"
+                      >
+                        Detail
+                      </Link>
+
+                      <Link
+                        href={`/admin/events/${event.id}/doorprize`}
+                        className="rounded-xl border border-purple-200 px-4 py-3 text-center text-sm font-black text-purple-700 hover:bg-purple-50"
+                      >
+                        Doorprize
+                      </Link>
+                    </div>
+
+                    <Link
+                      href={`/admin/events/${event.id}/participants`}
+                      className="mt-3 block rounded-xl border border-slate-200 px-4 py-3 text-center text-sm font-black text-slate-700 hover:bg-slate-50"
+                    >
+                      Peserta & Nomor
+                    </Link>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
         </div>
       </section>
     </main>
   );
 }
 
-function RoleCard({
-  title,
-  count,
-  desc,
+function SummaryCard({
+  icon: Icon,
+  label,
+  value,
 }: {
-  title: string;
-  count: string;
-  desc: string;
+  icon: any;
+  label: string;
+  value: string;
 }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-      <p className="text-sm font-bold text-slate-500">{title}</p>
-      <p className="mt-3 text-3xl font-black text-slate-950">{count}</p>
-      <p className="mt-2 text-sm leading-6 text-slate-500">{desc}</p>
+      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-100 text-purple-700">
+        <Icon size={22} />
+      </div>
+      <p className="mt-5 text-3xl font-black text-slate-950">{value}</p>
+      <p className="mt-1 text-sm font-semibold text-slate-500">{label}</p>
     </div>
   );
 }
 
-function RoleBadge({ role, label }: { role: string; label: string }) {
-  const className =
-    role === "super_admin"
-      ? "bg-purple-100 text-purple-700"
-      : role === "staff_amost"
-        ? "bg-blue-100 text-blue-700"
-        : "bg-slate-100 text-slate-700";
-
+function MiniStat({ value, label }: { value: string; label: string }) {
   return (
-    <span className={`rounded-full px-3 py-1 text-xs font-black ${className}`}>
-      {label}
-    </span>
+    <div className="rounded-xl bg-slate-50 p-3 text-center">
+      <p className="text-lg font-black text-slate-950">{value}</p>
+      <p className="mt-1 text-xs font-semibold text-slate-500">{label}</p>
+    </div>
   );
 }
 
-function formatDate(value: string) {
+function formatDate(value?: string | null) {
+  if (!value) return "-";
+
   try {
     return new Intl.DateTimeFormat("id-ID", {
       day: "2-digit",
@@ -430,4 +372,12 @@ function formatDate(value: string) {
   } catch {
     return "-";
   }
+}
+
+function formatStatus(status: string) {
+  if (status === "published") return "Published";
+  if (status === "draft") return "Draft";
+  if (status === "closed") return "Closed";
+  if (status === "finished") return "Finished";
+  return status;
 }
