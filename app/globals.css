@@ -434,3 +434,7 @@ body {
     max-width: 100%;
   }
 }
+
+.h-13 {
+  height: 52px;
+}
