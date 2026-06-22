@@ -1,7 +1,71 @@
+"use client";
+
 import Link from "next/link";
-import { ArrowLeft, Eye, Lock, Mail, Phone, User } from "lucide-react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Eye, EyeOff, Lock, Mail, Phone, User } from "lucide-react";
 
 export default function RegisterPage() {
+  const router = useRouter();
+
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [success, setSuccess] = useState(false);
+
+  async function handleRegister(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    setLoading(true);
+    setMessage("");
+    setSuccess(false);
+
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fullName,
+          email,
+          phone,
+          password,
+          confirmPassword,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        setSuccess(false);
+        setMessage(data.message || "Register gagal.");
+        return;
+      }
+
+      setSuccess(true);
+      setMessage(data.message || "Register berhasil.");
+
+      setTimeout(() => {
+        router.push("/login");
+      }, 1200);
+    } catch (error) {
+      console.error(error);
+      setSuccess(false);
+      setMessage("Terjadi kesalahan koneksi.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-slate-50">
       <div className="mx-auto grid min-h-screen max-w-[1280px] grid-cols-1 lg:grid-cols-2">
@@ -84,7 +148,19 @@ export default function RegisterPage() {
               Umum.
             </p>
 
-            <form className="mt-8 space-y-5">
+            {message && (
+              <div
+                className={`mt-5 rounded-xl border p-4 text-sm font-bold leading-6 ${
+                  success
+                    ? "border-green-200 bg-green-50 text-green-700"
+                    : "border-red-200 bg-red-50 text-red-700"
+                }`}
+              >
+                {message}
+              </div>
+            )}
+
+            <form onSubmit={handleRegister} className="mt-8 space-y-5">
               <div>
                 <label className="mb-2 block text-sm font-bold text-slate-800">
                   Nama Lengkap
@@ -94,7 +170,10 @@ export default function RegisterPage() {
                   <input
                     type="text"
                     placeholder="Nama lengkap"
+                    value={fullName}
+                    onChange={(event) => setFullName(event.target.value)}
                     className="h-13 w-full border-0 bg-transparent text-sm font-medium text-slate-900 outline-none placeholder:text-slate-400"
+                    required
                   />
                 </div>
               </div>
@@ -108,7 +187,10 @@ export default function RegisterPage() {
                   <input
                     type="email"
                     placeholder="nama@email.com"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
                     className="h-13 w-full border-0 bg-transparent text-sm font-medium text-slate-900 outline-none placeholder:text-slate-400"
+                    required
                   />
                 </div>
               </div>
@@ -122,6 +204,8 @@ export default function RegisterPage() {
                   <input
                     type="tel"
                     placeholder="08xxxxxxxxxx"
+                    value={phone}
+                    onChange={(event) => setPhone(event.target.value)}
                     className="h-13 w-full border-0 bg-transparent text-sm font-medium text-slate-900 outline-none placeholder:text-slate-400"
                   />
                 </div>
@@ -134,11 +218,20 @@ export default function RegisterPage() {
                 <div className="flex h-13 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 focus-within:border-purple-600">
                   <Lock size={19} className="text-slate-400" />
                   <input
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     placeholder="Minimal 8 karakter"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
                     className="h-13 w-full border-0 bg-transparent text-sm font-medium text-slate-900 outline-none placeholder:text-slate-400"
+                    required
                   />
-                  <Eye size={19} className="text-slate-400" />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="text-slate-400"
+                  >
+                    {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+                  </button>
                 </div>
               </div>
 
@@ -149,11 +242,28 @@ export default function RegisterPage() {
                 <div className="flex h-13 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 focus-within:border-purple-600">
                   <Lock size={19} className="text-slate-400" />
                   <input
-                    type="password"
+                    type={showConfirmPassword ? "text" : "password"}
                     placeholder="Ulangi password"
+                    value={confirmPassword}
+                    onChange={(event) =>
+                      setConfirmPassword(event.target.value)
+                    }
                     className="h-13 w-full border-0 bg-transparent text-sm font-medium text-slate-900 outline-none placeholder:text-slate-400"
+                    required
                   />
-                  <Eye size={19} className="text-slate-400" />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowConfirmPassword(!showConfirmPassword)
+                    }
+                    className="text-slate-400"
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff size={19} />
+                    ) : (
+                      <Eye size={19} />
+                    )}
+                  </button>
                 </div>
               </div>
 
@@ -165,10 +275,11 @@ export default function RegisterPage() {
               </div>
 
               <button
-                type="button"
-                className="h-13 w-full rounded-xl bg-purple-700 text-sm font-black text-white shadow-lg shadow-purple-200 transition hover:bg-purple-800"
+                type="submit"
+                disabled={loading}
+                className="h-13 w-full rounded-xl bg-purple-700 text-sm font-black text-white shadow-lg shadow-purple-200 transition hover:bg-purple-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Daftar
+                {loading ? "Memproses..." : "Daftar"}
               </button>
             </form>
 
