@@ -56,13 +56,27 @@ export default function AdminUsersPage() {
             </div>
           </Link>
 
-          <Link
-            href="/admin"
-            className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
-          >
-            <ArrowLeft size={17} />
-            Dashboard
-          </Link>
+<div className="flex items-center gap-3">
+  <Link
+    href="/admin"
+    className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
+  >
+    <ArrowLeft size={17} />
+    Dashboard
+  </Link>
+
+  <button
+    type="button"
+    onClick={async () => {
+      await fetch("/api/auth/logout", { method: "POST" });
+      router.replace("/login");
+      router.refresh();
+    }}
+    className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-bold text-red-700 hover:bg-red-100"
+  >
+    Keluar
+  </button>
+</div>
         </div>
       </header>
 
