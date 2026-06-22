@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
+import { getDb } from "@/lib/db";
 import {
   createSessionToken,
   getLoginRedirectPath,
   hashSessionToken,
   verifyPassword,
 } from "@/lib/auth";
-import { getDb } from "@/lib/db";
 
 export async function POST(request: Request) {
   try {
@@ -17,12 +17,15 @@ export async function POST(request: Request) {
 
     if (!email || !password) {
       return NextResponse.json(
-        { ok: false, message: "Email dan password wajib diisi." },
+        {
+          ok: false,
+          message: "Email dan password wajib diisi.",
+        },
         { status: 400 }
       );
     }
 
-    const result = await db.query(
+    const userResult = await db.query(
       `
       SELECT 
         users.id,
@@ -39,18 +42,24 @@ export async function POST(request: Request) {
       [email]
     );
 
-    if (!result.rowCount) {
+    if (!userResult.rowCount) {
       return NextResponse.json(
-        { ok: false, message: "Email atau password salah." },
+        {
+          ok: false,
+          message: "Email tidak ditemukan.",
+        },
         { status: 401 }
       );
     }
 
-    const user = result.rows[0];
+    const user = userResult.rows[0];
 
     if (user.status !== "active") {
       return NextResponse.json(
-        { ok: false, message: "Akun tidak aktif." },
+        {
+          ok: false,
+          message: "Akun tidak aktif.",
+        },
         { status: 403 }
       );
     }
@@ -59,19 +68,27 @@ export async function POST(request: Request) {
 
     if (!passwordValid) {
       return NextResponse.json(
-        { ok: false, message: "Email atau password salah." },
+        {
+          ok: false,
+          message: "Password salah.",
+        },
         { status: 401 }
       );
     }
 
     const token = createSessionToken();
     const tokenHash = hashSessionToken(token);
+
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
     await db.query(
       `
-      INSERT INTO sessions (user_id, token_hash, expires_at)
+      INSERT INTO sessions (
+        user_id,
+        token_hash,
+        expires_at
+      )
       VALUES ($1, $2, $3)
       `,
       [user.id, tokenHash, expiresAt]
@@ -103,8 +120,14 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("LOGIN_ERROR", error);
 
+    const message =
+      error instanceof Error ? error.message : "Terjadi kesalahan saat login.";
+
     return NextResponse.json(
-      { ok: false, message: "Terjadi kesalahan saat login." },
+      {
+        ok: false,
+        message: `Login gagal: ${message}`,
+      },
       { status: 500 }
     );
   }
