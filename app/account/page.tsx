@@ -1,4 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Activity,
   Bell,
@@ -12,7 +16,67 @@ import {
   User,
 } from "lucide-react";
 
+type CurrentUser = {
+  id: number;
+  fullName: string;
+  email: string;
+  phone?: string | null;
+  status: string;
+  role: string;
+};
+
 export default function AccountPage() {
+  const router = useRouter();
+
+  const [user, setUser] = useState<CurrentUser | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [logoutLoading, setLogoutLoading] = useState(false);
+
+  useEffect(() => {
+    async function loadUser() {
+      try {
+        const response = await fetch("/api/auth/me", {
+          method: "GET",
+          cache: "no-store",
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok || !data.user) {
+          router.replace("/login");
+          return;
+        }
+
+        setUser(data.user);
+      } catch (error) {
+        console.error(error);
+        router.replace("/login");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadUser();
+  }, [router]);
+
+  async function handleLogout() {
+    setLogoutLoading(true);
+
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+      });
+
+      router.replace("/login");
+      router.refresh();
+    } catch (error) {
+      console.error(error);
+      alert("Logout gagal. Coba lagi.");
+    } finally {
+      setLogoutLoading(false);
+    }
+  }
+
   const stats = [
     {
       label: "Event Diikuti",
@@ -73,6 +137,28 @@ export default function AccountPage() {
     },
   ];
 
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-950">
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-purple-100 text-purple-700">
+            <User size={28} />
+          </div>
+          <p className="text-lg font-black text-slate-950">
+            Memuat akun AMOST...
+          </p>
+          <p className="mt-2 text-sm text-slate-500">
+            Mohon tunggu sebentar.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
+
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
       <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-xl">
@@ -94,13 +180,15 @@ export default function AccountPage() {
               <Bell size={19} />
             </button>
 
-            <Link
-              href="/"
-              className="hidden items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 sm:flex"
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={logoutLoading}
+              className="hidden items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 sm:flex"
             >
               <LogOut size={17} />
-              Keluar
-            </Link>
+              {logoutLoading ? "Keluar..." : "Keluar"}
+            </button>
           </div>
         </div>
       </header>
@@ -108,15 +196,18 @@ export default function AccountPage() {
       <section className="mx-auto grid max-w-[1280px] grid-cols-1 gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[280px_1fr] lg:px-8">
         <aside className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-purple-100 text-purple-700">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-purple-100 text-purple-700">
               <User size={30} />
             </div>
 
-            <div>
-              <h2 className="text-lg font-black text-slate-950">
-                Pengguna AMOST
+            <div className="min-w-0">
+              <h2 className="truncate text-lg font-black text-slate-950">
+                {user.fullName}
               </h2>
-              <p className="text-sm font-semibold text-purple-700">Umum</p>
+              <p className="truncate text-sm text-slate-500">{user.email}</p>
+              <p className="mt-1 text-sm font-semibold capitalize text-purple-700">
+                {formatRole(user.role)}
+              </p>
             </div>
           </div>
 
@@ -138,6 +229,16 @@ export default function AccountPage() {
             <AccountMenu icon={Medal} label="Achievement" />
             <AccountMenu icon={Settings} label="Pengaturan Akun" />
           </nav>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            disabled={logoutLoading}
+            className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 text-sm font-black text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 sm:hidden"
+          >
+            <LogOut size={17} />
+            {logoutLoading ? "Keluar..." : "Keluar"}
+          </button>
         </aside>
 
         <div className="space-y-6">
@@ -148,7 +249,7 @@ export default function AccountPage() {
                   Dashboard Account
                 </p>
                 <h1 className="mt-2 text-3xl font-black text-slate-950">
-                  Halo, selamat datang di AMOST
+                  Halo, {user.fullName}
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
                   Pantau event, nomor peserta, aktivitas tracking, tiket, dan
@@ -293,4 +394,10 @@ function AccountMenu({
       <ChevronRight size={16} />
     </button>
   );
+}
+
+function formatRole(role: string) {
+  if (role === "super_admin") return "Super Admin";
+  if (role === "staff_amost") return "Staff AMOST";
+  return "Umum";
 }
