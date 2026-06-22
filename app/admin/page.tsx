@@ -1,474 +1,402 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Activity,
-  BarChart3,
-  Bell,
-  CalendarDays,
-  Gift,
-  LayoutDashboard,
+  ArrowLeft,
   Loader2,
-  LogOut,
-  Map,
-  Receipt,
-  Settings,
+  MoreHorizontal,
+  Search,
   ShieldCheck,
-  Ticket,
+  UserCog,
   Users,
 } from "lucide-react";
 
-type CurrentUser = {
+type AdminUser = {
   id: number;
   fullName: string;
   email: string;
   phone?: string | null;
   status: string;
   role: string;
+  roleLabel: string;
+  createdAt: string;
 };
 
-export default function AdminDashboardPage() {
+export default function AdminUsersPage() {
   const router = useRouter();
 
-  const [user, setUser] = useState<CurrentUser | null>(null);
+  const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
-  const [logoutLoading, setLogoutLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [query, setQuery] = useState("");
+  const [updatingId, setUpdatingId] = useState<number | null>(null);
 
-  useEffect(() => {
-    async function loadUser() {
-      try {
-        const response = await fetch("/api/auth/me", {
-          method: "GET",
-          cache: "no-store",
-        });
-
-        const data = await response.json();
-
-        if (!response.ok || !data.ok || !data.user) {
-          router.replace("/login");
-          return;
-        }
-
-        const role = data.user.role;
-
-        if (role !== "super_admin" && role !== "staff_amost") {
-          router.replace("/account");
-          return;
-        }
-
-        setUser(data.user);
-      } catch (error) {
-        console.error(error);
-        router.replace("/login");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadUser();
-  }, [router]);
-
-  async function handleLogout() {
-    setLogoutLoading(true);
-
+  async function loadUsers() {
     try {
-      await fetch("/api/auth/logout", {
-        method: "POST",
+      setLoading(true);
+      setMessage("");
+
+      const response = await fetch("/api/admin/users", {
+        method: "GET",
+        cache: "no-store",
       });
 
-      router.replace("/login");
-      router.refresh();
+      const data = await response.json();
+
+      if (response.status === 401) {
+        router.replace("/login");
+        return;
+      }
+
+      if (response.status === 403) {
+        router.replace("/admin");
+        return;
+      }
+
+      if (!response.ok || !data.ok) {
+        setMessage(data.message || "Gagal mengambil data user.");
+        return;
+      }
+
+      setUsers(data.users || []);
     } catch (error) {
       console.error(error);
-      alert("Logout gagal. Coba lagi.");
+      setMessage("Terjadi kesalahan koneksi.");
     } finally {
-      setLogoutLoading(false);
+      setLoading(false);
     }
   }
 
-  const stats = [
-    {
-      label: "Total User",
-      value: "1.248",
-      icon: Users,
-    },
-    {
-      label: "Event Aktif",
-      value: "12",
-      icon: CalendarDays,
-    },
-    {
-      label: "Order Masuk",
-      value: "356",
-      icon: Receipt,
-    },
-    {
-      label: "Doorprize",
-      value: "28",
-      icon: Gift,
-    },
-  ];
+  useEffect(() => {
+    loadUsers();
+  }, []);
 
-  const menus = [
-    {
-      title: "Manajemen User",
-      desc: "Kelola akun, role, dan status pengguna.",
-      icon: Users,
-      href: "/admin/users",
-      role: "Super Admin",
-      superAdminOnly: true,
-    },
-    {
-      title: "Event Management",
-      desc: "Buat, edit, dan pantau event AMOST.",
-      icon: CalendarDays,
-      href: "/admin/events",
-      role: "Super Admin / Staff",
-      superAdminOnly: false,
-    },
-    {
-      title: "Ticketing",
-      desc: "Kelola jenis tiket dan pendaftaran.",
-      icon: Ticket,
-      href: "/admin/tickets",
-      role: "Super Admin / Staff",
-      superAdminOnly: false,
-    },
-    {
-      title: "Orders & Payments",
-      desc: "Pantau order dan pembayaran peserta.",
-      icon: Receipt,
-      href: "/admin/orders",
-      role: "Super Admin / Staff",
-      superAdminOnly: false,
-    },
-    {
-      title: "Routes & Checkpoints",
-      desc: "Kelola rute, checkpoint, dan mapping event.",
-      icon: Map,
-      href: "/admin/routes",
-      role: "Super Admin / Staff",
-      superAdminOnly: false,
-    },
-    {
-      title: "Tracking Results",
-      desc: "Pantau hasil tracking aktivitas peserta.",
-      icon: Activity,
-      href: "/admin/tracking",
-      role: "Super Admin / Staff",
-      superAdminOnly: false,
-    },
-    {
-      title: "Doorprize",
-      desc: "Undian nomor peserta dan daftar pemenang.",
-      icon: Gift,
-      href: "/admin/doorprize",
-      role: "Super Admin / Staff",
-      superAdminOnly: false,
-    },
-    {
-      title: "System Settings",
-      desc: "Pengaturan sistem dan konfigurasi website.",
-      icon: Settings,
-      href: "/admin/settings",
-      role: "Super Admin",
-      superAdminOnly: true,
-    },
-  ];
+  async function updateRole(userId: number, role: "staff_amost" | "umum") {
+    try {
+      setUpdatingId(userId);
+      setMessage("");
 
-  if (loading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-950">
-        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-purple-100 text-purple-700">
-            <Loader2 size={28} className="animate-spin" />
-          </div>
-          <p className="text-lg font-black text-slate-950">
-            Memeriksa akses admin...
-          </p>
-          <p className="mt-2 text-sm text-slate-500">
-            Mohon tunggu sebentar.
-          </p>
-        </div>
-      </main>
-    );
+      const response = await fetch(`/api/admin/users/${userId}/role`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ role }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        setMessage(data.message || "Gagal mengubah role user.");
+        return;
+      }
+
+      setMessage(data.message || "Role user berhasil diperbarui.");
+      await loadUsers();
+    } catch (error) {
+      console.error(error);
+      setMessage("Terjadi kesalahan koneksi.");
+    } finally {
+      setUpdatingId(null);
+    }
   }
 
-  if (!user) {
-    return null;
-  }
+  const filteredUsers = useMemo(() => {
+    const keyword = query.trim().toLowerCase();
 
-  const isSuperAdmin = user.role === "super_admin";
+    if (!keyword) return users;
+
+    return users.filter((user) => {
+      return (
+        user.fullName.toLowerCase().includes(keyword) ||
+        user.email.toLowerCase().includes(keyword) ||
+        user.roleLabel.toLowerCase().includes(keyword)
+      );
+    });
+  }, [query, users]);
+
+  const roleCounts = useMemo(() => {
+    return {
+      superAdmin: users.filter((user) => user.role === "super_admin").length,
+      staff: users.filter((user) => user.role === "staff_amost").length,
+      umum: users.filter((user) => user.role === "umum").length,
+    };
+  }, [users]);
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
       <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-xl">
         <div className="mx-auto flex h-20 max-w-[1440px] items-center justify-between px-4 sm:px-6 lg:px-8">
-          <Link href="/" className="flex items-center gap-3">
+          <Link href="/admin" className="flex items-center gap-3">
             <div className="logo-symbol responsive-logo">A</div>
             <div>
               <div className="text-[26px] font-black leading-none tracking-wide text-purple-700">
                 AMOST
               </div>
               <div className="mt-1 text-[8px] font-black uppercase leading-[1.05] tracking-wide text-purple-700">
-                Admin Panel
+                User Management
               </div>
             </div>
           </Link>
 
-          <div className="flex items-center gap-3">
-            <div className="hidden rounded-full bg-purple-100 px-4 py-2 text-sm font-black text-purple-700 sm:block">
-              {formatRole(user.role)}
-            </div>
-
-            <button className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-700">
-              <Bell size={19} />
-            </button>
-
-            <button
-              type="button"
-              onClick={handleLogout}
-              disabled={logoutLoading}
-              className="hidden items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 sm:flex"
-            >
-              <LogOut size={17} />
-              {logoutLoading ? "Keluar..." : "Keluar"}
-            </button>
-          </div>
+          <Link
+            href="/admin"
+            className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
+          >
+            <ArrowLeft size={17} />
+            Dashboard
+          </Link>
         </div>
       </header>
 
-      <section className="mx-auto grid max-w-[1440px] grid-cols-1 gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[280px_1fr] lg:px-8">
-        <aside className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="rounded-xl bg-gradient-to-br from-purple-800 to-purple-600 p-5 text-white">
-            <ShieldCheck size={34} />
-            <h2 className="mt-4 text-xl font-black">AMOST Admin</h2>
-            <p className="mt-2 text-sm leading-6 text-purple-100">
-              Kelola event, user, ticketing, tracking, dan doorprize AMOST.
-            </p>
-          </div>
-
-          <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs font-black uppercase tracking-wide text-slate-500">
-              Login Sebagai
-            </p>
-            <p className="mt-2 truncate text-base font-black text-slate-950">
-              {user.fullName}
-            </p>
-            <p className="mt-1 truncate text-sm text-slate-500">
-              {user.email}
-            </p>
-            <p className="mt-2 text-sm font-black text-purple-700">
-              {formatRole(user.role)}
-            </p>
-          </div>
-
-          <nav className="mt-6 space-y-2">
-            <AdminMenu active icon={LayoutDashboard} label="Dashboard" />
-            <AdminMenu icon={Users} label="Users" disabled={!isSuperAdmin} />
-            <AdminMenu icon={CalendarDays} label="Events" />
-            <AdminMenu icon={Ticket} label="Tickets" />
-            <AdminMenu icon={Receipt} label="Orders" />
-            <AdminMenu icon={Map} label="Routes" />
-            <AdminMenu icon={Gift} label="Doorprize" />
-            <AdminMenu icon={Settings} label="Settings" disabled={!isSuperAdmin} />
-          </nav>
-
-          <button
-            type="button"
-            onClick={handleLogout}
-            disabled={logoutLoading}
-            className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 text-sm font-black text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 sm:hidden"
-          >
-            <LogOut size={17} />
-            {logoutLoading ? "Keluar..." : "Keluar"}
-          </button>
-        </aside>
-
-        <div className="space-y-6">
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="text-sm font-black uppercase tracking-wide text-purple-700">
-                  Admin Dashboard
-                </p>
-                <h1 className="mt-2 text-3xl font-black text-slate-950">
-                  Halo, {user.fullName}
-                </h1>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                  Dashboard ini hanya bisa diakses oleh Super Admin dan Staff
-                  AMOST. Hak akses role akan membatasi menu dan tindakan yang
-                  bisa dilakukan.
-                </p>
-              </div>
-
-              <Link
-                href="/admin/events"
-                className="flex h-11 items-center justify-center rounded-lg bg-purple-700 px-5 text-sm font-black text-white hover:bg-purple-800"
-              >
-                Buat Event
-              </Link>
+      <section className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-black uppercase tracking-wide text-purple-700">
+                Super Admin Only
+              </p>
+              <h1 className="mt-2 text-3xl font-black text-slate-950">
+                Manajemen User
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                User baru otomatis menjadi <strong>Umum</strong>. Role{" "}
+                <strong>Staff AMOST</strong> hanya dapat ditentukan oleh{" "}
+                <strong>Super Admin</strong>.
+              </p>
             </div>
-          </section>
 
-          {!isSuperAdmin && (
-            <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
-              <p className="text-sm font-black text-amber-900">
-                Mode Staff AMOST
-              </p>
-              <p className="mt-1 text-sm leading-6 text-amber-800">
-                Akun Staff AMOST dapat mengelola event, peserta, ticketing,
-                tracking, dan doorprize. Pengaturan role user dan system
-                settings hanya untuk Super Admin.
-              </p>
-            </section>
+            <div className="rounded-xl bg-purple-50 p-4 text-purple-900">
+              <div className="flex items-center gap-3">
+                <ShieldCheck size={24} />
+                <div>
+                  <p className="text-sm font-black">Role Policy</p>
+                  <p className="text-xs font-semibold">
+                    Register otomatis Umum
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {message && (
+            <div className="mt-5 rounded-xl border border-purple-100 bg-purple-50 p-4 text-sm font-bold text-purple-800">
+              {message}
+            </div>
           )}
 
-          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {stats.map((item) => (
-              <div
-                key={item.label}
-                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-              >
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-100 text-purple-700">
-                  <item.icon size={22} />
-                </div>
+          <div className="mt-7 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <RoleCard
+              title="Super Admin"
+              count={String(roleCounts.superAdmin)}
+              desc="Akses penuh sistem."
+            />
+            <RoleCard
+              title="Staff AMOST"
+              count={String(roleCounts.staff)}
+              desc="Akses admin terbatas."
+            />
+            <RoleCard
+              title="Umum"
+              count={String(roleCounts.umum)}
+              desc="Pengguna reguler."
+            />
+          </div>
+        </div>
 
-                <p className="mt-5 text-3xl font-black text-slate-950">
-                  {item.value}
-                </p>
-                <p className="mt-1 text-sm font-semibold text-slate-500">
-                  {item.label}
+        <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <h2 className="text-xl font-black text-slate-950">Daftar User</h2>
+
+            <div className="flex h-11 w-full items-center gap-3 rounded-xl border border-slate-200 px-4 md:w-[360px]">
+              <Search size={18} className="text-slate-400" />
+              <input
+                type="text"
+                placeholder="Cari nama, email, atau role..."
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                className="w-full border-0 bg-transparent text-sm font-medium outline-none"
+              />
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="flex min-h-[260px] items-center justify-center rounded-2xl border border-slate-100 bg-slate-50">
+              <div className="text-center">
+                <Loader2 className="mx-auto animate-spin text-purple-700" />
+                <p className="mt-3 text-sm font-bold text-slate-600">
+                  Memuat data user...
                 </p>
               </div>
-            ))}
-          </section>
-
-          <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-            {menus.map((menu) => {
-              const disabled = menu.superAdminOnly && !isSuperAdmin;
-
-              if (disabled) {
-                return (
-                  <div
-                    key={menu.title}
-                    className="rounded-2xl border border-slate-200 bg-slate-100 p-5 opacity-70 shadow-sm"
-                  >
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-200 text-slate-500">
-                      <menu.icon size={24} />
-                    </div>
-
-                    <h3 className="mt-5 text-lg font-black text-slate-600">
-                      {menu.title}
-                    </h3>
-
-                    <p className="mt-2 text-sm leading-6 text-slate-500">
-                      {menu.desc}
-                    </p>
-
-                    <div className="mt-5 rounded-full bg-slate-200 px-3 py-1 text-xs font-black text-slate-500">
-                      Khusus Super Admin
-                    </div>
-                  </div>
-                );
-              }
-
-              return (
-                <Link
-                  key={menu.title}
-                  href={menu.href}
-                  className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
-                >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-100 text-purple-700">
-                    <menu.icon size={24} />
-                  </div>
-
-                  <h3 className="mt-5 text-lg font-black text-slate-950">
-                    {menu.title}
-                  </h3>
-
-                  <p className="mt-2 text-sm leading-6 text-slate-500">
-                    {menu.desc}
-                  </p>
-
-                  <div className="mt-5 rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
-                    {menu.role}
-                  </div>
-                </Link>
-              );
-            })}
-          </section>
-
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="mb-5 flex items-center justify-between">
-              <h2 className="text-xl font-black text-slate-950">
-                Ringkasan Aktivitas Admin
-              </h2>
-              <BarChart3 className="text-purple-700" />
             </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[900px] border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 text-left text-xs font-black uppercase tracking-wide text-slate-500">
+                    <th className="py-4 pr-4">User</th>
+                    <th className="py-4 pr-4">Role</th>
+                    <th className="py-4 pr-4">Status</th>
+                    <th className="py-4 pr-4">Tanggal Daftar</th>
+                    <th className="py-4 pr-4">Aksi Role</th>
+                    <th className="py-4 text-right">Menu</th>
+                  </tr>
+                </thead>
 
-            <div className="grid gap-3">
-              <ActivityRow
-                title="Event Gowes Banyumas Challenge diperbarui"
-                desc="Staff AMOST mengubah informasi rute dan checkpoint."
-              />
-              <ActivityRow
-                title="Doorprize Helm Sepeda ditambahkan"
-                desc="Super Admin menambahkan hadiah untuk event aktif."
-              />
-              <ActivityRow
-                title="User baru terdaftar"
-                desc="Akun baru otomatis masuk sebagai role Umum."
-              />
+                <tbody>
+                  {filteredUsers.map((user) => (
+                    <tr
+                      key={user.id}
+                      className="border-b border-slate-100 text-sm"
+                    >
+                      <td className="py-4 pr-4">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-purple-100 text-purple-700">
+                            <Users size={20} />
+                          </div>
+                          <div>
+                            <p className="font-black text-slate-950">
+                              {user.fullName}
+                            </p>
+                            <p className="text-slate-500">{user.email}</p>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="py-4 pr-4">
+                        <RoleBadge role={user.role} label={user.roleLabel} />
+                      </td>
+
+                      <td className="py-4 pr-4">
+                        <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-black text-green-700">
+                          {user.status}
+                        </span>
+                      </td>
+
+                      <td className="py-4 pr-4 text-slate-600">
+                        {formatDate(user.createdAt)}
+                      </td>
+
+                      <td className="py-4 pr-4">
+                        {user.role === "umum" && (
+                          <button
+                            type="button"
+                            disabled={updatingId === user.id}
+                            onClick={() => updateRole(user.id, "staff_amost")}
+                            className="rounded-lg bg-purple-700 px-4 py-2 text-xs font-black text-white hover:bg-purple-800 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {updatingId === user.id
+                              ? "Memproses..."
+                              : "Jadikan Staff AMOST"}
+                          </button>
+                        )}
+
+                        {user.role === "staff_amost" && (
+                          <button
+                            type="button"
+                            disabled={updatingId === user.id}
+                            onClick={() => updateRole(user.id, "umum")}
+                            className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-black text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {updatingId === user.id
+                              ? "Memproses..."
+                              : "Jadikan Umum"}
+                          </button>
+                        )}
+
+                        {user.role === "super_admin" && (
+                          <span className="text-xs font-bold text-slate-400">
+                            Tidak dapat diubah
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="py-4 text-right">
+                        <button className="inline-flex h-9 w-9 items-center justify-center rounded-lg hover:bg-slate-100">
+                          <MoreHorizontal size={19} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+
+                  {filteredUsers.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="py-10 text-center text-sm font-bold text-slate-500"
+                      >
+                        Tidak ada user yang cocok.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
-          </section>
+          )}
+
+          <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <div className="flex gap-3">
+              <UserCog className="mt-0.5 text-amber-700" size={20} />
+              <div>
+                <p className="text-sm font-black text-amber-900">
+                  Catatan Hak Akses
+                </p>
+                <p className="mt-1 text-sm leading-6 text-amber-800">
+                  Tombol ubah role hanya aktif untuk Super Admin. Staff AMOST
+                  tidak boleh mengubah role user.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
     </main>
   );
 }
 
-function AdminMenu({
-  icon: Icon,
-  label,
-  active,
-  disabled,
+function RoleCard({
+  title,
+  count,
+  desc,
 }: {
-  icon: any;
-  label: string;
-  active?: boolean;
-  disabled?: boolean;
+  title: string;
+  count: string;
+  desc: string;
 }) {
   return (
-    <button
-      disabled={disabled}
-      className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-bold transition ${
-        active
-          ? "bg-purple-700 text-white"
-          : disabled
-            ? "cursor-not-allowed bg-slate-100 text-slate-400"
-            : "text-slate-700 hover:bg-slate-100"
-      }`}
-    >
-      <Icon size={18} />
-      {label}
-    </button>
-  );
-}
-
-function ActivityRow({ title, desc }: { title: string; desc: string }) {
-  return (
-    <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-      <p className="font-black text-slate-950">{title}</p>
-      <p className="mt-1 text-sm leading-6 text-slate-500">{desc}</p>
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+      <p className="text-sm font-bold text-slate-500">{title}</p>
+      <p className="mt-3 text-3xl font-black text-slate-950">{count}</p>
+      <p className="mt-2 text-sm leading-6 text-slate-500">{desc}</p>
     </div>
   );
 }
 
-function formatRole(role: string) {
-  if (role === "super_admin") return "Super Admin";
-  if (role === "staff_amost") return "Staff AMOST";
-  return "Umum";
+function RoleBadge({ role, label }: { role: string; label: string }) {
+  const className =
+    role === "super_admin"
+      ? "bg-purple-100 text-purple-700"
+      : role === "staff_amost"
+        ? "bg-blue-100 text-blue-700"
+        : "bg-slate-100 text-slate-700";
+
+  return (
+    <span className={`rounded-full px-3 py-1 text-xs font-black ${className}`}>
+      {label}
+    </span>
+  );
+}
+
+function formatDate(value: string) {
+  try {
+    return new Intl.DateTimeFormat("id-ID", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    }).format(new Date(value));
+  } catch {
+    return "-";
+  }
 }
