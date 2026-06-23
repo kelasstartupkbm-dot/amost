@@ -1,19 +1,22 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import PublicShell from "./components/PublicShell";
 
 export const metadata: Metadata = {
-  title: "AMOST - Outdoor Sport Tracking",
-  description: "Amikom Mobile Outdoor Sport Tracking Platform",
+  title: "AMOST",
+  description: "Amikom Mobile Outdoor Sport Tracking",
 };
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <html lang="id">
-      <body>{children}</body>
+      <body>
+        <PublicShell>{children}</PublicShell>
+      </body>
     </html>
   );
 }
