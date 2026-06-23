@@ -3,95 +3,126 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeft,
   CalendarDays,
   Gift,
   Loader2,
-  LogOut,
-  MapPin,
-  Plus,
   Search,
   Ticket,
-  Users,
+  UsersRound,
 } from "lucide-react";
+import AdminHeader from "../components/AdminHeader";
 
-type EventItem = {
-  id: number;
-  title: string;
-  slug: string;
-  description?: string | null;
-  eventType?: string | null;
+type AdminEvent = {
+  id: number | string;
+  title?: string | null;
+  name?: string | null;
+  event_name?: string | null;
+  category?: string | null;
+  sport_type?: string | null;
+  status?: string | null;
+  quota?: number | string | null;
+  total_quota?: number | string | null;
+  participant_count?: number | string | null;
+  total_participants?: number | string | null;
+  doorprize_count?: number | string | null;
+  doorprize_total?: number | string | null;
+  image_url?: string | null;
+  cover_image_url?: string | null;
+  banner_url?: string | null;
   location?: string | null;
-  startDate?: string | null;
-  endDate?: string | null;
-  distanceKm?: string | number | null;
-  ticketPrice?: string | number | null;
-  maxParticipants?: number | null;
-  doorprizeCount?: number | null;
-  status: string;
-  coverImage?: string | null;
-  createdAt?: string | null;
-  participantCount: number;
+  created_at?: string | null;
 };
 
+type StatCard = {
+  label: string;
+  value: string | number;
+  icon: typeof CalendarDays;
+};
+
+function getEventTitle(event: AdminEvent) {
+  return (
+    event.title ||
+    event.event_name ||
+    event.name ||
+    `Event #${event.id}`
+  );
+}
+
+function getEventImage(event: AdminEvent) {
+  return (
+    event.cover_image_url ||
+    event.image_url ||
+    event.banner_url ||
+    ""
+  );
+}
+
+function getEventCategory(event: AdminEvent) {
+  return event.category || event.sport_type || "Event";
+}
+
+function getEventStatus(event: AdminEvent) {
+  return event.status || "Draft";
+}
+
+function toNumber(value: unknown) {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : 0;
+}
+
+function pickEvents(data: any): AdminEvent[] {
+  if (Array.isArray(data)) return data;
+
+  if (Array.isArray(data?.events)) return data.events;
+  if (Array.isArray(data?.data)) return data.data;
+  if (Array.isArray(data?.items)) return data.items;
+  if (Array.isArray(data?.results)) return data.results;
+
+  return [];
+}
+
 export default function AdminPage() {
-  const [events, setEvents] = useState<EventItem[]>([]);
+  const [events, setEvents] = useState<AdminEvent[]>([]);
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState("");
-  const [query, setQuery] = useState("");
-  const [logoutLoading, setLogoutLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   async function loadEvents() {
-    try {
-      setLoading(true);
-      setMessage("");
+    setLoading(true);
+    setErrorMessage("");
 
-      const response = await fetch("/api/admin/events", {
-        method: "GET",
-        cache: "no-store",
-      });
+    const candidates = [
+      "/api/admin/events",
+      "/api/events",
+      "/api/admin/event",
+    ];
 
-      const data = await response.json();
+    for (const url of candidates) {
+      try {
+        const response = await fetch(url, {
+          method: "GET",
+          cache: "no-store",
+        });
 
-      if (response.status === 401) {
-        window.location.href = "/login";
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          continue;
+        }
+
+        const parsedEvents = pickEvents(data);
+
+        setEvents(parsedEvents);
+        setLoading(false);
         return;
+      } catch (error) {
+        console.error(error);
       }
-
-      if (response.status === 403) {
-        window.location.href = "/account";
-        return;
-      }
-
-      if (!response.ok || !data.ok) {
-        setMessage(data.message || "Gagal mengambil data event.");
-        return;
-      }
-
-      setEvents(data.events || []);
-    } catch (error) {
-      console.error(error);
-      setMessage("Terjadi kesalahan koneksi.");
-    } finally {
-      setLoading(false);
     }
-  }
 
-  async function handleLogout() {
-    try {
-      setLogoutLoading(true);
-
-      await fetch("/api/auth/logout", {
-        method: "POST",
-      });
-
-      window.location.href = "/login";
-    } catch (error) {
-      console.error(error);
-      window.location.href = "/login";
-    } finally {
-      setLogoutLoading(false);
-    }
+    setEvents([]);
+    setErrorMessage("Data event belum bisa dimuat. Periksa API /api/admin/events.");
+    setLoading(false);
   }
 
   useEffect(() => {
@@ -99,315 +130,243 @@ export default function AdminPage() {
   }, []);
 
   const filteredEvents = useMemo(() => {
-    const keyword = query.trim().toLowerCase();
+    const keyword = search.trim().toLowerCase();
 
     if (!keyword) return events;
 
     return events.filter((event) => {
-      return (
-        event.title.toLowerCase().includes(keyword) ||
-        String(event.location || "").toLowerCase().includes(keyword) ||
-        String(event.eventType || "").toLowerCase().includes(keyword) ||
-        event.status.toLowerCase().includes(keyword)
-      );
+      const joined = [
+        getEventTitle(event),
+        getEventCategory(event),
+        getEventStatus(event),
+        event.location || "",
+        String(event.id),
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return joined.includes(keyword);
     });
-  }, [events, query]);
+  }, [events, search]);
 
-  const totalParticipants = events.reduce(
-    (sum, event) => sum + Number(event.participantCount || 0),
-    0
-  );
+  const totalParticipants = useMemo(() => {
+    return events.reduce((total, event) => {
+      return total + toNumber(event.participant_count ?? event.total_participants);
+    }, 0);
+  }, [events]);
 
-  const totalTickets = events.reduce(
-    (sum, event) => sum + Number(event.maxParticipants || 0),
-    0
-  );
+  const totalQuota = useMemo(() => {
+    return events.reduce((total, event) => {
+      return total + toNumber(event.quota ?? event.total_quota);
+    }, 0);
+  }, [events]);
 
-  const totalDoorprizes = events.reduce(
-    (sum, event) => sum + Number(event.doorprizeCount || 0),
-    0
-  );
+  const totalDoorprize = useMemo(() => {
+    return events.reduce((total, event) => {
+      return total + toNumber(event.doorprize_count ?? event.doorprize_total);
+    }, 0);
+  }, [events]);
+
+  const stats: StatCard[] = [
+    {
+      label: "Total Event",
+      value: events.length,
+      icon: CalendarDays,
+    },
+    {
+      label: "Total Peserta",
+      value: totalParticipants,
+      icon: UsersRound,
+    },
+    {
+      label: "Total Kuota",
+      value: totalQuota,
+      icon: Ticket,
+    },
+    {
+      label: "Doorprize",
+      value: totalDoorprize,
+      icon: Gift,
+    },
+  ];
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
-      <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-xl">
-        <div className="mx-auto flex h-20 max-w-[1440px] items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
-          <Link href="/admin" className="flex min-w-0 items-center gap-3">
-            <div className="logo-symbol responsive-logo">A</div>
-            <div className="min-w-0">
-              <div className="text-[26px] font-black leading-none tracking-wide text-purple-700">
-                AMOST
-              </div>
-              <div className="mt-1 text-[8px] font-black uppercase leading-[1.05] tracking-wide text-purple-700">
-                Event Management
-              </div>
-            </div>
-          </Link>
+      <AdminHeader
+        active="dashboard"
+        title="Daftar Event"
+        subtitle="Kelola event AMOST dari database PostgreSQL. Event di halaman ini sudah bukan data dummy."
+        showRefresh
+        onRefresh={loadEvents}
+      />
 
-          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-            <Link
-              href="/admin"
-              className="hidden items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 sm:flex"
-            >
-              <ArrowLeft size={17} />
-              Dashboard
-            </Link>
-
-            <Link
-              href="/admin/events/new"
-              className="flex items-center gap-2 rounded-lg bg-purple-700 px-3 py-2 text-sm font-black text-white hover:bg-purple-800 sm:px-4"
-            >
-              <Plus size={17} />
-              <span className="hidden sm:inline">Tambah Event</span>
-              <span className="sm:hidden">Tambah</span>
-            </Link>
-
-            <button
-              type="button"
-              onClick={handleLogout}
-              disabled={logoutLoading}
-              className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-bold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 sm:px-4"
-            >
-              <LogOut size={17} />
-              <span>{logoutLoading ? "Keluar..." : "Keluar"}</span>
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <section className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+      <section className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-[88px]">
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:p-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="text-sm font-black uppercase tracking-wide text-purple-700">
                 Admin Event
               </p>
-              <h1 className="mt-2 text-3xl font-black text-slate-950">
+              <h1 className="mt-2 text-3xl font-black leading-tight text-slate-950 sm:text-4xl">
                 Daftar Event
               </h1>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                Kelola event AMOST dari database PostgreSQL. Event di halaman
-                ini sudah bukan data dummy.
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
+                Kelola event AMOST dari database PostgreSQL. Event di halaman ini
+                sudah bukan data dummy.
               </p>
             </div>
 
-            <div className="flex h-12 w-full items-center gap-3 rounded-xl border border-slate-200 px-4 md:w-[360px]">
-              <Search size={18} className="text-slate-400" />
+            <div className="relative w-full lg:w-[360px]">
+              <Search
+                size={20}
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+              />
               <input
-                type="text"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
                 placeholder="Cari event..."
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                className="w-full border-0 bg-transparent text-sm font-medium outline-none"
+                className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-12 pr-4 text-sm font-semibold text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-purple-300 focus:ring-4 focus:ring-purple-100"
               />
             </div>
           </div>
 
-          {message && (
-            <div className="mt-5 rounded-xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700">
-              {message}
-            </div>
-          )}
-
-          <div className="mt-7 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <SummaryCard
-              icon={CalendarDays}
-              label="Total Event"
-              value={events.length.toString()}
-            />
-            <SummaryCard
-              icon={Users}
-              label="Total Peserta"
-              value={totalParticipants.toLocaleString("id-ID")}
-            />
-            <SummaryCard
-              icon={Ticket}
-              label="Total Kuota"
-              value={totalTickets.toLocaleString("id-ID")}
-            />
-            <SummaryCard
-              icon={Gift}
-              label="Doorprize"
-              value={totalDoorprizes.toLocaleString("id-ID")}
-            />
+          <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {stats.map((item) => (
+              <div
+                key={item.label}
+                className="rounded-2xl border border-slate-200 bg-slate-50 p-5"
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-100 text-purple-700">
+                  <item.icon size={22} />
+                </div>
+                <p className="mt-5 text-3xl font-black text-slate-950">
+                  {item.value}
+                </p>
+                <p className="mt-1 text-sm font-semibold text-slate-500">
+                  {item.label}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
 
-        <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm lg:p-6">
           {loading ? (
-            <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-slate-100 bg-slate-50">
-              <div className="text-center">
-                <Loader2 className="mx-auto animate-spin text-purple-700" />
-                <p className="mt-3 text-sm font-bold text-slate-600">
-                  Memuat event...
-                </p>
-              </div>
+            <div className="flex min-h-[280px] flex-col items-center justify-center text-center">
+              <Loader2 className="h-10 w-10 animate-spin text-purple-700" />
+              <p className="mt-4 text-lg font-black text-slate-950">
+                Memuat event...
+              </p>
+              <p className="mt-2 text-sm text-slate-500">
+                Mengambil data dari server AMOST.
+              </p>
+            </div>
+          ) : errorMessage ? (
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm font-bold text-red-700">
+              {errorMessage}
             </div>
           ) : filteredEvents.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center">
-              <CalendarDays className="mx-auto text-slate-400" size={42} />
-              <h2 className="mt-4 text-xl font-black text-slate-950">
+            <div className="flex min-h-[280px] flex-col items-center justify-center text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-purple-100 text-purple-700">
+                <CalendarDays size={30} />
+              </div>
+              <h2 className="mt-5 text-2xl font-black text-slate-950">
                 Belum ada event
               </h2>
-              <p className="mt-2 text-sm text-slate-500">
-                Tambahkan event pertama untuk mulai memakai AMOST Event
-                Management.
+              <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
+                Tambahkan event baru dari tombol Tambah Event di header admin.
               </p>
-              <Link
-                href="/admin/events/new"
-                className="mt-5 inline-flex rounded-lg bg-purple-700 px-5 py-3 text-sm font-black text-white hover:bg-purple-800"
-              >
-                Tambah Event
-              </Link>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {filteredEvents.map((event) => (
-                <article
-                  key={event.id}
-                  className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
-                >
-                  <div className="relative h-40 bg-gradient-to-br from-purple-50 to-slate-100">
-                    {event.coverImage ? (
-                      <img
-                        src={event.coverImage}
-                        alt={event.title}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-full items-center justify-center text-slate-300">
-                        <CalendarDays size={54} />
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-3">
+              {filteredEvents.map((event) => {
+                const image = getEventImage(event);
+                const status = getEventStatus(event);
+
+                return (
+                  <article
+                    key={String(event.id)}
+                    className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                  >
+                    <div className="relative h-44 bg-slate-100">
+                      {image ? (
+                        <img
+                          src={image}
+                          alt={getEventTitle(event)}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-purple-50 to-slate-100 text-purple-700">
+                          <CalendarDays size={42} />
+                        </div>
+                      )}
+
+                      <div className="absolute left-4 top-4 rounded-full bg-white px-4 py-1 text-xs font-black text-purple-700 shadow-sm">
+                        {getEventCategory(event)}
                       </div>
-                    )}
 
-                    <span
-                      className={`absolute right-4 top-4 rounded-full px-3 py-1 text-xs font-black ${
-                        event.status === "published"
-                          ? "bg-green-100 text-green-700"
-                          : event.status === "draft"
-                            ? "bg-amber-100 text-amber-700"
-                            : "bg-slate-100 text-slate-700"
-                      }`}
-                    >
-                      {formatStatus(event.status)}
-                    </span>
-
-                    <span className="absolute left-4 top-4 rounded-full bg-white px-3 py-1 text-xs font-black text-purple-700 shadow-sm">
-                      {event.eventType || "Event"}
-                    </span>
-                  </div>
-
-                  <div className="p-5">
-                    <h2 className="text-xl font-black text-slate-950">
-                      {event.title}
-                    </h2>
-
-                    <div className="mt-3 space-y-2 text-sm text-slate-600">
-                      <p className="flex items-center gap-2">
-                        <MapPin size={16} className="text-purple-700" />
-                        {event.location || "-"}
-                      </p>
-                      <p className="flex items-center gap-2">
-                        <CalendarDays size={16} className="text-purple-700" />
-                        {formatDate(event.startDate)}
-                      </p>
+                      <div className="absolute right-4 top-4 rounded-full bg-white px-4 py-1 text-xs font-black text-slate-700 shadow-sm">
+                        {status}
+                      </div>
                     </div>
 
-                    <div className="mt-5 grid grid-cols-3 gap-3">
-                      <MiniStat
-                        value={Number(event.participantCount || 0).toString()}
-                        label="Peserta"
-                      />
-                      <MiniStat
-                        value={String(event.maxParticipants || 0)}
-                        label="Kuota"
-                      />
-                      <MiniStat
-                        value={String(event.doorprizeCount || 0)}
-                        label="Hadiah"
-                      />
+                    <div className="p-5">
+                      <h3 className="line-clamp-2 text-xl font-black leading-tight text-slate-950">
+                        {getEventTitle(event)}
+                      </h3>
+
+                      <div className="mt-4 grid grid-cols-3 gap-3 text-center">
+                        <div className="rounded-xl bg-slate-50 p-3">
+                          <p className="text-lg font-black text-slate-950">
+                            {toNumber(event.participant_count ?? event.total_participants)}
+                          </p>
+                          <p className="text-[11px] font-bold uppercase text-slate-500">
+                            Peserta
+                          </p>
+                        </div>
+
+                        <div className="rounded-xl bg-slate-50 p-3">
+                          <p className="text-lg font-black text-slate-950">
+                            {toNumber(event.quota ?? event.total_quota)}
+                          </p>
+                          <p className="text-[11px] font-bold uppercase text-slate-500">
+                            Kuota
+                          </p>
+                        </div>
+
+                        <div className="rounded-xl bg-slate-50 p-3">
+                          <p className="text-lg font-black text-slate-950">
+                            {toNumber(event.doorprize_count ?? event.doorprize_total)}
+                          </p>
+                          <p className="text-[11px] font-bold uppercase text-slate-500">
+                            Hadiah
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-5 flex gap-3">
+                        <Link
+                          href={`/admin/events/${event.id}`}
+                          className="flex h-10 flex-1 items-center justify-center rounded-xl border border-slate-200 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+                        >
+                          Detail
+                        </Link>
+
+                        <Link
+                          href={`/admin/events/${event.id}/edit`}
+                          className="flex h-10 flex-1 items-center justify-center rounded-xl bg-purple-700 text-sm font-black text-white transition hover:bg-purple-800"
+                        >
+                          Edit
+                        </Link>
+                      </div>
                     </div>
-
-                    <div className="mt-5 grid grid-cols-2 gap-3">
-                      <Link
-                        href={`/admin/events/${event.id}`}
-                        className="rounded-xl bg-purple-700 px-4 py-3 text-center text-sm font-black text-white hover:bg-purple-800"
-                      >
-                        Detail
-                      </Link>
-
-                      <Link
-                        href={`/admin/events/${event.id}/doorprize`}
-                        className="rounded-xl border border-purple-200 px-4 py-3 text-center text-sm font-black text-purple-700 hover:bg-purple-50"
-                      >
-                        Doorprize
-                      </Link>
-                    </div>
-
-                    <Link
-                      href={`/admin/events/${event.id}/participants`}
-                      className="mt-3 block rounded-xl border border-slate-200 px-4 py-3 text-center text-sm font-black text-slate-700 hover:bg-slate-50"
-                    >
-                      Peserta & Nomor
-                    </Link>
-                  </div>
-                </article>
-              ))}
+                  </article>
+                );
+              })}
             </div>
           )}
-        </div>
+        </section>
       </section>
     </main>
   );
-}
-
-function SummaryCard({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: any;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-100 text-purple-700">
-        <Icon size={22} />
-      </div>
-      <p className="mt-5 text-3xl font-black text-slate-950">{value}</p>
-      <p className="mt-1 text-sm font-semibold text-slate-500">{label}</p>
-    </div>
-  );
-}
-
-function MiniStat({ value, label }: { value: string; label: string }) {
-  return (
-    <div className="rounded-xl bg-slate-50 p-3 text-center">
-      <p className="text-lg font-black text-slate-950">{value}</p>
-      <p className="mt-1 text-xs font-semibold text-slate-500">{label}</p>
-    </div>
-  );
-}
-
-function formatDate(value?: string | null) {
-  if (!value) return "-";
-
-  try {
-    return new Intl.DateTimeFormat("id-ID", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    }).format(new Date(value));
-  } catch {
-    return "-";
-  }
-}
-
-function formatStatus(status: string) {
-  if (status === "published") return "Published";
-  if (status === "draft") return "Draft";
-  if (status === "closed") return "Closed";
-  if (status === "finished") return "Finished";
-  return status;
 }
