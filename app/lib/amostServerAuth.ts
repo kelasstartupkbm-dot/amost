@@ -1,5 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
-import { AMOST_ROLES, normalizeRole, type AmostRole } from "./amostRoles";
+import { cookies } from "next/headers";
 import { dbQuery } from "./amostDb";
 
 export type AuthUser = {
@@ -7,46 +6,96 @@ export type AuthUser = {
   fullName: string;
   email: string;
   roleId: number | null;
-  role: AmostRole;
+  roleName: string;
   roleLabel: string;
 };
 
 type UserRow = {
-  id: number;
+  id: number | string;
   full_name: string | null;
   email: string | null;
-  role_id: number | null;
+  role_id: number | string | null;
   role_name: string | null;
   role_label: string | null;
 };
 
-const SESSION_COOKIE_NAMES = [
-  "amost_session",
-  "session_token",
-  "auth_token",
-  "amost_token",
-  "token",
-  "admin_token",
-];
+const ADMIN_ROLES = new Set(["super_admin", "staff_amost"]);
 
-export function jsonError(
-  message: string,
-  status = 400,
-  code = "ERROR",
-) {
-  return NextResponse.json(
-    {
-      ok: false,
-      code,
-      message,
-    },
-    { status },
-  );
+function normalizeRole(role: string | null | undefined) {
+  return String(role || "")
+    .trim()
+    .toLowerCase();
 }
 
-export function getFirstCookieValue(request: NextRequest) {
-  for (const cookieName of SESSION_COOKIE_NAMES) {
-    const value = request.cookies.get(cookieName)?.value;
+function toNumber(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function mapUserRow(row: UserRow): AuthUser {
+  return {
+    id: Number(row.id),
+    fullName: row.full_name || "AMOST User",
+    email: row.email || "",
+    roleId: row.role_id === null || row.role_id === undefined ? null : Number(row.role_id),
+    roleName: normalizeRole(row.role_name || "umum"),
+    roleLabel: row.role_label || "Umum",
+  };
+}
+
+function safeDecode(value: string) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function parseJsonCookie(value: string) {
+  try {
+    return JSON.parse(safeDecode(value));
+  } catch {
+    return null;
+  }
+}
+
+function extractEmail(value: string) {
+  const decoded = safeDecode(value);
+  const match = decoded.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  return match ? match[0].toLowerCase() : null;
+}
+
+function extractNumericId(value: string) {
+  const decoded = safeDecode(value).trim();
+
+  if (/^\d+$/.test(decoded)) {
+    return Number(decoded);
+  }
+
+  const json = parseJsonCookie(decoded);
+  if (json) {
+    const possibleId =
+      json.id ||
+      json.userId ||
+      json.user_id ||
+      json.uid ||
+      json.sub ||
+      json.user?.id ||
+      json.user?.userId ||
+      json.user?.user_id;
+
+    const parsedId = toNumber(possibleId);
+    if (parsedId) return parsedId;
+  }
+
+  return null;
+}
+
+function getCookieValue(names: string[]) {
+  const cookieStore = cookies();
+
+  for (const name of names) {
+    const value = cookieStore.get(name)?.value;
     if (value) return value;
   }
 
@@ -54,7 +103,7 @@ export function getFirstCookieValue(request: NextRequest) {
 }
 
 export async function getUserById(userId: number): Promise<AuthUser | null> {
-  const result = await dbQuery<UserRow>(
+  const result = await dbQuery(
     `
       SELECT
         u.id,
@@ -68,213 +117,244 @@ export async function getUserById(userId: number): Promise<AuthUser | null> {
       WHERE u.id = $1
       LIMIT 1
     `,
-    [userId],
+    [userId]
   );
 
-  const row = result.rows[0];
-  if (!row) return null;
+  const row = result.rows[0] as UserRow | undefined;
 
-  const role = normalizeRole(row.role_name);
+  if (!row) {
+    return null;
+  }
 
-  return {
-    id: Number(row.id),
-    fullName: row.full_name || "Pengguna AMOST",
-    email: row.email || "",
-    roleId: row.role_id === null ? null : Number(row.role_id),
-    role,
-    roleLabel: row.role_label || role,
-  };
+  return mapUserRow(row);
 }
 
-async function getCurrentUserFromSessionsTable(
-  token: string,
-): Promise<AuthUser | null> {
+export async function getUserByEmail(email: string): Promise<AuthUser | null> {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  if (!normalizedEmail) {
+    return null;
+  }
+
+  const result = await dbQuery(
+    `
+      SELECT
+        u.id,
+        u.full_name,
+        u.email,
+        u.role_id,
+        r.name AS role_name,
+        r.label AS role_label
+      FROM users u
+      LEFT JOIN roles r ON u.role_id = r.id
+      WHERE LOWER(u.email) = LOWER($1)
+      LIMIT 1
+    `,
+    [normalizedEmail]
+  );
+
+  const row = result.rows[0] as UserRow | undefined;
+
+  if (!row) {
+    return null;
+  }
+
+  return mapUserRow(row);
+}
+
+async function getUserFromSessionTable(sessionToken: string): Promise<AuthUser | null> {
+  if (!sessionToken) {
+    return null;
+  }
+
   const sessionQueries = [
     {
-      tokenColumn: "token",
-      expiryColumn: "expires_at",
+      sql: `
+        SELECT user_id
+        FROM sessions
+        WHERE token = $1
+        LIMIT 1
+      `,
+      params: [sessionToken],
     },
     {
-      tokenColumn: "session_token",
-      expiryColumn: "expires_at",
+      sql: `
+        SELECT user_id
+        FROM sessions
+        WHERE session_token = $1
+        LIMIT 1
+      `,
+      params: [sessionToken],
     },
     {
-      tokenColumn: "token",
-      expiryColumn: "expired_at",
-    },
-    {
-      tokenColumn: "session_token",
-      expiryColumn: "expired_at",
-    },
-    {
-      tokenColumn: "token",
-      expiryColumn: null,
-    },
-    {
-      tokenColumn: "session_token",
-      expiryColumn: null,
+      sql: `
+        SELECT user_id
+        FROM sessions
+        WHERE id::text = $1
+        LIMIT 1
+      `,
+      params: [sessionToken],
     },
   ];
 
   for (const query of sessionQueries) {
     try {
-      const expiryCheck = query.expiryColumn
-        ? `AND (s.${query.expiryColumn} IS NULL OR s.${query.expiryColumn} > NOW())`
-        : "";
+      const result = await dbQuery(query.sql, query.params);
+      const row = result.rows[0] as { user_id?: number | string } | undefined;
 
-      const result = await dbQuery<UserRow>(
-        `
-          SELECT
-            u.id,
-            u.full_name,
-            u.email,
-            u.role_id,
-            r.name AS role_name,
-            r.label AS role_label
-          FROM sessions s
-          INNER JOIN users u ON u.id = s.user_id
-          LEFT JOIN roles r ON u.role_id = r.id
-          WHERE s.${query.tokenColumn} = $1
-          ${expiryCheck}
-          LIMIT 1
-        `,
-        [token],
-      );
+      const userId = toNumber(row?.user_id);
 
-      const row = result.rows[0];
-      if (!row) continue;
-
-      const role = normalizeRole(row.role_name);
-
-      return {
-        id: Number(row.id),
-        fullName: row.full_name || "Pengguna AMOST",
-        email: row.email || "",
-        roleId: row.role_id === null ? null : Number(row.role_id),
-        role,
-        roleLabel: row.role_label || role,
-      };
+      if (userId) {
+        return await getUserById(userId);
+      }
     } catch {
-      // Try the next possible session schema.
+      // Struktur tabel sessions bisa berbeda. Abaikan dan coba pola berikutnya.
     }
   }
 
   return null;
 }
 
-function parseLegacyAdminToken(token: string) {
-  // Optional compatibility with old token shape:
-  // username.role.issuedAt.expiresAt.signature
-  const parts = token.split(".");
-  if (parts.length < 5) return null;
+export async function getCurrentUser(): Promise<AuthUser | null> {
+  const idCookie = getCookieValue([
+    "amost_user_id",
+    "user_id",
+    "userId",
+    "auth_user_id",
+    "admin_user_id",
+  ]);
 
-  const possibleRole = normalizeRole(parts[1]);
-  if (
-    possibleRole !== AMOST_ROLES.SUPER_ADMIN &&
-    possibleRole !== AMOST_ROLES.STAFF_AMOST
-  ) {
-    return null;
+  const idFromCookie = idCookie ? extractNumericId(idCookie) : null;
+
+  if (idFromCookie) {
+    const user = await getUserById(idFromCookie);
+    if (user) return user;
   }
 
-  const expiresAt = Number(parts[3]);
-  if (Number.isFinite(expiresAt) && expiresAt < Date.now()) return null;
+  const sessionCookie = getCookieValue([
+    "amost_session",
+    "session",
+    "session_id",
+    "sessionId",
+    "auth_session",
+    "auth_token",
+    "admin_token",
+    "amost_auth",
+    "token",
+  ]);
 
-  return {
-    username: parts[0],
-    role: possibleRole,
-  };
-}
+  if (sessionCookie) {
+    const json = parseJsonCookie(sessionCookie);
 
-export async function getCurrentAmostUser(
-  request: NextRequest,
-): Promise<AuthUser | null> {
-  const token = getFirstCookieValue(request);
-  if (!token) return null;
+    if (json) {
+      const possibleId =
+        json.id ||
+        json.userId ||
+        json.user_id ||
+        json.uid ||
+        json.sub ||
+        json.user?.id ||
+        json.user?.userId ||
+        json.user?.user_id;
 
-  const sessionUser = await getCurrentUserFromSessionsTable(token);
-  if (sessionUser) return sessionUser;
+      const userId = toNumber(possibleId);
 
-  const legacyToken = parseLegacyAdminToken(token);
-  if (!legacyToken) return null;
+      if (userId) {
+        const user = await getUserById(userId);
+        if (user) return user;
+      }
 
-  // Best-effort lookup by email/username from legacy token.
-  try {
-    const result = await dbQuery<UserRow>(
-      `
-        SELECT
-          u.id,
-          u.full_name,
-          u.email,
-          u.role_id,
-          r.name AS role_name,
-          r.label AS role_label
-        FROM users u
-        LEFT JOIN roles r ON u.role_id = r.id
-        WHERE u.email = $1 OR u.full_name = $1
-        LIMIT 1
-      `,
-      [legacyToken.username],
-    );
+      const possibleEmail =
+        json.email ||
+        json.userEmail ||
+        json.user_email ||
+        json.user?.email ||
+        "";
 
-    const row = result.rows[0];
-    if (row) {
-      const role = normalizeRole(row.role_name || legacyToken.role);
-
-      return {
-        id: Number(row.id),
-        fullName: row.full_name || legacyToken.username,
-        email: row.email || legacyToken.username,
-        roleId: row.role_id === null ? null : Number(row.role_id),
-        role,
-        roleLabel: row.role_label || role,
-      };
+      if (possibleEmail) {
+        const user = await getUserByEmail(String(possibleEmail));
+        if (user) return user;
+      }
     }
-  } catch {
-    // Ignore fallback lookup errors.
+
+    const emailFromToken = extractEmail(sessionCookie);
+
+    if (emailFromToken) {
+      const user = await getUserByEmail(emailFromToken);
+      if (user) return user;
+    }
+
+    const userFromSession = await getUserFromSessionTable(sessionCookie);
+    if (userFromSession) return userFromSession;
   }
 
   return null;
 }
 
-export function isSuperAdminUser(user?: AuthUser | null) {
-  return user?.role === AMOST_ROLES.SUPER_ADMIN;
+export async function getCurrentAuthUser() {
+  return getCurrentUser();
 }
 
-export function isStaffAmostUser(user?: AuthUser | null) {
-  return user?.role === AMOST_ROLES.STAFF_AMOST;
+export async function getServerAuthUser() {
+  return getCurrentUser();
 }
 
-export function isGlobalAdminUser(user?: AuthUser | null) {
-  return isSuperAdminUser(user) || isStaffAmostUser(user);
+export async function getAuthUser() {
+  return getCurrentUser();
 }
 
-export async function requireAmostLogin(request: NextRequest) {
-  const user = await getCurrentAmostUser(request);
+export function isSuperAdmin(user: AuthUser | null | undefined) {
+  return normalizeRole(user?.roleName) === "super_admin";
+}
+
+export function isStaffAmost(user: AuthUser | null | undefined) {
+  return normalizeRole(user?.roleName) === "staff_amost";
+}
+
+export function isAdminUser(user: AuthUser | null | undefined) {
+  return ADMIN_ROLES.has(normalizeRole(user?.roleName));
+}
+
+export function canAccessAdminPanel(user: AuthUser | null | undefined) {
+  return isAdminUser(user);
+}
+
+export function canManageOfficialEvent(user: AuthUser | null | undefined) {
+  return isAdminUser(user);
+}
+
+export async function requireCurrentUser(): Promise<AuthUser> {
+  const user = await getCurrentUser();
 
   if (!user) {
-    return {
-      user: null,
-      response: jsonError("Sesi login tidak valid. Silakan login ulang.", 401, "UNAUTHORIZED"),
-    };
+    throw new Error("Sesi login tidak valid. Silakan login ulang.");
   }
 
-  return { user, response: null };
+  return user;
 }
 
-export async function requireAmostAdmin(request: NextRequest) {
-  const auth = await requireAmostLogin(request);
-  if (auth.response) return auth;
+export async function requireAuthUser(): Promise<AuthUser> {
+  return requireCurrentUser();
+}
 
-  if (!isGlobalAdminUser(auth.user)) {
-    return {
-      user: auth.user,
-      response: jsonError(
-        "Akses ditolak. Hanya Super Admin atau Staff AMOST yang diizinkan.",
-        403,
-        "FORBIDDEN_ADMIN_ONLY",
-      ),
-    };
+export async function requireAdminUser(): Promise<AuthUser> {
+  const user = await requireCurrentUser();
+
+  if (!isAdminUser(user)) {
+    throw new Error("Akses ditolak. Hanya Super Admin atau Staff AMOST.");
   }
 
-  return auth;
+  return user;
+}
+
+export async function requireAdmin(): Promise<AuthUser> {
+  return requireAdminUser();
+}
+
+export async function requireAdminAccess(): Promise<AuthUser> {
+  return requireAdminUser();
+}
+
+export async function requireSuperAdminOrStaff(): Promise<AuthUser> {
+  return requireAdminUser();
 }
