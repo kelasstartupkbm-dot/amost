@@ -33,28 +33,12 @@ type AdminEvent = {
   created_at?: string | null;
 };
 
-type StatCard = {
-  label: string;
-  value: string | number;
-  icon: typeof CalendarDays;
-};
-
 function getEventTitle(event: AdminEvent) {
-  return (
-    event.title ||
-    event.event_name ||
-    event.name ||
-    `Event #${event.id}`
-  );
+  return event.title || event.event_name || event.name || `Event #${event.id}`;
 }
 
 function getEventImage(event: AdminEvent) {
-  return (
-    event.cover_image_url ||
-    event.image_url ||
-    event.banner_url ||
-    ""
-  );
+  return event.cover_image_url || event.image_url || event.banner_url || "";
 }
 
 function getEventCategory(event: AdminEvent) {
@@ -72,12 +56,10 @@ function toNumber(value: unknown) {
 
 function pickEvents(data: any): AdminEvent[] {
   if (Array.isArray(data)) return data;
-
   if (Array.isArray(data?.events)) return data.events;
   if (Array.isArray(data?.data)) return data.data;
   if (Array.isArray(data?.items)) return data.items;
   if (Array.isArray(data?.results)) return data.results;
-
   return [];
 }
 
@@ -91,38 +73,32 @@ export default function AdminPage() {
     setLoading(true);
     setErrorMessage("");
 
-    const candidates = [
-      "/api/admin/events",
-      "/api/events",
-      "/api/admin/event",
-    ];
+    try {
+      const response = await fetch("/api/admin/events", {
+        method: "GET",
+        cache: "no-store",
+      });
 
-    for (const url of candidates) {
-      try {
-        const response = await fetch(url, {
-          method: "GET",
-          cache: "no-store",
-        });
+      const data = await response.json().catch(() => null);
 
-        const data = await response.json().catch(() => null);
-
-        if (!response.ok) {
-          continue;
-        }
-
-        const parsedEvents = pickEvents(data);
-
-        setEvents(parsedEvents);
-        setLoading(false);
+      if (!response.ok || data?.ok === false) {
+        setEvents([]);
+        setErrorMessage(
+          data?.message ||
+            data?.error ||
+            "Data event belum bisa dimuat. Periksa API /api/admin/events."
+        );
         return;
-      } catch (error) {
-        console.error(error);
       }
-    }
 
-    setEvents([]);
-    setErrorMessage("Data event belum bisa dimuat. Periksa API /api/admin/events.");
-    setLoading(false);
+      setEvents(pickEvents(data));
+    } catch (error) {
+      console.error(error);
+      setEvents([]);
+      setErrorMessage("Data event belum bisa dimuat. Koneksi ke server bermasalah.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -167,7 +143,7 @@ export default function AdminPage() {
     }, 0);
   }, [events]);
 
-  const stats: StatCard[] = [
+  const stats = [
     {
       label: "Total Event",
       value: events.length,
