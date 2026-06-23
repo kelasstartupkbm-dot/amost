@@ -110,7 +110,7 @@ function getCookieValue(names: string[]) {
 export function jsonError(
   message: unknown = "Terjadi kesalahan.",
   status = 400,
-  extra: Record<string, unknown> = {}
+  extraOrCode: Record<string, unknown> | string = {}
 ) {
   const errorMessage =
     message instanceof Error
@@ -118,6 +118,11 @@ export function jsonError(
       : typeof message === "string"
       ? message
       : "Terjadi kesalahan.";
+
+  const extra =
+    typeof extraOrCode === "string"
+      ? { code: extraOrCode }
+      : extraOrCode || {};
 
   return NextResponse.json(
     {
