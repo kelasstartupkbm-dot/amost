@@ -24,27 +24,29 @@ export async function GET() {
 
     const result = await db.query(`
       SELECT
-        events.id,
-        events.title,
-        events.slug,
-        events.description,
-        events.event_type,
-        events.location,
-        events.start_date,
-        events.end_date,
-        events.distance_km,
-        events.ticket_price,
-        events.max_participants,
-        events.doorprize_count,
-        events.status,
-        events.cover_image,
-        events.created_at,
-        COALESCE(COUNT(event_registrations.id), 0)::int AS participant_count
-      FROM events
-      LEFT JOIN event_registrations
-        ON event_registrations.event_id = events.id
-      GROUP BY events.id
-      ORDER BY events.created_at DESC
+        e.id,
+        e.title,
+        e.slug,
+        e.description,
+        e.event_type,
+        e.location,
+        e.start_date,
+        e.end_date,
+        e.distance_km,
+        e.ticket_price,
+        e.max_participants,
+        e.doorprize_count,
+        e.status,
+        e.cover_image,
+        e.created_at,
+        COALESCE(r.participant_count, 0)::int AS participant_count
+      FROM events e
+      LEFT JOIN (
+        SELECT event_id, COUNT(*)::int AS participant_count
+        FROM event_registrations
+        GROUP BY event_id
+      ) r ON r.event_id = e.id
+      ORDER BY e.created_at DESC
     `);
 
     return NextResponse.json({
@@ -104,14 +106,14 @@ export async function POST(request: Request) {
     const title = String(body.title || "").trim();
     const slug = createSlug(String(body.slug || title));
     const description = String(body.description || "").trim();
-    const eventType = String(body.eventType || "").trim() || "Event";
+    const eventType = String(body.eventType || "Event").trim();
     const location = String(body.location || "").trim();
     const startDate = String(body.startDate || "").trim();
     const endDate = String(body.endDate || startDate).trim();
-    const distanceKm = Number(body.distanceKm || 0);
-    const ticketPrice = Number(body.ticketPrice || 0);
-    const maxParticipants = Number(body.maxParticipants || 0);
-    const doorprizeCount = Number(body.doorprizeCount || 0);
+    const distanceKm = safeNumber(body.distanceKm);
+    const ticketPrice = safeNumber(body.ticketPrice);
+    const maxParticipants = Math.floor(safeNumber(body.maxParticipants));
+    const doorprizeCount = Math.floor(safeNumber(body.doorprizeCount));
     const coverImage = String(body.coverImage || "").trim();
     const status = String(body.status || "draft").trim();
 
@@ -153,12 +155,7 @@ export async function POST(request: Request) {
     const db = getDb();
 
     const duplicate = await db.query(
-      `
-      SELECT id
-      FROM events
-      WHERE slug = $1
-      LIMIT 1
-      `,
+      `SELECT id FROM events WHERE slug = $1 LIMIT 1`,
       [slug]
     );
 
@@ -210,12 +207,12 @@ export async function POST(request: Request) {
         location,
         startDate,
         endDate,
-        Number.isFinite(distanceKm) ? distanceKm : 0,
-        Number.isFinite(ticketPrice) ? ticketPrice : 0,
-        Number.isFinite(maxParticipants) ? maxParticipants : 0,
-        Number.isFinite(doorprizeCount) ? doorprizeCount : 0,
+        distanceKm,
+        ticketPrice,
+        maxParticipants,
+        doorprizeCount,
         status,
-        coverImage,
+        coverImage || null,
         currentUser.id,
       ]
     );
@@ -245,6 +242,11 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
+}
+
+function safeNumber(value: unknown) {
+  const numberValue = Number(value || 0);
+  return Number.isFinite(numberValue) ? numberValue : 0;
 }
 
 function createSlug(value: string) {
