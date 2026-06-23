@@ -1,5 +1,6 @@
 "use client";
 
+import GpxPreviewMap from "@/app/components/GpxPreviewMap";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
@@ -31,6 +32,8 @@ type EventDetail = {
   doorprizeCount?: number | null;
   status: string;
   coverImage?: string | null;
+  gpxFilename?: string | null;
+  gpxContent?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
   participantCount: number;
@@ -84,11 +87,11 @@ export default function AdminEventDetailPage({ params }: PageProps) {
     }
   }
 
-  async function publishEvent() {
+  async function updateStatus(status: "draft" | "published" | "closed" | "finished") {
     if (!event) return;
 
     try {
-      setActionLoading("publish");
+      setActionLoading(status);
       setMessage("");
 
       const response = await fetch(`/api/admin/events/${event.id}`, {
@@ -109,21 +112,23 @@ export default function AdminEventDetailPage({ params }: PageProps) {
           maxParticipants: event.maxParticipants || 0,
           doorprizeCount: event.doorprizeCount || 0,
           coverImage: event.coverImage || "",
-          status: "published",
+          gpxFilename: event.gpxFilename || "",
+          gpxContent: event.gpxContent || "",
+          status,
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok || !data.ok) {
-        setMessage(data.message || "Gagal publish event.");
+        setMessage(data.message || "Gagal mengubah status event.");
         return;
       }
 
       await loadEvent();
     } catch (error) {
       console.error(error);
-      setMessage("Terjadi kesalahan saat publish event.");
+      setMessage("Terjadi kesalahan saat mengubah status event.");
     } finally {
       setActionLoading("");
     }
@@ -183,37 +188,62 @@ export default function AdminEventDetailPage({ params }: PageProps) {
             </div>
           </Link>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             {event && (
               <>
                 <Link
                   href={`/admin/events/${event.id}/edit`}
-                  className="hidden items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 sm:flex"
+                  className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
                 >
                   <Edit size={17} />
                   Edit
                 </Link>
 
-                {event.status !== "published" && (
-                  <button
-                    type="button"
-                    onClick={publishEvent}
-                    disabled={actionLoading === "publish"}
-                    className="hidden items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm font-bold text-green-700 hover:bg-green-100 disabled:opacity-60 sm:flex"
-                  >
-                    <Send size={17} />
-                    {actionLoading === "publish" ? "Publish..." : "Publish"}
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => updateStatus("draft")}
+                  disabled={actionLoading === "draft"}
+                  className="hidden rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-bold text-amber-700 hover:bg-amber-100 disabled:opacity-60 md:block"
+                >
+                  Draft
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => updateStatus("published")}
+                  disabled={actionLoading === "published"}
+                  className="hidden items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm font-bold text-green-700 hover:bg-green-100 disabled:opacity-60 md:flex"
+                >
+                  <Send size={17} />
+                  Publish
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => updateStatus("closed")}
+                  disabled={actionLoading === "closed"}
+                  className="hidden rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-100 disabled:opacity-60 lg:block"
+                >
+                  Closed
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => updateStatus("finished")}
+                  disabled={actionLoading === "finished"}
+                  className="hidden rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-bold text-blue-700 hover:bg-blue-100 disabled:opacity-60 lg:block"
+                >
+                  Finished
+                </button>
 
                 <button
                   type="button"
                   onClick={deleteEvent}
                   disabled={actionLoading === "delete"}
-                  className="hidden items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-bold text-red-700 hover:bg-red-100 disabled:opacity-60 sm:flex"
+                  className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-bold text-red-700 hover:bg-red-100 disabled:opacity-60"
                 >
                   <Trash2 size={17} />
-                  {actionLoading === "delete" ? "Hapus..." : "Hapus"}
+                  Hapus
                 </button>
               </>
             )}
@@ -252,7 +282,7 @@ export default function AdminEventDetailPage({ params }: PageProps) {
             )}
 
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <div className="relative h-72 bg-gradient-to-br from-purple-50 to-slate-100">
+              <div className="relative h-72 bg-gradient-to-br from-purple-50 to-slate-100 md:h-80">
                 {event.coverImage ? (
                   <img
                     src={event.coverImage}
@@ -305,33 +335,6 @@ export default function AdminEventDetailPage({ params }: PageProps) {
                 <p className="mt-6 max-w-4xl whitespace-pre-line text-sm leading-7 text-slate-600">
                   {event.description || "Belum ada deskripsi event."}
                 </p>
-
-                <div className="mt-6 flex flex-wrap gap-3 sm:hidden">
-                  <Link
-                    href={`/admin/events/${event.id}/edit`}
-                    className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700"
-                  >
-                    Edit
-                  </Link>
-
-                  {event.status !== "published" && (
-                    <button
-                      type="button"
-                      onClick={publishEvent}
-                      className="rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm font-bold text-green-700"
-                    >
-                      Publish
-                    </button>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={deleteEvent}
-                    className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-bold text-red-700"
-                  >
-                    Hapus
-                  </button>
-                </div>
               </div>
             </div>
 
@@ -355,6 +358,14 @@ export default function AdminEventDetailPage({ params }: PageProps) {
                 icon={Ticket}
                 label="Harga Tiket"
                 value={formatRupiah(event.ticketPrice)}
+              />
+            </div>
+
+            <div className="mt-6">
+              <GpxPreviewMap
+                eventId={event.id}
+                gpxFilename={event.gpxFilename}
+                gpxContent={event.gpxContent}
               />
             </div>
 
