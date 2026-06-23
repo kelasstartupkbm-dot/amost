@@ -1,36 +1,40 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import type { ReactNode } from "react";
 import Header from "./Header";
 import Footer from "./Footer";
 
-export default function PublicShell({ children }: { children: React.ReactNode }) {
+const noPublicShellPrefixes = [
+  "/admin",
+  "/account",
+  "/login",
+  "/register",
+  "/api",
+];
+
+function matchesPrefix(pathname: string, prefix: string) {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
+
+export default function PublicShell({ children }: { children: ReactNode }) {
   const pathname = usePathname() || "/";
 
-  const hidePublicLayout = isPrivateOrAuthPage(pathname);
+  const shouldHidePublicHeaderFooter = noPublicShellPrefixes.some((prefix) =>
+    matchesPrefix(pathname, prefix),
+  );
 
-  if (hidePublicLayout) {
+  if (shouldHidePublicHeaderFooter) {
     return <>{children}</>;
   }
 
   return (
     <>
       <Header />
+
       <main className="min-h-screen pt-[78px] lg:pt-[96px]">{children}</main>
+
       <Footer />
     </>
-  );
-}
-
-function isPrivateOrAuthPage(pathname: string) {
-  const hiddenPrefixes = [
-    "/admin",
-    "/login",
-    "/register",
-    "/api",
-  ];
-
-  return hiddenPrefixes.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
 }
