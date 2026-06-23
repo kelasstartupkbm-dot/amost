@@ -5,40 +5,16 @@ import { getCurrentUser, isAdmin } from "@/lib/current-user";
 export async function GET() {
   try {
     const currentUser = await getCurrentUser();
-
-    if (!currentUser) {
-      return NextResponse.json(
-        { ok: false, message: "Belum login." },
-        { status: 401 }
-      );
-    }
-
-    if (!isAdmin(currentUser)) {
-      return NextResponse.json(
-        { ok: false, message: "Akses ditolak." },
-        { status: 403 }
-      );
-    }
+    if (!currentUser) return NextResponse.json({ ok: false, message: "Belum login." }, { status: 401 });
+    if (!isAdmin(currentUser)) return NextResponse.json({ ok: false, message: "Akses ditolak." }, { status: 403 });
 
     const db = getDb();
-
     const result = await db.query(`
       SELECT
-        e.id,
-        e.title,
-        e.slug,
-        e.description,
-        e.event_type,
-        e.location,
-        e.start_date,
-        e.end_date,
-        e.distance_km,
-        e.ticket_price,
-        e.max_participants,
-        e.doorprize_count,
-        e.status,
-        e.cover_image,
-        e.created_at,
+        e.id, e.title, e.slug, e.description, e.event_type, e.location,
+        e.start_date, e.end_date, e.distance_km, e.ticket_price,
+        e.max_participants, e.doorprize_count, e.status, e.cover_image,
+        e.gpx_filename, e.gpx_content, e.created_at,
         COALESCE(r.participant_count, 0)::int AS participant_count
       FROM events e
       LEFT JOIN (
@@ -66,43 +42,26 @@ export async function GET() {
         doorprizeCount: event.doorprize_count,
         status: event.status,
         coverImage: event.cover_image,
+        gpxFilename: event.gpx_filename,
+        gpxContent: event.gpx_content,
         createdAt: event.created_at,
         participantCount: event.participant_count,
       })),
     });
   } catch (error) {
     console.error("ADMIN_EVENTS_GET_ERROR", error);
-
-    const message =
-      error instanceof Error ? error.message : "Gagal mengambil data event.";
-
-    return NextResponse.json(
-      { ok: false, message: `Gagal mengambil event: ${message}` },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : "Gagal mengambil data event.";
+    return NextResponse.json({ ok: false, message: `Gagal mengambil event: ${message}` }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
   try {
     const currentUser = await getCurrentUser();
-
-    if (!currentUser) {
-      return NextResponse.json(
-        { ok: false, message: "Belum login." },
-        { status: 401 }
-      );
-    }
-
-    if (!isAdmin(currentUser)) {
-      return NextResponse.json(
-        { ok: false, message: "Akses ditolak." },
-        { status: 403 }
-      );
-    }
+    if (!currentUser) return NextResponse.json({ ok: false, message: "Belum login." }, { status: 401 });
+    if (!isAdmin(currentUser)) return NextResponse.json({ ok: false, message: "Akses ditolak." }, { status: 403 });
 
     const body = await request.json();
-
     const title = String(body.title || "").trim();
     const slug = createSlug(String(body.slug || title));
     const description = String(body.description || "").trim();
@@ -115,132 +74,64 @@ export async function POST(request: Request) {
     const maxParticipants = Math.floor(safeNumber(body.maxParticipants));
     const doorprizeCount = Math.floor(safeNumber(body.doorprizeCount));
     const coverImage = String(body.coverImage || "").trim();
+    const gpxFilename = String(body.gpxFilename || "").trim();
+    const gpxContent = String(body.gpxContent || "").trim();
     const status = String(body.status || "draft").trim();
 
-    if (!title) {
-      return NextResponse.json(
-        { ok: false, message: "Nama event wajib diisi." },
-        { status: 400 }
-      );
-    }
-
-    if (!slug) {
-      return NextResponse.json(
-        { ok: false, message: "Slug event wajib diisi." },
-        { status: 400 }
-      );
-    }
-
-    if (!location) {
-      return NextResponse.json(
-        { ok: false, message: "Lokasi event wajib diisi." },
-        { status: 400 }
-      );
-    }
-
-    if (!startDate) {
-      return NextResponse.json(
-        { ok: false, message: "Tanggal mulai wajib diisi." },
-        { status: 400 }
-      );
-    }
-
+    if (!title) return NextResponse.json({ ok: false, message: "Nama event wajib diisi." }, { status: 400 });
+    if (!slug) return NextResponse.json({ ok: false, message: "Slug event wajib diisi." }, { status: 400 });
+    if (!location) return NextResponse.json({ ok: false, message: "Lokasi event wajib diisi." }, { status: 400 });
+    if (!startDate) return NextResponse.json({ ok: false, message: "Tanggal mulai wajib diisi." }, { status: 400 });
     if (!["draft", "published", "closed", "finished"].includes(status)) {
-      return NextResponse.json(
-        { ok: false, message: "Status event tidak valid." },
-        { status: 400 }
-      );
+      return NextResponse.json({ ok: false, message: "Status event tidak valid." }, { status: 400 });
     }
 
     const db = getDb();
-
-    const duplicate = await db.query(
-      `SELECT id FROM events WHERE slug = $1 LIMIT 1`,
-      [slug]
-    );
-
-    if (duplicate.rowCount) {
-      return NextResponse.json(
-        { ok: false, message: "Slug sudah digunakan event lain." },
-        { status: 409 }
-      );
-    }
+    const duplicate = await db.query(`SELECT id FROM events WHERE slug = $1 LIMIT 1`, [slug]);
+    if (duplicate.rowCount) return NextResponse.json({ ok: false, message: "Slug sudah digunakan event lain." }, { status: 409 });
 
     const result = await db.query(
       `
       INSERT INTO events (
-        title,
-        slug,
-        description,
-        event_type,
-        location,
-        start_date,
-        end_date,
-        distance_km,
-        ticket_price,
-        max_participants,
-        doorprize_count,
-        status,
-        cover_image,
-        created_by,
-        created_at,
-        updated_at
+        title, slug, description, event_type, location,
+        start_date, end_date, distance_km, ticket_price,
+        max_participants, doorprize_count, status, cover_image,
+        gpx_filename, gpx_content, created_by, created_at, updated_at
       )
       VALUES (
         $1, $2, $3, $4, $5,
-        $6::timestamp, $7::timestamp,
-        $8, $9, $10, $11, $12, $13, $14,
+        $6::timestamp, $7::timestamp, $8, $9,
+        $10, $11, $12, $13, $14, $15, $16,
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       )
-      RETURNING
-        id,
-        title,
-        slug,
-        status,
-        created_at
+      RETURNING id, title, slug, status, created_at
       `,
       [
-        title,
-        slug,
-        description,
-        eventType,
-        location,
-        startDate,
-        endDate,
-        distanceKm,
-        ticketPrice,
-        maxParticipants,
-        doorprizeCount,
-        status,
+        title, slug, description, eventType, location,
+        startDate, endDate, distanceKm, ticketPrice,
+        maxParticipants, doorprizeCount, status,
         coverImage || null,
+        gpxFilename || null,
+        gpxContent || null,
         currentUser.id,
       ]
     );
 
-    return NextResponse.json(
-      {
-        ok: true,
-        message: "Event berhasil dibuat.",
-        event: {
-          id: Number(result.rows[0].id),
-          title: result.rows[0].title,
-          slug: result.rows[0].slug,
-          status: result.rows[0].status,
-          createdAt: result.rows[0].created_at,
-        },
+    return NextResponse.json({
+      ok: true,
+      message: "Event berhasil dibuat.",
+      event: {
+        id: Number(result.rows[0].id),
+        title: result.rows[0].title,
+        slug: result.rows[0].slug,
+        status: result.rows[0].status,
+        createdAt: result.rows[0].created_at,
       },
-      { status: 201 }
-    );
+    }, { status: 201 });
   } catch (error) {
     console.error("ADMIN_EVENTS_POST_ERROR", error);
-
-    const message =
-      error instanceof Error ? error.message : "Gagal menyimpan event.";
-
-    return NextResponse.json(
-      { ok: false, message: `Gagal menyimpan event: ${message}` },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : "Gagal menyimpan event.";
+    return NextResponse.json({ ok: false, message: `Gagal menyimpan event: ${message}` }, { status: 500 });
   }
 }
 
@@ -250,10 +141,5 @@ function safeNumber(value: unknown) {
 }
 
 function createSlug(value: string) {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/['"]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+  return value.toLowerCase().trim().replace(/['"]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
