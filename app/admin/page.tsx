@@ -7,6 +7,7 @@ import {
   CalendarDays,
   Gift,
   Loader2,
+  LogOut,
   MapPin,
   Plus,
   Search,
@@ -33,11 +34,12 @@ type EventItem = {
   participantCount: number;
 };
 
-export default function AdminEventsPage() {
+export default function AdminPage() {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [query, setQuery] = useState("");
+  const [logoutLoading, setLogoutLoading] = useState(false);
 
   async function loadEvents() {
     try {
@@ -72,6 +74,23 @@ export default function AdminEventsPage() {
       setMessage("Terjadi kesalahan koneksi.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleLogout() {
+    try {
+      setLogoutLoading(true);
+
+      await fetch("/api/auth/logout", {
+        method: "POST",
+      });
+
+      window.location.href = "/login";
+    } catch (error) {
+      console.error(error);
+      window.location.href = "/login";
+    } finally {
+      setLogoutLoading(false);
     }
   }
 
@@ -112,10 +131,10 @@ export default function AdminEventsPage() {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
       <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-xl">
-        <div className="mx-auto flex h-20 max-w-[1440px] items-center justify-between px-4 sm:px-6 lg:px-8">
-          <Link href="/admin" className="flex items-center gap-3">
+        <div className="mx-auto flex h-20 max-w-[1440px] items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+          <Link href="/admin" className="flex min-w-0 items-center gap-3">
             <div className="logo-symbol responsive-logo">A</div>
-            <div>
+            <div className="min-w-0">
               <div className="text-[26px] font-black leading-none tracking-wide text-purple-700">
                 AMOST
               </div>
@@ -125,10 +144,10 @@ export default function AdminEventsPage() {
             </div>
           </Link>
 
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <Link
               href="/admin"
-              className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
+              className="hidden items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 sm:flex"
             >
               <ArrowLeft size={17} />
               Dashboard
@@ -136,11 +155,22 @@ export default function AdminEventsPage() {
 
             <Link
               href="/admin/events/new"
-              className="flex items-center gap-2 rounded-lg bg-purple-700 px-4 py-2 text-sm font-black text-white hover:bg-purple-800"
+              className="flex items-center gap-2 rounded-lg bg-purple-700 px-3 py-2 text-sm font-black text-white hover:bg-purple-800 sm:px-4"
             >
               <Plus size={17} />
-              Tambah Event
+              <span className="hidden sm:inline">Tambah Event</span>
+              <span className="sm:hidden">Tambah</span>
             </Link>
+
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={logoutLoading}
+              className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-bold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 sm:px-4"
+            >
+              <LogOut size={17} />
+              <span>{logoutLoading ? "Keluar..." : "Keluar"}</span>
+            </button>
           </div>
         </div>
       </header>
