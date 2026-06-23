@@ -1,84 +1,39 @@
-/*
-  AMOST database helper for server-side API routes.
+let cachedPool: any = null;
 
-  This helper uses Railway PostgreSQL through DATABASE_URL.
-  It intentionally avoids importing pg types so the project can build even if
-  @types/pg is not installed.
-*/
-
-type DbRow = Record<string, unknown>;
-
-type DbResult<T extends DbRow> = {
-  rows: T[];
-  rowCount: number | null;
-};
-
-type DbPool = {
-  query<T extends DbRow = DbRow>(
-    text: string,
-    params?: unknown[],
-  ): Promise<DbResult<T>>;
-};
-
-declare global {
-  // eslint-disable-next-line no-var
-  var __amostPgPool: DbPool | undefined;
-}
-
-function getDatabaseUrl() {
-  const url =
+export function getDatabaseUrl() {
+  return (
     process.env.DATABASE_URL ||
     process.env.POSTGRES_URL ||
     process.env.POSTGRES_PRISMA_URL ||
-    process.env.POSTGRES_URL_NON_POOLING;
-
-  if (!url) {
-    throw new Error("DATABASE_URL belum tersedia di Railway Variables.");
-  }
-
-  return url;
-}
-
-function shouldUseSsl(connectionString: string) {
-  return (
-    process.env.PGSSLMODE === "require" ||
-    connectionString.includes("sslmode=require") ||
-    connectionString.includes("ssl=true")
+    process.env.RAILWAY_DATABASE_URL ||
+    ""
   );
 }
 
-function createPool(): DbPool {
-  const connectionString = getDatabaseUrl();
+export function getPool() {
+  if (cachedPool) return cachedPool;
 
-  // Keep this as runtime require so TypeScript does not need @types/pg.
-  // The npm package `pg` must still be installed in dependencies.
-  const runtimeRequire = eval("require") as (moduleName: string) => any;
-  const { Pool } = runtimeRequire("pg") as {
-    Pool: new (config: Record<string, unknown>) => DbPool;
-  };
+  const databaseUrl = getDatabaseUrl();
 
-  return new Pool({
-    connectionString,
-    max: 10,
-    idleTimeoutMillis: 30_000,
-    connectionTimeoutMillis: 10_000,
-    ssl: shouldUseSsl(connectionString)
-      ? { rejectUnauthorized: false }
-      : undefined,
-  });
-}
-
-export function getAmostDbPool(): DbPool {
-  if (!globalThis.__amostPgPool) {
-    globalThis.__amostPgPool = createPool();
+  if (!databaseUrl) {
+    throw new Error("DATABASE_URL is not configured.");
   }
 
-  return globalThis.__amostPgPool;
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { Pool } = require("pg");
+
+  cachedPool = new Pool({
+    connectionString: databaseUrl,
+    ssl:
+      process.env.NODE_ENV === "production"
+        ? { rejectUnauthorized: false }
+        : false,
+  });
+
+  return cachedPool;
 }
 
-export async function dbQuery<T extends DbRow = DbRow>(
-  text: string,
-  params: unknown[] = [],
-): Promise<DbResult<T>> {
-  return getAmostDbPool().query<T>(text, params);
+export async function dbQuery(text: string, params: unknown[] = []) {
+  const pool = getPool();
+  return pool.query(text, params);
 }
