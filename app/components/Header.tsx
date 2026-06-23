@@ -20,22 +20,22 @@ export default function Header() {
   return (
     <header className="fixed left-0 top-0 z-[9999] w-full border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur-xl">
       <div className="mx-auto flex h-[78px] max-w-[1440px] items-center justify-between px-4 sm:px-6 lg:h-[96px] lg:px-[88px]">
-        
-        {/* LOGO */}
-        <Link href="/" className="flex items-center">
+        <Link href="/" className="flex min-w-[120px] items-center" aria-label="AMOST Beranda">
           <img
             src="/amost_logo_wide_.png"
-            alt="AMOST Logo"
-            className="h-[44px] w-auto object-contain sm:h-[52px] lg:h-[60px]"
+            alt=""
+            className="block h-[38px] w-auto object-contain sm:h-[46px] lg:h-[58px]"
+            onError={(event) => {
+              event.currentTarget.style.display = "none";
+            }}
           />
         </Link>
 
-        {/* MENU DESKTOP */}
         <nav className="hidden items-center gap-8 text-[15px] font-medium text-slate-800 xl:flex">
           {navItems.map((item, index) => (
             <Link
               key={item.label}
-              className={index === 0 ? "font-bold text-purple-700" : ""}
+              className={index === 0 ? "font-bold text-purple-700" : "transition hover:text-purple-700"}
               href={item.href}
             >
               {item.label}
@@ -43,9 +43,12 @@ export default function Header() {
           ))}
         </nav>
 
-        {/* ACTION DESKTOP */}
         <div className="hidden items-center gap-4 md:flex">
-          <button className="flex h-11 w-11 items-center justify-center rounded-full text-slate-950 transition hover:bg-slate-100">
+          <button
+            type="button"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-slate-950 transition hover:bg-slate-100"
+            aria-label="Cari"
+          >
             <Search size={24} strokeWidth={2.3} />
           </button>
 
@@ -64,17 +67,17 @@ export default function Header() {
           </Link>
         </div>
 
-        {/* TOGGLE MOBILE */}
         <button
-          onClick={() => setOpen(!open)}
+          type="button"
+          onClick={() => setOpen((value) => !value)}
           className="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 text-slate-900 xl:hidden"
-          aria-label="Buka menu"
+          aria-label={open ? "Tutup menu" : "Buka menu"}
+          aria-expanded={open}
         >
           {open ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
 
-      {/* MOBILE MENU */}
       {open && (
         <div className="border-t border-slate-200 bg-white px-4 py-5 shadow-xl xl:hidden">
           <nav className="flex flex-col gap-4 text-[15px] font-bold text-slate-800">
@@ -83,7 +86,7 @@ export default function Header() {
                 key={item.label}
                 href={item.href}
                 onClick={() => setOpen(false)}
-                className={index === 0 ? "text-purple-700" : ""}
+                className={index === 0 ? "text-purple-700" : "transition hover:text-purple-700"}
               >
                 {item.label}
               </Link>

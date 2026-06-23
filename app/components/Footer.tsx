@@ -1,102 +1,53 @@
 import Link from "next/link";
-import { Facebook, Instagram, Youtube } from "lucide-react";
 
 export default function Footer() {
-  return (
-    <footer className="w-full border-t border-slate-200 bg-white">
-      <div className="mx-auto grid max-w-[1440px] grid-cols-1 gap-10 px-4 pb-9 pt-12 sm:px-6 md:grid-cols-2 md:px-8 lg:grid-cols-[280px_180px_210px_220px_1fr] lg:px-[88px]">
-        <div>
-          <Link href="/" className="flex items-center gap-4">
-            <div className="logo-symbol small">A</div>
+  const year = new Date().getFullYear();
 
-            <div>
-              <div className="text-[27px] font-black leading-none tracking-wide text-purple-700">
-                AMOST
-              </div>
-              <div className="mt-1 text-[9px] font-black uppercase leading-[1.05] tracking-wide text-purple-700">
-                Amikom Mobile Outdoor
-                <br />
-                Sport Tracking
-              </div>
-            </div>
+  return (
+    <footer className="border-t border-slate-200 bg-white">
+      <div className="mx-auto grid max-w-[1440px] gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1.2fr_0.8fr_0.8fr] lg:px-[88px]">
+        <div>
+          <Link href="/" className="inline-flex items-center" aria-label="AMOST Beranda">
+            <img
+              src="/amost_logo_wide_.png"
+              alt=""
+              className="block h-[42px] w-auto object-contain"
+            />
           </Link>
 
-          <p className="mt-8 text-[13px] text-slate-500 lg:mt-12">
-            © 2024 AMOST. All rights reserved.
+          <p className="mt-4 max-w-md text-sm leading-6 text-slate-600">
+            AMOST adalah platform tracking olahraga outdoor untuk event, latihan,
+            komunitas, dan pemantauan aktivitas secara realtime.
           </p>
         </div>
 
-        <FooterColumn
-          title="Platform"
-          links={["Beranda", "Events", "Fitur", "Komunitas", "Cara Kerja"]}
-        />
-
-        <FooterColumn
-          title="Bantuan"
-          links={[
-            "FAQ",
-            "Panduan",
-            "Kebijakan Privasi",
-            "Syarat & Ketentuan",
-            "Kontak Kami",
-          ]}
-        />
-
         <div>
-          <h4 className="text-[14px] font-black text-black">Ikuti Kami</h4>
-
-          <div className="mt-6 flex items-center gap-4">
-            <Link href="#" className="social-icon">
-              <Facebook size={18} fill="currentColor" />
-            </Link>
-            <Link href="#" className="social-icon">
-              <Instagram size={18} />
-            </Link>
-            <Link href="#" className="social-icon">
-              <Youtube size={19} fill="currentColor" />
-            </Link>
-            <Link href="#" className="social-icon text-[18px] font-black">
-              ♪
-            </Link>
+          <h3 className="text-sm font-black uppercase tracking-wide text-slate-950">
+            Navigasi
+          </h3>
+          <div className="mt-4 flex flex-col gap-3 text-sm font-semibold text-slate-600">
+            <Link href="/events" className="hover:text-purple-700">Events</Link>
+            <Link href="/fitur" className="hover:text-purple-700">Fitur</Link>
+            <Link href="/komunitas" className="hover:text-purple-700">Komunitas</Link>
+            <Link href="/tentang" className="hover:text-purple-700">Tentang</Link>
           </div>
         </div>
 
         <div>
-          <h4 className="text-[14px] font-black text-black">Download App</h4>
-
-          <div className="mt-5 flex flex-col gap-3">
-            <Link href="/download" className="store-button footer-store">
-              <span>GET IT ON</span>
-              <strong>Google Play</strong>
-            </Link>
-
-            <Link href="/download" className="store-button footer-store">
-              <span>Download on the</span>
-              <strong>App Store</strong>
-            </Link>
+          <h3 className="text-sm font-black uppercase tracking-wide text-slate-950">
+            Akses
+          </h3>
+          <div className="mt-4 flex flex-col gap-3 text-sm font-semibold text-slate-600">
+            <Link href="/login" className="hover:text-purple-700">Login</Link>
+            <Link href="/register" className="hover:text-purple-700">Register</Link>
+            <Link href="/kontak" className="hover:text-purple-700">Kontak</Link>
           </div>
         </div>
+      </div>
+
+      <div className="border-t border-slate-200 px-4 py-5 text-center text-xs font-semibold text-slate-500 sm:px-6 lg:px-[88px]">
+        © {year} AMOST. All rights reserved.
       </div>
     </footer>
-  );
-}
-
-function FooterColumn({ title, links }: { title: string; links: string[] }) {
-  return (
-    <div>
-      <h4 className="text-[14px] font-black text-black">{title}</h4>
-
-      <div className="mt-5 flex flex-col gap-2">
-        {links.map((link) => (
-          <Link
-            href="#"
-            key={link}
-            className="text-[14px] font-medium text-slate-700 hover:text-purple-700"
-          >
-            {link}
-          </Link>
-        ))}
-      </div>
-    </div>
   );
 }
