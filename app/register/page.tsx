@@ -1,9 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { ArrowLeft, Eye, EyeOff, Lock, Mail, Phone, User } from "lucide-react";
+
+type RegisterResponse = {
+  ok?: boolean;
+  message?: string;
+  user?: {
+    id: number;
+    fullName?: string;
+    email?: string;
+    role?: string;
+  };
+};
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -13,20 +24,35 @@ export default function RegisterPage() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
-  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState("");
 
-  async function handleRegister(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setError("");
+
+    const cleanedFullName = fullName.trim();
+    const cleanedEmail = email.trim().toLowerCase();
+    const cleanedPhone = phone.trim();
+
+    if (!cleanedFullName || !cleanedEmail || !password || !confirmPassword) {
+      setError("Nama lengkap, email, password, dan konfirmasi password wajib diisi.");
+      return;
+    }
+
+    if (password.length < 6) {
+      setError("Password minimal 6 karakter.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Konfirmasi password tidak sama.");
+      return;
+    }
 
     setLoading(true);
-    setMessage("");
-    setSuccess(false);
 
     try {
       const response = await fetch("/api/auth/register", {
@@ -35,58 +61,47 @@ export default function RegisterPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          fullName,
-          email,
-          phone,
+          fullName: cleanedFullName,
+          email: cleanedEmail,
+          phone: cleanedPhone || null,
           password,
-          confirmPassword,
         }),
       });
 
-      const data = await response.json();
+      const data = (await response.json()) as RegisterResponse;
 
       if (!response.ok || !data.ok) {
-        setSuccess(false);
-        setMessage(data.message || "Register gagal.");
+        setError(data.message || "Registrasi gagal. Coba lagi.");
         return;
       }
 
-      setSuccess(true);
-      setMessage(data.message || "Register berhasil.");
-
-      setTimeout(() => {
-        router.push("/login");
-      }, 1200);
-    } catch (error) {
-      console.error(error);
-      setSuccess(false);
-      setMessage("Terjadi kesalahan koneksi.");
+      router.replace("/login?registered=1");
+      router.refresh();
+    } catch (err) {
+      console.error(err);
+      setError("Terjadi gangguan koneksi. Coba lagi.");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-slate-50">
-      <div className="mx-auto grid min-h-screen max-w-[1280px] grid-cols-1 lg:grid-cols-2">
-        <section className="hidden items-center justify-center px-10 lg:flex">
-          <div className="max-w-xl">
-            <Link href="/" className="mb-10 flex items-center gap-4">
-              <div className="logo-symbol">A</div>
+    <main className="min-h-screen overflow-hidden bg-white text-slate-950">
+      <section className="mx-auto grid min-h-screen max-w-[1440px] grid-cols-1 lg:grid-cols-2">
+        <div className="relative hidden flex-col justify-center px-8 py-12 lg:flex lg:px-20 xl:px-24">
+          <div className="absolute left-0 top-0 h-72 w-72 rounded-full bg-purple-100/60 blur-3xl" />
+          <div className="absolute bottom-12 right-12 h-64 w-64 rounded-full bg-purple-50 blur-3xl" />
 
-              <div>
-                <div className="text-[36px] font-black leading-none tracking-wide text-purple-700">
-                  AMOST
-                </div>
-                <div className="mt-1 text-[10px] font-black uppercase leading-[1.05] tracking-wide text-purple-700">
-                  Amikom Mobile Outdoor
-                  <br />
-                  Sport Tracking
-                </div>
-              </div>
+          <div className="relative z-10 max-w-[560px]">
+            <Link href="/" className="inline-flex items-center">
+              <img
+                src="/amost_logo_wide_.png"
+                alt="AMOST"
+                className="h-[70px] w-auto object-contain lg:h-[82px]"
+              />
             </Link>
 
-            <h1 className="text-[54px] font-black leading-tight tracking-[-1.6px] text-slate-950">
+            <h1 className="mt-16 text-[56px] font-black leading-[1.08] tracking-tight text-slate-950 xl:text-[66px]">
               Buat Akun
               <br />
               dan Mulai
@@ -94,204 +109,221 @@ export default function RegisterPage() {
               <span className="text-purple-700">Tracking Aktivitas</span>
             </h1>
 
-            <p className="mt-6 max-w-md text-lg leading-8 text-slate-600">
+            <p className="mt-8 max-w-[520px] text-[20px] leading-9 text-slate-600">
               Akun baru otomatis terdaftar sebagai pengguna Umum. Role Staff
               AMOST hanya dapat ditentukan oleh Super Admin.
             </p>
 
-            <div className="mt-10 rounded-2xl border border-purple-100 bg-white/70 p-6 shadow-xl shadow-purple-100">
-              <p className="text-sm font-bold uppercase tracking-wide text-purple-700">
+            <div className="mt-14 rounded-2xl border border-purple-100 bg-white/80 p-6 shadow-sm backdrop-blur">
+              <p className="text-sm font-black uppercase tracking-wide text-purple-700">
                 Aturan Register
               </p>
 
-              <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
+              <ul className="mt-5 space-y-3 text-sm font-semibold leading-7 text-slate-600">
                 <li>• User baru otomatis menjadi Umum.</li>
-                <li>• Tidak ada pilihan role saat registrasi.</li>
-                <li>• Staff AMOST hanya ditentukan oleh Super Admin.</li>
-                <li>• Super Admin tidak dibuat dari halaman register.</li>
+                <li>• Staff AMOST ditetapkan oleh Super Admin.</li>
+                <li>• Gunakan email aktif untuk login ke akun.</li>
+                <li>• Nomor HP dapat dilengkapi untuk kebutuhan event.</li>
               </ul>
             </div>
           </div>
-        </section>
+        </div>
 
-        <section className="flex items-center justify-center px-5 py-10 sm:px-8">
-          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-7 shadow-2xl shadow-slate-200 sm:p-9">
-            <Link
-              href="/"
-              className="mb-8 inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-purple-700"
-            >
-              <ArrowLeft size={17} />
-              Kembali ke Beranda
-            </Link>
-
+        <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10 sm:px-6 lg:bg-white lg:px-10">
+          <div className="w-full max-w-[460px] rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm sm:p-8 lg:max-w-[520px] lg:p-10">
             <div className="mb-8 lg:hidden">
-              <Link href="/" className="flex items-center gap-3">
-                <div className="logo-symbol responsive-logo">A</div>
-                <div>
-                  <div className="text-[28px] font-black leading-none tracking-wide text-purple-700">
-                    AMOST
-                  </div>
-                  <div className="mt-1 text-[8px] font-black uppercase leading-[1.05] tracking-wide text-purple-700">
-                    Amikom Mobile Outdoor
-                    <br />
-                    Sport Tracking
-                  </div>
-                </div>
+              <Link href="/" className="inline-flex items-center">
+                <img
+                  src="/amost_logo_wide_.png"
+                  alt="AMOST"
+                  className="h-[58px] w-auto object-contain"
+                />
               </Link>
             </div>
 
-            <h2 className="text-3xl font-black text-slate-950">
-              Daftar Akun
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-slate-500">
-              Buat akun AMOST. Setelah register, akun otomatis menjadi pengguna
-              Umum.
-            </p>
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 text-sm font-black text-slate-600 transition hover:text-purple-700"
+            >
+              <ArrowLeft size={18} />
+              Kembali ke Beranda
+            </Link>
 
-            {message && (
-              <div
-                className={`mt-5 rounded-xl border p-4 text-sm font-bold leading-6 ${
-                  success
-                    ? "border-green-200 bg-green-50 text-green-700"
-                    : "border-red-200 bg-red-50 text-red-700"
-                }`}
-              >
-                {message}
+            <div className="mt-10">
+              <h2 className="text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
+                Daftar Akun
+              </h2>
+              <p className="mt-4 max-w-[390px] text-sm leading-7 text-slate-500 sm:text-base">
+                Buat akun AMOST. Setelah register, akun otomatis menjadi
+                pengguna Umum.
+              </p>
+            </div>
+
+            {error && (
+              <div className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                {error}
               </div>
             )}
 
-            <form onSubmit={handleRegister} className="mt-8 space-y-5">
+            <form onSubmit={handleSubmit} className="mt-8 space-y-5">
               <div>
-                <label className="mb-2 block text-sm font-bold text-slate-800">
+                <label
+                  htmlFor="fullName"
+                  className="mb-2 block text-sm font-black text-slate-950"
+                >
                   Nama Lengkap
                 </label>
-                <div className="flex h-13 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 focus-within:border-purple-600">
-                  <User size={19} className="text-slate-400" />
+                <InputShell icon={<User size={20} />}>
                   <input
+                    id="fullName"
                     type="text"
-                    placeholder="Nama lengkap"
                     value={fullName}
                     onChange={(event) => setFullName(event.target.value)}
-                    className="h-13 w-full border-0 bg-transparent text-sm font-medium text-slate-900 outline-none placeholder:text-slate-400"
-                    required
+                    autoComplete="name"
+                    placeholder="Nama lengkap"
+                    className="h-full min-w-0 flex-1 bg-transparent px-4 text-sm font-bold text-slate-950 outline-none placeholder:text-slate-400"
                   />
-                </div>
+                </InputShell>
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-bold text-slate-800">
+                <label
+                  htmlFor="email"
+                  className="mb-2 block text-sm font-black text-slate-950"
+                >
                   Email
                 </label>
-                <div className="flex h-13 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 focus-within:border-purple-600">
-                  <Mail size={19} className="text-slate-400" />
+                <InputShell icon={<Mail size={20} />}>
                   <input
+                    id="email"
                     type="email"
-                    placeholder="nama@email.com"
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
-                    className="h-13 w-full border-0 bg-transparent text-sm font-medium text-slate-900 outline-none placeholder:text-slate-400"
-                    required
+                    autoComplete="email"
+                    placeholder="email@example.com"
+                    className="h-full min-w-0 flex-1 bg-transparent px-4 text-sm font-bold text-slate-950 outline-none placeholder:text-slate-400"
                   />
-                </div>
+                </InputShell>
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-bold text-slate-800">
+                <label
+                  htmlFor="phone"
+                  className="mb-2 block text-sm font-black text-slate-950"
+                >
                   Nomor HP
                 </label>
-                <div className="flex h-13 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 focus-within:border-purple-600">
-                  <Phone size={19} className="text-slate-400" />
+                <InputShell icon={<Phone size={20} />}>
                   <input
+                    id="phone"
                     type="tel"
-                    placeholder="08xxxxxxxxxx"
                     value={phone}
                     onChange={(event) => setPhone(event.target.value)}
-                    className="h-13 w-full border-0 bg-transparent text-sm font-medium text-slate-900 outline-none placeholder:text-slate-400"
+                    autoComplete="tel"
+                    placeholder="08xxxxxxxxxx"
+                    className="h-full min-w-0 flex-1 bg-transparent px-4 text-sm font-bold text-slate-950 outline-none placeholder:text-slate-400"
                   />
-                </div>
+                </InputShell>
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-bold text-slate-800">
+                <label
+                  htmlFor="password"
+                  className="mb-2 block text-sm font-black text-slate-950"
+                >
                   Password
                 </label>
-                <div className="flex h-13 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 focus-within:border-purple-600">
-                  <Lock size={19} className="text-slate-400" />
+                <InputShell icon={<Lock size={20} />}>
                   <input
+                    id="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="Minimal 8 karakter"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
-                    className="h-13 w-full border-0 bg-transparent text-sm font-medium text-slate-900 outline-none placeholder:text-slate-400"
-                    required
+                    autoComplete="new-password"
+                    placeholder="Minimal 6 karakter"
+                    className="h-full min-w-0 flex-1 bg-transparent px-4 text-sm font-bold text-slate-950 outline-none placeholder:text-slate-400"
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="text-slate-400"
+                    onClick={() => setShowPassword((value) => !value)}
+                    className="flex w-14 items-center justify-center text-slate-400 transition hover:text-purple-700"
+                    aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
                   >
-                    {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
-                </div>
+                </InputShell>
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-bold text-slate-800">
+                <label
+                  htmlFor="confirmPassword"
+                  className="mb-2 block text-sm font-black text-slate-950"
+                >
                   Konfirmasi Password
                 </label>
-                <div className="flex h-13 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 focus-within:border-purple-600">
-                  <Lock size={19} className="text-slate-400" />
+                <InputShell icon={<Lock size={20} />}>
                   <input
+                    id="confirmPassword"
                     type={showConfirmPassword ? "text" : "password"}
-                    placeholder="Ulangi password"
                     value={confirmPassword}
-                    onChange={(event) =>
-                      setConfirmPassword(event.target.value)
-                    }
-                    className="h-13 w-full border-0 bg-transparent text-sm font-medium text-slate-900 outline-none placeholder:text-slate-400"
-                    required
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                    autoComplete="new-password"
+                    placeholder="Ulangi password"
+                    className="h-full min-w-0 flex-1 bg-transparent px-4 text-sm font-bold text-slate-950 outline-none placeholder:text-slate-400"
                   />
                   <button
                     type="button"
-                    onClick={() =>
-                      setShowConfirmPassword(!showConfirmPassword)
+                    onClick={() => setShowConfirmPassword((value) => !value)}
+                    className="flex w-14 items-center justify-center text-slate-400 transition hover:text-purple-700"
+                    aria-label={
+                      showConfirmPassword
+                        ? "Sembunyikan konfirmasi password"
+                        : "Tampilkan konfirmasi password"
                     }
-                    className="text-slate-400"
                   >
-                    {showConfirmPassword ? (
-                      <EyeOff size={19} />
-                    ) : (
-                      <Eye size={19} />
-                    )}
+                    {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-purple-100 bg-purple-50 p-4">
-                <p className="text-sm leading-6 text-purple-900">
-                  Dengan mendaftar, akun kamu otomatis dibuat sebagai{" "}
-                  <strong>Umum</strong>.
-                </p>
+                </InputShell>
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="h-13 w-full rounded-xl bg-purple-700 text-sm font-black text-white shadow-lg shadow-purple-200 transition hover:bg-purple-800 disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex h-14 w-full items-center justify-center rounded-xl bg-purple-700 px-6 text-base font-black text-white shadow-lg shadow-purple-200 transition hover:bg-purple-800 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {loading ? "Memproses..." : "Daftar"}
               </button>
             </form>
 
-            <p className="mt-7 text-center text-sm text-slate-600">
+            <p className="mt-8 text-center text-sm font-semibold text-slate-500">
               Sudah punya akun?{" "}
-              <Link href="/login" className="font-black text-purple-700">
-                Login
+              <Link
+                href="/login"
+                className="font-black text-purple-700 hover:text-purple-900"
+              >
+                Login sekarang
               </Link>
             </p>
           </div>
-        </section>
-      </div>
+        </div>
+      </section>
     </main>
+  );
+}
+
+function InputShell({
+  icon,
+  children,
+}: {
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex h-14 overflow-hidden rounded-xl border border-slate-200 bg-white focus-within:border-purple-500 focus-within:ring-4 focus-within:ring-purple-100">
+      <div className="flex w-14 items-center justify-center bg-slate-50 text-slate-400">
+        {icon}
+      </div>
+      {children}
+    </div>
   );
 }
