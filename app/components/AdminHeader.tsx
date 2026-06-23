@@ -1,11 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, CalendarPlus, LogOut, RefreshCw, ShieldCheck, UsersRound } from "lucide-react";
+import {
+  ArrowLeft,
+  CalendarPlus,
+  LogOut,
+  RefreshCw,
+  ShieldCheck,
+  UsersRound,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 
+type AdminHeaderActive =
+  | "dashboard"
+  | "events"
+  | "event-officials"
+  | "officials"
+  | "other";
+
 type AdminHeaderProps = {
-  active?: "dashboard" | "events" | "event-officials" | "other";
+  active?: AdminHeaderActive;
   title?: string;
   subtitle?: string;
   showRefresh?: boolean;
@@ -20,6 +34,8 @@ export default function AdminHeader({
   onRefresh,
 }: AdminHeaderProps) {
   const router = useRouter();
+  const eventOfficialsActive =
+    active === "event-officials" || active === "officials";
 
   async function handleLogout() {
     try {
@@ -93,7 +109,7 @@ export default function AdminHeader({
           <Link
             href="/admin/event-officials"
             className={`inline-flex h-11 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-black transition ${
-              active === "event-officials"
+              eventOfficialsActive
                 ? "border-purple-200 bg-purple-50 text-purple-700"
                 : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
             }`}
