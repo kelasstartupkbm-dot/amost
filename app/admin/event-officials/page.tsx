@@ -217,7 +217,11 @@ export default function EventOfficialsPage() {
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
-      <AdminHeader active="officials" />
+      <AdminHeader
+  active="event-officials"
+  title="Official Event"
+  subtitle="Atur panitia/operator yang hanya punya akses pada event tertentu."
+/>
 
       <section className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-[1440px] flex-col gap-4 px-4 py-8 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-[88px]">
