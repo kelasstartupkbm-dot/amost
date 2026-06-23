@@ -5,11 +5,14 @@ import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   CalendarDays,
+  Edit,
   Gift,
   Loader2,
   MapPin,
   Route,
+  Send,
   Ticket,
+  Trash2,
   Users,
 } from "lucide-react";
 
@@ -42,6 +45,7 @@ type PageProps = {
 export default function AdminEventDetailPage({ params }: PageProps) {
   const [event, setEvent] = useState<EventDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState("");
   const [message, setMessage] = useState("");
 
   async function loadEvent() {
@@ -80,6 +84,84 @@ export default function AdminEventDetailPage({ params }: PageProps) {
     }
   }
 
+  async function publishEvent() {
+    if (!event) return;
+
+    try {
+      setActionLoading("publish");
+      setMessage("");
+
+      const response = await fetch(`/api/admin/events/${event.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: event.title,
+          slug: event.slug,
+          description: event.description || "",
+          eventType: event.eventType || "Event",
+          location: event.location || "",
+          startDate: toDateTimeLocal(event.startDate),
+          endDate: toDateTimeLocal(event.endDate || event.startDate),
+          distanceKm: event.distanceKm || 0,
+          ticketPrice: event.ticketPrice || 0,
+          maxParticipants: event.maxParticipants || 0,
+          doorprizeCount: event.doorprizeCount || 0,
+          coverImage: event.coverImage || "",
+          status: "published",
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        setMessage(data.message || "Gagal publish event.");
+        return;
+      }
+
+      await loadEvent();
+    } catch (error) {
+      console.error(error);
+      setMessage("Terjadi kesalahan saat publish event.");
+    } finally {
+      setActionLoading("");
+    }
+  }
+
+  async function deleteEvent() {
+    if (!event) return;
+
+    const confirmed = window.confirm(
+      `Hapus event "${event.title}"? Event yang sudah punya peserta tidak bisa dihapus.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setActionLoading("delete");
+      setMessage("");
+
+      const response = await fetch(`/api/admin/events/${event.id}`, {
+        method: "DELETE",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        setMessage(data.message || "Gagal menghapus event.");
+        return;
+      }
+
+      window.location.href = "/admin";
+    } catch (error) {
+      console.error(error);
+      setMessage("Terjadi kesalahan saat menghapus event.");
+    } finally {
+      setActionLoading("");
+    }
+  }
+
   useEffect(() => {
     loadEvent();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -88,8 +170,8 @@ export default function AdminEventDetailPage({ params }: PageProps) {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
       <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-xl">
-        <div className="mx-auto flex h-20 max-w-[1440px] items-center justify-between px-4 sm:px-6 lg:px-8">
-          <Link href="/admin" className="flex items-center gap-3">
+        <div className="mx-auto flex h-20 max-w-[1440px] items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+          <Link href="/admin" className="flex min-w-0 items-center gap-3">
             <div className="logo-symbol responsive-logo">A</div>
             <div>
               <div className="text-[26px] font-black leading-none tracking-wide text-purple-700">
@@ -101,13 +183,49 @@ export default function AdminEventDetailPage({ params }: PageProps) {
             </div>
           </Link>
 
-          <Link
-            href="/admin"
-            className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
-          >
-            <ArrowLeft size={17} />
-            Events
-          </Link>
+          <div className="flex items-center gap-2">
+            {event && (
+              <>
+                <Link
+                  href={`/admin/events/${event.id}/edit`}
+                  className="hidden items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 sm:flex"
+                >
+                  <Edit size={17} />
+                  Edit
+                </Link>
+
+                {event.status !== "published" && (
+                  <button
+                    type="button"
+                    onClick={publishEvent}
+                    disabled={actionLoading === "publish"}
+                    className="hidden items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm font-bold text-green-700 hover:bg-green-100 disabled:opacity-60 sm:flex"
+                  >
+                    <Send size={17} />
+                    {actionLoading === "publish" ? "Publish..." : "Publish"}
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={deleteEvent}
+                  disabled={actionLoading === "delete"}
+                  className="hidden items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-bold text-red-700 hover:bg-red-100 disabled:opacity-60 sm:flex"
+                >
+                  <Trash2 size={17} />
+                  {actionLoading === "delete" ? "Hapus..." : "Hapus"}
+                </button>
+              </>
+            )}
+
+            <Link
+              href="/admin"
+              className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
+            >
+              <ArrowLeft size={17} />
+              Events
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -121,12 +239,18 @@ export default function AdminEventDetailPage({ params }: PageProps) {
               </p>
             </div>
           </div>
-        ) : message ? (
+        ) : message && !event ? (
           <div className="rounded-2xl border border-red-100 bg-red-50 p-6 text-sm font-bold text-red-700">
             {message}
           </div>
         ) : event ? (
           <>
+            {message && (
+              <div className="mb-6 rounded-xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700">
+                {message}
+              </div>
+            )}
+
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
               <div className="relative h-72 bg-gradient-to-br from-purple-50 to-slate-100">
                 {event.coverImage ? (
@@ -181,6 +305,33 @@ export default function AdminEventDetailPage({ params }: PageProps) {
                 <p className="mt-6 max-w-4xl whitespace-pre-line text-sm leading-7 text-slate-600">
                   {event.description || "Belum ada deskripsi event."}
                 </p>
+
+                <div className="mt-6 flex flex-wrap gap-3 sm:hidden">
+                  <Link
+                    href={`/admin/events/${event.id}/edit`}
+                    className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700"
+                  >
+                    Edit
+                  </Link>
+
+                  {event.status !== "published" && (
+                    <button
+                      type="button"
+                      onClick={publishEvent}
+                      className="rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm font-bold text-green-700"
+                    >
+                      Publish
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={deleteEvent}
+                    className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-bold text-red-700"
+                  >
+                    Hapus
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -254,6 +405,19 @@ function SummaryCard({
       <p className="mt-1 text-sm font-semibold text-slate-500">{label}</p>
     </div>
   );
+}
+
+function toDateTimeLocal(value?: string | null) {
+  if (!value) return "";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "";
+
+  const offset = date.getTimezoneOffset();
+  const localDate = new Date(date.getTime() - offset * 60 * 1000);
+
+  return localDate.toISOString().slice(0, 16);
 }
 
 function formatDate(value?: string | null) {
