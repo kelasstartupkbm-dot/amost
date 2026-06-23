@@ -407,6 +407,38 @@ export async function requireSuperAdminOrStaff(): Promise<AuthUser> {
   return requireAdminUser();
 }
 
-export async function requireAmostAdmin(): Promise<AuthUser> {
-  return requireAdminUser();
+/*
+  Kompatibilitas untuk route lama:
+  Beberapa file API memanggil:
+    const auth = await requireAmostAdmin(request);
+    if (auth.response) return auth.response;
+
+  Karena itu fungsi ini sengaja menerima optional request dan mengembalikan
+  object yang punya `response`, `user`, sekaligus field user langsung.
+*/
+export async function requireAmostAdmin(_request?: unknown): Promise<any> {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return {
+      ok: false,
+      user: null,
+      response: jsonError("Sesi login tidak valid. Silakan login ulang.", 401),
+    };
+  }
+
+  if (!isAdminUser(user)) {
+    return {
+      ok: false,
+      user,
+      response: jsonError("Akses ditolak. Hanya Super Admin atau Staff AMOST.", 403),
+    };
+  }
+
+  return {
+    ok: true,
+    ...user,
+    user,
+    response: null,
+  };
 }
