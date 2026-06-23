@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
 import { dbQuery } from "./amostDb";
 
 export type AuthUser = {
@@ -37,7 +38,10 @@ function mapUserRow(row: UserRow): AuthUser {
     id: Number(row.id),
     fullName: row.full_name || "AMOST User",
     email: row.email || "",
-    roleId: row.role_id === null || row.role_id === undefined ? null : Number(row.role_id),
+    roleId:
+      row.role_id === null || row.role_id === undefined
+        ? null
+        : Number(row.role_id),
     roleName: normalizeRole(row.role_name || "umum"),
     roleLabel: row.role_label || "Umum",
   };
@@ -73,6 +77,7 @@ function extractNumericId(value: string) {
   }
 
   const json = parseJsonCookie(decoded);
+
   if (json) {
     const possibleId =
       json.id ||
@@ -100,6 +105,39 @@ function getCookieValue(names: string[]) {
   }
 
   return "";
+}
+
+export function jsonError(
+  message: unknown = "Terjadi kesalahan.",
+  status = 400,
+  extra: Record<string, unknown> = {}
+) {
+  const errorMessage =
+    message instanceof Error
+      ? message.message
+      : typeof message === "string"
+      ? message
+      : "Terjadi kesalahan.";
+
+  return NextResponse.json(
+    {
+      ok: false,
+      message: errorMessage,
+      error: errorMessage,
+      ...extra,
+    },
+    { status }
+  );
+}
+
+export function jsonOk(data: Record<string, unknown> = {}, status = 200) {
+  return NextResponse.json(
+    {
+      ok: true,
+      ...data,
+    },
+    { status }
+  );
 }
 
 export async function getUserById(userId: number): Promise<AuthUser | null> {
@@ -162,7 +200,9 @@ export async function getUserByEmail(email: string): Promise<AuthUser | null> {
   return mapUserRow(row);
 }
 
-async function getUserFromSessionTable(sessionToken: string): Promise<AuthUser | null> {
+async function getUserFromSessionTable(
+  sessionToken: string
+): Promise<AuthUser | null> {
   if (!sessionToken) {
     return null;
   }
@@ -208,7 +248,7 @@ async function getUserFromSessionTable(sessionToken: string): Promise<AuthUser |
         return await getUserById(userId);
       }
     } catch {
-      // Struktur tabel sessions bisa berbeda. Abaikan dan coba pola berikutnya.
+      // Struktur tabel sessions bisa berbeda. Abaikan dan lanjut pola berikutnya.
     }
   }
 
@@ -303,6 +343,10 @@ export async function getAuthUser() {
   return getCurrentUser();
 }
 
+export async function getCurrentAmostUser() {
+  return getCurrentUser();
+}
+
 export function isSuperAdmin(user: AuthUser | null | undefined) {
   return normalizeRole(user?.roleName) === "super_admin";
 }
@@ -313,6 +357,10 @@ export function isStaffAmost(user: AuthUser | null | undefined) {
 
 export function isAdminUser(user: AuthUser | null | undefined) {
   return ADMIN_ROLES.has(normalizeRole(user?.roleName));
+}
+
+export function isGlobalAdminUser(user: AuthUser | null | undefined) {
+  return isAdminUser(user);
 }
 
 export function canAccessAdminPanel(user: AuthUser | null | undefined) {
@@ -356,5 +404,9 @@ export async function requireAdminAccess(): Promise<AuthUser> {
 }
 
 export async function requireSuperAdminOrStaff(): Promise<AuthUser> {
+  return requireAdminUser();
+}
+
+export async function requireAmostAdmin(): Promise<AuthUser> {
   return requireAdminUser();
 }
