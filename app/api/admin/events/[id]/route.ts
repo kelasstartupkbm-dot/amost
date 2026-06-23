@@ -2,61 +2,25 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { getCurrentUser, isAdmin } from "@/lib/current-user";
 
-type RouteContext = {
-  params: {
-    id: string;
-  };
-};
+type RouteContext = { params: { id: string } };
 
 export async function GET(_request: Request, context: RouteContext) {
   try {
     const currentUser = await getCurrentUser();
-
-    if (!currentUser) {
-      return NextResponse.json(
-        { ok: false, message: "Belum login." },
-        { status: 401 }
-      );
-    }
-
-    if (!isAdmin(currentUser)) {
-      return NextResponse.json(
-        { ok: false, message: "Akses ditolak." },
-        { status: 403 }
-      );
-    }
+    if (!currentUser) return NextResponse.json({ ok: false, message: "Belum login." }, { status: 401 });
+    if (!isAdmin(currentUser)) return NextResponse.json({ ok: false, message: "Akses ditolak." }, { status: 403 });
 
     const eventId = Number(context.params.id);
-
-    if (!Number.isFinite(eventId)) {
-      return NextResponse.json(
-        { ok: false, message: "ID event tidak valid." },
-        { status: 400 }
-      );
-    }
+    if (!Number.isFinite(eventId)) return NextResponse.json({ ok: false, message: "ID event tidak valid." }, { status: 400 });
 
     const db = getDb();
-
     const result = await db.query(
       `
       SELECT
-        e.id,
-        e.title,
-        e.slug,
-        e.description,
-        e.event_type,
-        e.location,
-        e.start_date,
-        e.end_date,
-        e.distance_km,
-        e.ticket_price,
-        e.max_participants,
-        e.doorprize_count,
-        e.status,
-        e.cover_image,
-        e.created_by,
-        e.created_at,
-        e.updated_at,
+        e.id, e.title, e.slug, e.description, e.event_type, e.location,
+        e.start_date, e.end_date, e.distance_km, e.ticket_price,
+        e.max_participants, e.doorprize_count, e.status, e.cover_image,
+        e.gpx_filename, e.gpx_content, e.created_by, e.created_at, e.updated_at,
         COALESCE(r.participant_count, 0)::int AS participant_count
       FROM events e
       LEFT JOIN (
@@ -70,56 +34,22 @@ export async function GET(_request: Request, context: RouteContext) {
       [eventId]
     );
 
-    if (!result.rowCount) {
-      return NextResponse.json(
-        { ok: false, message: "Event tidak ditemukan." },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({
-      ok: true,
-      event: mapEvent(result.rows[0]),
-    });
+    if (!result.rowCount) return NextResponse.json({ ok: false, message: "Event tidak ditemukan." }, { status: 404 });
+    return NextResponse.json({ ok: true, event: mapEvent(result.rows[0]) });
   } catch (error) {
     console.error("ADMIN_EVENT_DETAIL_GET_ERROR", error);
-
-    const message =
-      error instanceof Error ? error.message : "Gagal mengambil detail event.";
-
-    return NextResponse.json(
-      { ok: false, message: `Gagal mengambil detail event: ${message}` },
-      { status: 500 }
-    );
+    return NextResponse.json({ ok: false, message: error instanceof Error ? error.message : "Gagal mengambil detail event." }, { status: 500 });
   }
 }
 
 export async function PATCH(request: Request, context: RouteContext) {
   try {
     const currentUser = await getCurrentUser();
-
-    if (!currentUser) {
-      return NextResponse.json(
-        { ok: false, message: "Belum login." },
-        { status: 401 }
-      );
-    }
-
-    if (!isAdmin(currentUser)) {
-      return NextResponse.json(
-        { ok: false, message: "Akses ditolak." },
-        { status: 403 }
-      );
-    }
+    if (!currentUser) return NextResponse.json({ ok: false, message: "Belum login." }, { status: 401 });
+    if (!isAdmin(currentUser)) return NextResponse.json({ ok: false, message: "Akses ditolak." }, { status: 403 });
 
     const eventId = Number(context.params.id);
-
-    if (!Number.isFinite(eventId)) {
-      return NextResponse.json(
-        { ok: false, message: "ID event tidak valid." },
-        { status: 400 }
-      );
-    }
+    if (!Number.isFinite(eventId)) return NextResponse.json({ ok: false, message: "ID event tidak valid." }, { status: 400 });
 
     const body = await request.json();
 
@@ -135,41 +65,16 @@ export async function PATCH(request: Request, context: RouteContext) {
     const maxParticipants = Math.floor(safeNumber(body.maxParticipants));
     const doorprizeCount = Math.floor(safeNumber(body.doorprizeCount));
     const coverImage = String(body.coverImage || "").trim();
+    const gpxFilename = String(body.gpxFilename || "").trim();
+    const gpxContent = String(body.gpxContent || "").trim();
     const status = String(body.status || "draft").trim();
 
-    if (!title) {
-      return NextResponse.json(
-        { ok: false, message: "Nama event wajib diisi." },
-        { status: 400 }
-      );
-    }
-
-    if (!slug) {
-      return NextResponse.json(
-        { ok: false, message: "Slug event wajib diisi." },
-        { status: 400 }
-      );
-    }
-
-    if (!location) {
-      return NextResponse.json(
-        { ok: false, message: "Lokasi event wajib diisi." },
-        { status: 400 }
-      );
-    }
-
-    if (!startDate) {
-      return NextResponse.json(
-        { ok: false, message: "Tanggal mulai wajib diisi." },
-        { status: 400 }
-      );
-    }
-
+    if (!title) return NextResponse.json({ ok: false, message: "Nama event wajib diisi." }, { status: 400 });
+    if (!slug) return NextResponse.json({ ok: false, message: "Slug event wajib diisi." }, { status: 400 });
+    if (!location) return NextResponse.json({ ok: false, message: "Lokasi event wajib diisi." }, { status: 400 });
+    if (!startDate) return NextResponse.json({ ok: false, message: "Tanggal mulai wajib diisi." }, { status: 400 });
     if (!["draft", "published", "closed", "finished"].includes(status)) {
-      return NextResponse.json(
-        { ok: false, message: "Status event tidak valid." },
-        { status: 400 }
-      );
+      return NextResponse.json({ ok: false, message: "Status event tidak valid." }, { status: 400 });
     }
 
     const db = getDb();
@@ -180,10 +85,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     );
 
     if (duplicate.rowCount) {
-      return NextResponse.json(
-        { ok: false, message: "Slug sudah digunakan event lain." },
-        { status: 409 }
-      );
+      return NextResponse.json({ ok: false, message: "Slug sudah digunakan event lain." }, { status: 409 });
     }
 
     const result = await db.query(
@@ -203,14 +105,11 @@ export async function PATCH(request: Request, context: RouteContext) {
         doorprize_count = $11,
         status = $12,
         cover_image = $13,
+        gpx_filename = $14,
+        gpx_content = $15,
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = $14
-      RETURNING
-        id,
-        title,
-        slug,
-        status,
-        updated_at
+      WHERE id = $16
+      RETURNING id, title, slug, status, updated_at
       `,
       [
         title,
@@ -226,16 +125,13 @@ export async function PATCH(request: Request, context: RouteContext) {
         doorprizeCount,
         status,
         coverImage || null,
+        gpxFilename || null,
+        gpxContent || null,
         eventId,
       ]
     );
 
-    if (!result.rowCount) {
-      return NextResponse.json(
-        { ok: false, message: "Event tidak ditemukan." },
-        { status: 404 }
-      );
-    }
+    if (!result.rowCount) return NextResponse.json({ ok: false, message: "Event tidak ditemukan." }, { status: 404 });
 
     return NextResponse.json({
       ok: true,
@@ -250,89 +146,33 @@ export async function PATCH(request: Request, context: RouteContext) {
     });
   } catch (error) {
     console.error("ADMIN_EVENT_DETAIL_PATCH_ERROR", error);
-
-    const message =
-      error instanceof Error ? error.message : "Gagal memperbarui event.";
-
-    return NextResponse.json(
-      { ok: false, message: `Gagal memperbarui event: ${message}` },
-      { status: 500 }
-    );
+    return NextResponse.json({ ok: false, message: error instanceof Error ? error.message : "Gagal memperbarui event." }, { status: 500 });
   }
 }
 
 export async function DELETE(_request: Request, context: RouteContext) {
   try {
     const currentUser = await getCurrentUser();
-
-    if (!currentUser) {
-      return NextResponse.json(
-        { ok: false, message: "Belum login." },
-        { status: 401 }
-      );
-    }
-
-    if (!isAdmin(currentUser)) {
-      return NextResponse.json(
-        { ok: false, message: "Akses ditolak." },
-        { status: 403 }
-      );
-    }
+    if (!currentUser) return NextResponse.json({ ok: false, message: "Belum login." }, { status: 401 });
+    if (!isAdmin(currentUser)) return NextResponse.json({ ok: false, message: "Akses ditolak." }, { status: 403 });
 
     const eventId = Number(context.params.id);
-
-    if (!Number.isFinite(eventId)) {
-      return NextResponse.json(
-        { ok: false, message: "ID event tidak valid." },
-        { status: 400 }
-      );
-    }
+    if (!Number.isFinite(eventId)) return NextResponse.json({ ok: false, message: "ID event tidak valid." }, { status: 400 });
 
     const db = getDb();
+    const participants = await db.query(`SELECT COUNT(*)::int AS total FROM event_registrations WHERE event_id = $1`, [eventId]);
 
-    const participants = await db.query(
-      `SELECT COUNT(*)::int AS total FROM event_registrations WHERE event_id = $1`,
-      [eventId]
-    );
-
-    const participantCount = Number(participants.rows[0]?.total || 0);
-
-    if (participantCount > 0) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message:
-            "Event tidak bisa dihapus karena sudah memiliki peserta. Ubah status menjadi Closed/Finished.",
-        },
-        { status: 409 }
-      );
+    if (Number(participants.rows[0]?.total || 0) > 0) {
+      return NextResponse.json({ ok: false, message: "Event tidak bisa dihapus karena sudah memiliki peserta. Ubah status menjadi Closed/Finished." }, { status: 409 });
     }
 
-    const result = await db.query(`DELETE FROM events WHERE id = $1 RETURNING id`, [
-      eventId,
-    ]);
+    const result = await db.query(`DELETE FROM events WHERE id = $1 RETURNING id`, [eventId]);
+    if (!result.rowCount) return NextResponse.json({ ok: false, message: "Event tidak ditemukan." }, { status: 404 });
 
-    if (!result.rowCount) {
-      return NextResponse.json(
-        { ok: false, message: "Event tidak ditemukan." },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({
-      ok: true,
-      message: "Event berhasil dihapus.",
-    });
+    return NextResponse.json({ ok: true, message: "Event berhasil dihapus." });
   } catch (error) {
     console.error("ADMIN_EVENT_DETAIL_DELETE_ERROR", error);
-
-    const message =
-      error instanceof Error ? error.message : "Gagal menghapus event.";
-
-    return NextResponse.json(
-      { ok: false, message: `Gagal menghapus event: ${message}` },
-      { status: 500 }
-    );
+    return NextResponse.json({ ok: false, message: error instanceof Error ? error.message : "Gagal menghapus event." }, { status: 500 });
   }
 }
 
@@ -352,6 +192,8 @@ function mapEvent(event: any) {
     doorprizeCount: event.doorprize_count,
     status: event.status,
     coverImage: event.cover_image,
+    gpxFilename: event.gpx_filename,
+    gpxContent: event.gpx_content,
     createdBy: event.created_by,
     createdAt: event.created_at,
     updatedAt: event.updated_at,
@@ -365,10 +207,5 @@ function safeNumber(value: unknown) {
 }
 
 function createSlug(value: string) {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/['"]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+  return value.toLowerCase().trim().replace(/['"]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
