@@ -1,16 +1,36 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect } from "react";
 
 export default function Footer() {
   const year = new Date().getFullYear();
 
+  useEffect(() => {
+    hideDuplicateFooters();
+
+    const timer = window.setTimeout(() => {
+      hideDuplicateFooters();
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, []);
+
   return (
-    <footer className="border-t border-slate-200 bg-white">
+    <footer
+      data-amost-footer="true"
+      className="border-t border-slate-200 bg-white"
+    >
       <div className="mx-auto grid max-w-[1440px] gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1.2fr_0.8fr_0.8fr] lg:px-[88px]">
         <div>
-          <Link href="/" className="inline-flex items-center" aria-label="AMOST Beranda">
+          <Link
+            href="/"
+            className="inline-flex items-center"
+            aria-label="AMOST Beranda"
+          >
             <img
               src="/amost_logo_wide_.png"
-              alt=""
+              alt="AMOST"
               className="block h-[42px] w-auto object-contain"
             />
           </Link>
@@ -25,11 +45,20 @@ export default function Footer() {
           <h3 className="text-sm font-black uppercase tracking-wide text-slate-950">
             Navigasi
           </h3>
+
           <div className="mt-4 flex flex-col gap-3 text-sm font-semibold text-slate-600">
-            <Link href="/events" className="hover:text-purple-700">Events</Link>
-            <Link href="/fitur" className="hover:text-purple-700">Fitur</Link>
-            <Link href="/komunitas" className="hover:text-purple-700">Komunitas</Link>
-            <Link href="/tentang" className="hover:text-purple-700">Tentang</Link>
+            <Link href="/events" className="hover:text-purple-700">
+              Events
+            </Link>
+            <Link href="/fitur" className="hover:text-purple-700">
+              Fitur
+            </Link>
+            <Link href="/komunitas" className="hover:text-purple-700">
+              Komunitas
+            </Link>
+            <Link href="/tentang" className="hover:text-purple-700">
+              Tentang
+            </Link>
           </div>
         </div>
 
@@ -37,10 +66,17 @@ export default function Footer() {
           <h3 className="text-sm font-black uppercase tracking-wide text-slate-950">
             Akses
           </h3>
+
           <div className="mt-4 flex flex-col gap-3 text-sm font-semibold text-slate-600">
-            <Link href="/login" className="hover:text-purple-700">Login</Link>
-            <Link href="/register" className="hover:text-purple-700">Register</Link>
-            <Link href="/kontak" className="hover:text-purple-700">Kontak</Link>
+            <Link href="/login" className="hover:text-purple-700">
+              Login
+            </Link>
+            <Link href="/register" className="hover:text-purple-700">
+              Register
+            </Link>
+            <Link href="/kontak" className="hover:text-purple-700">
+              Kontak
+            </Link>
           </div>
         </div>
       </div>
@@ -50,4 +86,14 @@ export default function Footer() {
       </div>
     </footer>
   );
+}
+
+function hideDuplicateFooters() {
+  const footers = Array.from(
+    document.querySelectorAll<HTMLElement>('[data-amost-footer="true"]'),
+  );
+
+  footers.forEach((footer, index) => {
+    footer.style.display = index === 0 ? "" : "none";
+  });
 }
