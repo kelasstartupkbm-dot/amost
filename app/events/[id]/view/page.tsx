@@ -343,76 +343,64 @@ export default function EventLiveViewPage() {
 
   return (
     <main className="min-h-screen bg-[#f7f8fb] text-slate-950">
-      <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-xl">
-        <div className="mx-auto flex min-h-[88px] max-w-[1440px] flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-[40px] xl:px-[64px]">
-          <div className="flex items-center gap-4">
-            <button
-              type="button"
-              onClick={() => setPanelOpen(true)}
-              className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 lg:hidden"
-              title="Buka panel"
-            >
-              <Menu size={21} />
-            </button>
 
-            <Link
-              href={`/events/${eventId}`}
-              className="hidden h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 sm:flex"
-              title="Kembali ke event"
-            >
-              <ArrowLeft size={21} />
-            </Link>
+      <section className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-3 px-4 pt-4 sm:px-6 lg:px-[40px] xl:px-[64px]">
+        <div className="flex min-w-0 items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setPanelOpen(true)}
+            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 xl:hidden"
+            title="Buka panel"
+          >
+            <Menu size={21} />
+          </button>
 
-            <Link href="/" className="hidden items-center sm:flex">
-              <img
-                src="/amost_logo_wide_.png"
-                alt="AMOST"
-                className="h-[54px] w-auto object-contain"
-              />
-            </Link>
+          <Link
+            href={`/events/${eventId}`}
+            className="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50"
+          >
+            <ArrowLeft size={18} />
+            Detail Event
+          </Link>
 
-            <div className="min-w-0 border-slate-200 sm:border-l sm:pl-5">
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-purple-700">
-                Live View Event
-              </p>
-              <h1 className="truncate text-xl font-black text-slate-950 lg:text-2xl">
-                {eventTitle}
-              </h1>
-              <p className="mt-1 hidden text-sm font-semibold text-slate-500 md:block">
-                Pantau status event, peserta, results, dan akses doorprize.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={() => loadData(true)}
-              disabled={refreshing}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:opacity-70"
-            >
-              <RefreshCw size={17} className={refreshing ? "animate-spin" : ""} />
-              Refresh
-            </button>
-
-            <Link
-              href={`/events/${eventId}/results`}
-              className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50"
-            >
-              Results
-            </Link>
-
-            <Link
-              href={`/events/${eventId}/doorprize`}
-              className="inline-flex h-11 items-center justify-center rounded-2xl bg-purple-700 px-4 text-sm font-black text-white hover:bg-purple-800"
-            >
-              Doorprize
-            </Link>
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-purple-700">
+              Live View Event
+            </p>
+            <h1 className="truncate text-xl font-black text-slate-950">
+              {eventTitle}
+            </h1>
           </div>
         </div>
-      </header>
 
-      <section className="grid min-h-[calc(100vh-88px)] grid-cols-1 gap-5 p-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => loadData(true)}
+            disabled={refreshing}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:opacity-70"
+          >
+            <RefreshCw size={17} className={refreshing ? "animate-spin" : ""} />
+            Refresh
+          </button>
+
+          <Link
+            href={`/events/${eventId}/results`}
+            className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50"
+          >
+            Results
+          </Link>
+
+          <Link
+            href={`/events/${eventId}/doorprize`}
+            className="inline-flex h-11 items-center justify-center rounded-2xl bg-purple-700 px-4 text-sm font-black text-white hover:bg-purple-800"
+          >
+            Doorprize
+          </Link>
+        </div>
+      </section>
+
+      <section className="grid min-h-[calc(100vh-168px)] grid-cols-1 gap-5 p-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <section className="relative min-h-[680px] overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm lg:min-h-[calc(100vh-120px)]">
           <MapMockup />
 
