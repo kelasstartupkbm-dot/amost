@@ -21,9 +21,9 @@ function getUserId(user: any) {
   return Number(user?.id || user?.user_id || user?.userId || 0);
 }
 
-function getPostId(context: any) {
-  const raw = context?.params?.id;
-  const id = Number(raw);
+async function resolvePostId(context: any) {
+  const params = await Promise.resolve(context?.params);
+  const id = Number(params?.id);
 
   if (!Number.isFinite(id) || id <= 0) return null;
 
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest, context: any) {
     return jsonError("Login diperlukan untuk membuka komentar.", 401);
   }
 
-  const postId = getPostId(context);
+  const postId = await resolvePostId(context);
 
   if (!postId) {
     return jsonError("Post ID tidak valid.", 400);
@@ -149,7 +149,7 @@ export async function POST(request: NextRequest, context: any) {
     return jsonError("Login diperlukan untuk komentar.", 401);
   }
 
-  const postId = getPostId(context);
+  const postId = await resolvePostId(context);
 
   if (!postId) {
     return jsonError("Post ID tidak valid.", 400);
@@ -174,6 +174,20 @@ export async function POST(request: NextRequest, context: any) {
   }
 
   try {
+    const postCheck = await dbQuery(
+      `
+      SELECT id
+      FROM community_posts
+      WHERE id = $1
+      LIMIT 1
+      `,
+      [postId],
+    );
+
+    if (postCheck.rows.length === 0) {
+      return jsonError("Postingan tidak ditemukan.", 404);
+    }
+
     const result = await dbQuery(
       `
       INSERT INTO community_post_comments (
