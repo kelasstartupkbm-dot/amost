@@ -103,14 +103,14 @@ function getPanelAction(
   if (role.includes("super_admin") || role.includes("super")) {
     return {
       label: "Control Panel",
-      href: "/admin",
+      href: "/api/admin-entry",
     };
   }
 
   if (role.includes("staff_amost") || role.includes("staff")) {
     return {
       label: "Staff AMOST",
-      href: "/admin",
+      href: "/api/admin-entry",
     };
   }
 
