@@ -416,7 +416,7 @@ function TrackingMobileSidebar({
           <MobileTrackingLink href="/account#results" icon={BarChart3} label="Statistics" onClick={onClose} />
           <MobileTrackingLink href="/account" icon={Bell} label="Notification" onClick={onClose} />
           <MobileTrackingLink href="/account" icon={UserRound} label="Profile" onClick={onClose} />
-          <MobileTrackingLink href="/account" icon={Settings} label="Settings" onClick={onClose} />
+          <MobileTrackingLink href="/settings" icon={Settings} label="Settings" onClick={onClose} />
         </nav>
 
         <div className="border-t border-slate-200 p-5">
@@ -485,7 +485,7 @@ function TrackingSidebar({ activeEventId }: { activeEventId?: number | string })
         <SidebarItem href="/account#results" icon={BarChart3} label="Statistics" />
         <SidebarItem href="/account" icon={Bell} label="Notification" />
         <SidebarItem href="/account" icon={UserRound} label="Profile" />
-        <SidebarItem href="/account" icon={Settings} label="Settings" />
+        <SidebarItem href="/settings" icon={Settings} label="Settings" />
       </nav>
 
       <div className="m-5 rounded-3xl border border-purple-100 bg-purple-50 p-5">
