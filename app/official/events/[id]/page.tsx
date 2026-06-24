@@ -4,12 +4,15 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
+  Activity,
   ArrowLeft,
   CalendarDays,
+  Gauge,
   Loader2,
   RefreshCw,
   ShieldCheck,
   Ticket,
+  Timer,
   Trophy,
   UsersRound,
 } from "lucide-react";
@@ -39,6 +42,20 @@ type Participant = {
   participant_number?: string | null;
   registration_status?: string | null;
   registered_at?: string | null;
+};
+
+type EventResult = {
+  result_id: number | string;
+  event_id: number | string;
+  user_id: number | string;
+  full_name?: string | null;
+  email?: string | null;
+  participant_number?: string | null;
+  distance?: number | string | null;
+  duration?: number | string | null;
+  avg_speed?: number | string | null;
+  result_status?: string | null;
+  submitted_at?: string | null;
 };
 
 function getEventTitle(item: OfficialAccess) {
@@ -73,6 +90,67 @@ function formatDate(value: string | null | undefined) {
   });
 }
 
+function formatDistance(value: number | string | null | undefined) {
+  const numberValue = Number(value || 0);
+
+  if (!Number.isFinite(numberValue) || numberValue <= 0) {
+    return "-";
+  }
+
+  return `${numberValue.toFixed(2)} KM`;
+}
+
+function formatSpeed(value: number | string | null | undefined) {
+  const numberValue = Number(value || 0);
+
+  if (!Number.isFinite(numberValue) || numberValue <= 0) {
+    return "-";
+  }
+
+  return `${numberValue.toFixed(2)} km/jam`;
+}
+
+function formatDuration(value: number | string | null | undefined) {
+  const seconds = Number(value || 0);
+
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    return "-";
+  }
+
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainingSeconds = Math.floor(seconds % 60);
+
+  if (hours > 0) {
+    if (remainingSeconds > 0) {
+      return `${hours} jam ${minutes} menit ${remainingSeconds} detik`;
+    }
+
+    return `${hours} jam ${minutes} menit`;
+  }
+
+  if (minutes > 0) {
+    if (remainingSeconds > 0) {
+      return `${minutes} menit ${remainingSeconds} detik`;
+    }
+
+    return `${minutes} menit`;
+  }
+
+  return `${remainingSeconds} detik`;
+}
+
+function getResultBadgeClass(status: string | null | undefined) {
+  const clean = String(status || "REVIEW").toUpperCase();
+
+  if (clean === "FINISH") return "bg-green-50 text-green-700";
+  if (clean === "DNF") return "bg-orange-50 text-orange-700";
+  if (clean === "DNS") return "bg-slate-100 text-slate-700";
+  if (clean === "REVIEW") return "bg-yellow-50 text-yellow-700";
+
+  return "bg-purple-50 text-purple-700";
+}
+
 export default function OfficialEventDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -81,10 +159,15 @@ export default function OfficialEventDetailPage() {
 
   const [items, setItems] = useState<OfficialAccess[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
+  const [results, setResults] = useState<EventResult[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [participantsLoading, setParticipantsLoading] = useState(true);
+  const [resultsLoading, setResultsLoading] = useState(true);
+
   const [errorMessage, setErrorMessage] = useState("");
   const [participantsError, setParticipantsError] = useState("");
+  const [resultsError, setResultsError] = useState("");
 
   const eventAccess = useMemo(() => {
     return items.find((item) => String(item.event_id) === eventId) || null;
@@ -167,6 +250,42 @@ export default function OfficialEventDetailPage() {
     }
   }
 
+  async function loadResults() {
+    setResultsLoading(true);
+    setResultsError("");
+
+    try {
+      const response = await fetch(`/api/official/events/${eventId}/results`, {
+        method: "GET",
+        cache: "no-store",
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || data?.ok === false) {
+        setResults([]);
+        setResultsError(
+          data?.message || data?.error || "Data results belum bisa dimuat."
+        );
+        return;
+      }
+
+      const rows = Array.isArray(data?.data)
+        ? data.data
+        : Array.isArray(data?.items)
+          ? data.items
+          : [];
+
+      setResults(rows);
+    } catch (error) {
+      console.error(error);
+      setResults([]);
+      setResultsError("Koneksi ke server bermasalah.");
+    } finally {
+      setResultsLoading(false);
+    }
+  }
+
   useEffect(() => {
     loadAccess();
   }, []);
@@ -174,6 +293,7 @@ export default function OfficialEventDetailPage() {
   useEffect(() => {
     if (eventId) {
       loadParticipants();
+      loadResults();
     }
   }, [eventId]);
 
@@ -274,6 +394,7 @@ export default function OfficialEventDetailPage() {
               onClick={() => {
                 loadAccess();
                 loadParticipants();
+                loadResults();
               }}
               className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50"
             >
@@ -326,7 +447,7 @@ export default function OfficialEventDetailPage() {
             </div>
           </div>
 
-          <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
             <InfoCard
               icon={CalendarDays}
               label="Status Event"
@@ -356,129 +477,317 @@ export default function OfficialEventDetailPage() {
               label="Peserta"
               value={String(participants.length)}
             />
+
+            <InfoCard
+              icon={Activity}
+              label="Results"
+              value={String(results.length)}
+            />
           </div>
         </section>
+
+        <ParticipantsSection
+          participants={participants}
+          loading={participantsLoading}
+          errorMessage={participantsError}
+          onRefresh={loadParticipants}
+        />
+
+        <ResultsSection
+          results={results}
+          loading={resultsLoading}
+          errorMessage={resultsError}
+          onRefresh={loadResults}
+        />
 
         <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-col gap-3 border-b border-slate-200 pb-5 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-sm font-black uppercase tracking-wide text-green-700">
-                Kelola Peserta
-              </p>
-
-              <h3 className="mt-1 text-2xl font-black text-slate-950">
-                Peserta Event
-              </h3>
-
-              <p className="mt-2 text-sm leading-6 text-slate-500">
-                Daftar peserta yang terdaftar pada event ini.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={loadParticipants}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50"
-            >
-              <RefreshCw size={17} />
-              Refresh Peserta
-            </button>
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+            <Ticket size={24} />
           </div>
 
-          {participantsLoading ? (
-            <div className="flex min-h-[240px] flex-col items-center justify-center text-center">
-              <Loader2 className="h-10 w-10 animate-spin text-green-700" />
-              <p className="mt-4 text-lg font-black text-slate-950">
-                Memuat peserta...
-              </p>
-            </div>
-          ) : participantsError ? (
-            <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-5 text-sm font-bold text-red-700">
-              {participantsError}
-            </div>
-          ) : participants.length === 0 ? (
-            <div className="flex min-h-[240px] flex-col items-center justify-center text-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-green-700">
-                <UsersRound size={30} />
-              </div>
+          <h3 className="mt-5 text-xl font-black text-slate-950">Doorprize</h3>
 
-              <h4 className="mt-5 text-xl font-black text-slate-950">
-                Belum Ada Peserta
-              </h4>
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            Tahap berikutnya: undian nomor peserta, simpan pemenang, dan
+            riwayat doorprize event.
+          </p>
 
-              <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
-                Belum ada peserta yang terdaftar pada event ini, atau tabel
-                pendaftaran peserta belum sesuai.
-              </p>
-            </div>
-          ) : (
-            <div className="mt-5 overflow-x-auto">
-              <table className="w-full min-w-[760px] border-separate border-spacing-y-3 text-left">
-                <thead>
-                  <tr className="text-xs font-black uppercase tracking-wide text-slate-500">
-                    <th className="px-4 py-2">Nomor</th>
-                    <th className="px-4 py-2">Peserta</th>
-                    <th className="px-4 py-2">Email</th>
-                    <th className="px-4 py-2">Status</th>
-                    <th className="px-4 py-2">Daftar</th>
-                    <th className="px-4 py-2">User ID</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {participants.map((participant) => (
-                    <tr
-                      key={String(participant.registration_id)}
-                      className="rounded-2xl bg-slate-50 text-sm"
-                    >
-                      <td className="rounded-l-2xl px-4 py-4 font-black text-green-700">
-                        {participant.participant_number || "-"}
-                      </td>
-
-                      <td className="px-4 py-4 font-black text-slate-950">
-                        {participant.full_name || "Tanpa Nama"}
-                      </td>
-
-                      <td className="px-4 py-4 font-semibold text-slate-600">
-                        {participant.email || "-"}
-                      </td>
-
-                      <td className="px-4 py-4">
-                        <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-black uppercase text-green-700">
-                          {participant.registration_status || "registered"}
-                        </span>
-                      </td>
-
-                      <td className="px-4 py-4 font-semibold text-slate-600">
-                        {formatDate(participant.registered_at)}
-                      </td>
-
-                      <td className="rounded-r-2xl px-4 py-4 font-black text-slate-950">
-                        {participant.user_id}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-
-        <section className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-2">
-          <ComingSoonCard
-            icon={Trophy}
-            title="Results Event"
-            description="Tahap berikutnya: menampilkan hasil tracking, status FINISH/DNF/DNS/REVIEW, distance, duration, dan speed."
-          />
-
-          <ComingSoonCard
-            icon={Ticket}
-            title="Doorprize"
-            description="Tahap berikutnya: undian nomor peserta, simpan pemenang, dan riwayat doorprize event."
-          />
+          <div className="mt-5 rounded-xl bg-slate-50 px-4 py-3 text-sm font-black text-slate-500">
+            Coming Soon
+          </div>
         </section>
       </section>
     </main>
+  );
+}
+
+function ParticipantsSection({
+  participants,
+  loading,
+  errorMessage,
+  onRefresh,
+}: {
+  participants: Participant[];
+  loading: boolean;
+  errorMessage: string;
+  onRefresh: () => void;
+}) {
+  return (
+    <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="flex flex-col gap-3 border-b border-slate-200 pb-5 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-sm font-black uppercase tracking-wide text-green-700">
+            Kelola Peserta
+          </p>
+
+          <h3 className="mt-1 text-2xl font-black text-slate-950">
+            Peserta Event
+          </h3>
+
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            Daftar peserta yang terdaftar pada event ini.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={onRefresh}
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50"
+        >
+          <RefreshCw size={17} />
+          Refresh Peserta
+        </button>
+      </div>
+
+      {loading ? (
+        <LoadingBlock text="Memuat peserta..." />
+      ) : errorMessage ? (
+        <ErrorBlock message={errorMessage} />
+      ) : participants.length === 0 ? (
+        <EmptyBlock
+          icon={UsersRound}
+          title="Belum Ada Peserta"
+          description="Belum ada peserta yang terdaftar pada event ini."
+        />
+      ) : (
+        <div className="mt-5 overflow-x-auto">
+          <table className="w-full min-w-[760px] border-separate border-spacing-y-3 text-left">
+            <thead>
+              <tr className="text-xs font-black uppercase tracking-wide text-slate-500">
+                <th className="px-4 py-2">Nomor</th>
+                <th className="px-4 py-2">Peserta</th>
+                <th className="px-4 py-2">Email</th>
+                <th className="px-4 py-2">Status</th>
+                <th className="px-4 py-2">Daftar</th>
+                <th className="px-4 py-2">User ID</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {participants.map((participant) => (
+                <tr
+                  key={String(participant.registration_id)}
+                  className="rounded-2xl bg-slate-50 text-sm"
+                >
+                  <td className="rounded-l-2xl px-4 py-4 font-black text-green-700">
+                    {participant.participant_number || "-"}
+                  </td>
+
+                  <td className="px-4 py-4 font-black text-slate-950">
+                    {participant.full_name || "Tanpa Nama"}
+                  </td>
+
+                  <td className="px-4 py-4 font-semibold text-slate-600">
+                    {participant.email || "-"}
+                  </td>
+
+                  <td className="px-4 py-4">
+                    <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-black uppercase text-green-700">
+                      {participant.registration_status || "registered"}
+                    </span>
+                  </td>
+
+                  <td className="px-4 py-4 font-semibold text-slate-600">
+                    {formatDate(participant.registered_at)}
+                  </td>
+
+                  <td className="rounded-r-2xl px-4 py-4 font-black text-slate-950">
+                    {participant.user_id}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ResultsSection({
+  results,
+  loading,
+  errorMessage,
+  onRefresh,
+}: {
+  results: EventResult[];
+  loading: boolean;
+  errorMessage: string;
+  onRefresh: () => void;
+}) {
+  return (
+    <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="flex flex-col gap-3 border-b border-slate-200 pb-5 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-sm font-black uppercase tracking-wide text-green-700">
+            Results Event
+          </p>
+
+          <h3 className="mt-1 text-2xl font-black text-slate-950">
+            Hasil Tracking Event
+          </h3>
+
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            Data hasil peserta pada event ini. Untuk tahap ini masih view-only.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={onRefresh}
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50"
+        >
+          <RefreshCw size={17} />
+          Refresh Results
+        </button>
+      </div>
+
+      {loading ? (
+        <LoadingBlock text="Memuat results..." />
+      ) : errorMessage ? (
+        <ErrorBlock message={errorMessage} />
+      ) : results.length === 0 ? (
+        <EmptyBlock
+          icon={Activity}
+          title="Belum Ada Results"
+          description="Belum ada hasil tracking untuk event ini."
+        />
+      ) : (
+        <div className="mt-5 overflow-x-auto">
+          <table className="w-full min-w-[900px] border-separate border-spacing-y-3 text-left">
+            <thead>
+              <tr className="text-xs font-black uppercase tracking-wide text-slate-500">
+                <th className="px-4 py-2">Nomor</th>
+                <th className="px-4 py-2">Peserta</th>
+                <th className="px-4 py-2">Distance</th>
+                <th className="px-4 py-2">Duration</th>
+                <th className="px-4 py-2">Avg Speed</th>
+                <th className="px-4 py-2">Status</th>
+                <th className="px-4 py-2">Submit</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {results.map((item) => (
+                <tr
+                  key={String(item.result_id)}
+                  className="rounded-2xl bg-slate-50 text-sm"
+                >
+                  <td className="rounded-l-2xl px-4 py-4 font-black text-green-700">
+                    {item.participant_number || "-"}
+                  </td>
+
+                  <td className="px-4 py-4">
+                    <p className="font-black text-slate-950">
+                      {item.full_name || "Tanpa Nama"}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">
+                      {item.email || "-"}
+                    </p>
+                  </td>
+
+                  <td className="px-4 py-4 font-black text-slate-950">
+                    <span className="inline-flex items-center gap-2">
+                      <Activity size={15} />
+                      {formatDistance(item.distance)}
+                    </span>
+                  </td>
+
+                  <td className="px-4 py-4 font-black text-slate-950">
+                    <span className="inline-flex items-center gap-2">
+                      <Timer size={15} />
+                      {formatDuration(item.duration)}
+                    </span>
+                  </td>
+
+                  <td className="px-4 py-4 font-black text-slate-950">
+                    <span className="inline-flex items-center gap-2">
+                      <Gauge size={15} />
+                      {formatSpeed(item.avg_speed)}
+                    </span>
+                  </td>
+
+                  <td className="px-4 py-4">
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-black uppercase ${getResultBadgeClass(
+                        item.result_status
+                      )}`}
+                    >
+                      {item.result_status || "REVIEW"}
+                    </span>
+                  </td>
+
+                  <td className="rounded-r-2xl px-4 py-4 font-semibold text-slate-600">
+                    {formatDate(item.submitted_at)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function LoadingBlock({ text }: { text: string }) {
+  return (
+    <div className="flex min-h-[240px] flex-col items-center justify-center text-center">
+      <Loader2 className="h-10 w-10 animate-spin text-green-700" />
+      <p className="mt-4 text-lg font-black text-slate-950">{text}</p>
+    </div>
+  );
+}
+
+function ErrorBlock({ message }: { message: string }) {
+  return (
+    <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-5 text-sm font-bold text-red-700">
+      {message}
+    </div>
+  );
+}
+
+function EmptyBlock({
+  icon: Icon,
+  title,
+  description,
+}: {
+  icon: any;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="flex min-h-[240px] flex-col items-center justify-center text-center">
+      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-green-700">
+        <Icon size={30} />
+      </div>
+
+      <h4 className="mt-5 text-xl font-black text-slate-950">{title}</h4>
+
+      <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
+        {description}
+      </p>
+    </div>
   );
 }
 
@@ -502,32 +811,6 @@ function InfoCard({
       </p>
 
       <p className="mt-2 text-xl font-black text-slate-950">{value}</p>
-    </div>
-  );
-}
-
-function ComingSoonCard({
-  icon: Icon,
-  title,
-  description,
-}: {
-  icon: any;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-        <Icon size={24} />
-      </div>
-
-      <h3 className="mt-5 text-xl font-black text-slate-950">{title}</h3>
-
-      <p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>
-
-      <div className="mt-5 rounded-xl bg-slate-50 px-4 py-3 text-sm font-black text-slate-500">
-        Coming Soon
-      </div>
     </div>
   );
 }
