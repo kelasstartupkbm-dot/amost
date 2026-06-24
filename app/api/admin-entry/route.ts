@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentAmostUser } from "../../../lib/amostServerAuth";
+import { getCurrentAmostUser } from "../../lib/amostServerAuth";
 
 export const dynamic = "force-dynamic";
 
