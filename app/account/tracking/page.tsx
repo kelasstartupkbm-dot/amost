@@ -407,7 +407,7 @@ function TrackingMobileSidebar({
         </div>
 
         <nav className="flex-1 space-y-2 overflow-y-auto px-5 py-5">
-          <MobileTrackingLink href="/account" icon={Home} label="Dashboard" onClick={onClose} />
+          <MobileTrackingLink href="/home" icon={Home} label="Dashboard" onClick={onClose} />
           <MobileTrackingLink href="/account/tracking" icon={Navigation} label="Tracking" active onClick={onClose} />
           <MobileTrackingLink href="/account#history" icon={History} label="My Activities" onClick={onClose} />
           <MobileTrackingLink href="/events" icon={CalendarDays} label="My Events" onClick={onClose} />
@@ -476,7 +476,7 @@ function TrackingSidebar({ activeEventId }: { activeEventId?: number | string })
       </div>
 
       <nav className="flex-1 space-y-2 px-5 py-5">
-        <SidebarItem href="/account" icon={Home} label="Dashboard" />
+        <SidebarItem href="/home" icon={Home} label="Dashboard" />
         <SidebarItem href="/account/tracking" icon={Navigation} label="Tracking" active />
         <SidebarItem href="/account#history" icon={History} label="My Activities" />
         <SidebarItem href="/events" icon={CalendarDays} label="My Events" />
