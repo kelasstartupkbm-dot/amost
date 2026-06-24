@@ -1,19 +1,22 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Bike,
   CalendarDays,
   Gift,
   Heart,
+  Image as ImageIcon,
   Loader2,
+  MapPin,
   MessageCircle,
   RefreshCw,
   Send,
   ShieldCheck,
   Trophy,
   UserRound,
+  X,
 } from "lucide-react";
 
 type CommunityPost = {
@@ -30,7 +33,17 @@ type CommunityPost = {
   like_count?: number | string | null;
   comment_count?: number | string | null;
   viewer_liked?: boolean | null;
+  image_data_url?: string | null;
+  image_name?: string | null;
+  activity_type?: string | null;
+  activity_distance_km?: number | string | null;
+  activity_duration_minutes?: number | string | null;
+  location_text?: string | null;
+  location_lat?: number | string | null;
+  location_lng?: number | string | null;
 };
+
+type ComposerMode = "post" | "photo" | "activity" | "location";
 
 function getInitials(name: string | null | undefined) {
   const clean = String(name || "AMOST User").trim();
@@ -99,15 +112,71 @@ function getAction(post: CommunityPost) {
   return null;
 }
 
+async function resizeImageToDataUrl(file: File) {
+  const imageUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Foto belum bisa dibaca."));
+    reader.readAsDataURL(file);
+  });
+
+  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Foto belum bisa diproses."));
+    img.src = imageUrl;
+  });
+
+  const maxSize = 1280;
+  const ratio = Math.min(1, maxSize / Math.max(image.width, image.height));
+  const width = Math.max(1, Math.round(image.width * ratio));
+  const height = Math.max(1, Math.round(image.height * ratio));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+
+  const ctx = canvas.getContext("2d");
+
+  if (!ctx) {
+    throw new Error("Browser belum bisa memproses foto.");
+  }
+
+  ctx.drawImage(image, 0, 0, width, height);
+
+  const dataUrl = canvas.toDataURL("image/jpeg", 0.72);
+
+  if (dataUrl.length > 1_800_000) {
+    throw new Error("Foto masih terlalu besar. Gunakan foto yang lebih kecil.");
+  }
+
+  return dataUrl;
+}
+
 export default function CommunityFeedPanel() {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [posting, setPosting] = useState(false);
   const [content, setContent] = useState("");
   const [activeFilter, setActiveFilter] = useState("all");
+  const [composerMode, setComposerMode] = useState<ComposerMode>("post");
   const [errorMessage, setErrorMessage] = useState("");
   const [lastActionMessage, setLastActionMessage] = useState("");
+
+  const [imageDataUrl, setImageDataUrl] = useState("");
+  const [imageName, setImageName] = useState("");
+  const [activityType, setActivityType] = useState("cycling");
+  const [activityDistanceKm, setActivityDistanceKm] = useState("");
+  const [activityDurationMinutes, setActivityDurationMinutes] = useState("");
+  const [locationText, setLocationText] = useState("");
+  const [locationLat, setLocationLat] = useState("");
+  const [locationLng, setLocationLng] = useState("");
+  const [geoLoading, setGeoLoading] = useState(false);
 
   async function loadPosts(silent = false) {
     if (silent) {
@@ -150,10 +219,26 @@ export default function CommunityFeedPanel() {
     }
   }
 
+  function resetComposerExtras() {
+    setImageDataUrl("");
+    setImageName("");
+    setActivityType("cycling");
+    setActivityDistanceKm("");
+    setActivityDurationMinutes("");
+    setLocationText("");
+    setLocationLat("");
+    setLocationLng("");
+  }
+
   async function submitPost() {
     const cleanContent = content.trim();
 
-    if (!cleanContent) {
+    if (
+      !cleanContent &&
+      !imageDataUrl &&
+      !activityType &&
+      !locationText.trim()
+    ) {
       setErrorMessage("Isi postingan tidak boleh kosong.");
       return;
     }
@@ -161,6 +246,15 @@ export default function CommunityFeedPanel() {
     setPosting(true);
     setErrorMessage("");
     setLastActionMessage("");
+
+    const postType =
+      composerMode === "activity"
+        ? "activity"
+        : composerMode === "photo"
+          ? "post"
+          : composerMode === "location"
+            ? "post"
+            : "post";
 
     try {
       const response = await fetch("/api/community/posts", {
@@ -171,8 +265,24 @@ export default function CommunityFeedPanel() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          postType: "post",
+          postType,
           content: cleanContent,
+          imageDataUrl: imageDataUrl || null,
+          imageName: imageName || null,
+          activityType: composerMode === "activity" ? activityType : null,
+          activityDistanceKm:
+            composerMode === "activity" && activityDistanceKm
+              ? Number(activityDistanceKm)
+              : null,
+          activityDurationMinutes:
+            composerMode === "activity" && activityDurationMinutes
+              ? Number(activityDurationMinutes)
+              : null,
+          locationText: composerMode === "location" ? locationText.trim() : null,
+          locationLat:
+            composerMode === "location" && locationLat ? Number(locationLat) : null,
+          locationLng:
+            composerMode === "location" && locationLng ? Number(locationLng) : null,
         }),
       });
 
@@ -184,6 +294,8 @@ export default function CommunityFeedPanel() {
       }
 
       setContent("");
+      resetComposerExtras();
+      setComposerMode("post");
       setLastActionMessage("Postingan berhasil disimpan ke database.");
       await loadPosts(true);
     } catch (error) {
@@ -192,6 +304,65 @@ export default function CommunityFeedPanel() {
     } finally {
       setPosting(false);
     }
+  }
+
+  async function handlePhotoFile(file: File | null | undefined) {
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setErrorMessage("File harus berupa gambar.");
+      return;
+    }
+
+    setErrorMessage("");
+    setLastActionMessage("");
+
+    try {
+      const dataUrl = await resizeImageToDataUrl(file);
+
+      setImageDataUrl(dataUrl);
+      setImageName(file.name);
+      setComposerMode("photo");
+      setLastActionMessage("Foto siap diposting.");
+    } catch (error: any) {
+      setErrorMessage(String(error?.message || error));
+    }
+  }
+
+  async function detectLocation() {
+    if (!navigator.geolocation) {
+      setErrorMessage("Browser belum mendukung geolocation.");
+      return;
+    }
+
+    setGeoLoading(true);
+    setErrorMessage("");
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude.toFixed(6);
+        const lng = position.coords.longitude.toFixed(6);
+
+        setLocationLat(lat);
+        setLocationLng(lng);
+
+        if (!locationText.trim()) {
+          setLocationText(`Lokasi saat ini (${lat}, ${lng})`);
+        }
+
+        setGeoLoading(false);
+      },
+      (error) => {
+        console.error(error);
+        setErrorMessage("Lokasi belum bisa dibaca. Pastikan izin lokasi di browser aktif.");
+        setGeoLoading(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000,
+      },
+    );
   }
 
   async function toggleLike(post: CommunityPost) {
@@ -279,7 +450,7 @@ export default function CommunityFeedPanel() {
     <section className="space-y-5">
       <section className="rounded-[1.5rem] border border-purple-200 bg-white p-5 shadow-sm">
         <div className="mb-4 rounded-2xl bg-purple-50 px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-purple-700">
-          Database Feed Aktif · community_posts
+          Database Feed Aktif · Foto · Aktivitas · Lokasi
         </div>
 
         <div className="flex items-start gap-4">
@@ -296,17 +467,144 @@ export default function CommunityFeedPanel() {
               maxLength={2000}
             />
 
+            {imageDataUrl ? (
+              <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+                  <p className="truncate text-xs font-black text-slate-600">
+                    {imageName || "Foto"}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setImageDataUrl("");
+                      setImageName("");
+                    }}
+                    className="rounded-full p-1 text-slate-400 hover:bg-white hover:text-red-600"
+                    title="Hapus foto"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+                <img
+                  src={imageDataUrl}
+                  alt="Preview foto"
+                  className="max-h-[360px] w-full object-cover"
+                />
+              </div>
+            ) : null}
+
+            {composerMode === "activity" ? (
+              <div className="mt-3 grid grid-cols-1 gap-3 rounded-2xl border border-purple-100 bg-purple-50 p-4 md:grid-cols-3">
+                <label className="text-xs font-black uppercase text-slate-600">
+                  Jenis Aktivitas
+                  <select
+                    value={activityType}
+                    onChange={(event) => setActivityType(event.target.value)}
+                    className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none"
+                  >
+                    <option value="cycling">Cycling</option>
+                    <option value="running">Running</option>
+                    <option value="walking">Walking</option>
+                    <option value="event">Event</option>
+                  </select>
+                </label>
+
+                <label className="text-xs font-black uppercase text-slate-600">
+                  Jarak KM
+                  <input
+                    value={activityDistanceKm}
+                    onChange={(event) => setActivityDistanceKm(event.target.value)}
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none"
+                    placeholder="12.50"
+                  />
+                </label>
+
+                <label className="text-xs font-black uppercase text-slate-600">
+                  Durasi Menit
+                  <input
+                    value={activityDurationMinutes}
+                    onChange={(event) => setActivityDurationMinutes(event.target.value)}
+                    type="number"
+                    min="0"
+                    step="1"
+                    className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none"
+                    placeholder="45"
+                  />
+                </label>
+              </div>
+            ) : null}
+
+            {composerMode === "location" ? (
+              <div className="mt-3 rounded-2xl border border-purple-100 bg-purple-50 p-4">
+                <label className="text-xs font-black uppercase text-slate-600">
+                  Lokasi
+                  <input
+                    value={locationText}
+                    onChange={(event) => setLocationText(event.target.value)}
+                    className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none"
+                    placeholder="Contoh: Sokaraja, Purwokerto"
+                  />
+                </label>
+
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={detectLocation}
+                    disabled={geoLoading}
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-white px-4 text-xs font-black text-purple-700 ring-1 ring-purple-100"
+                  >
+                    {geoLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin size={16} />}
+                    Ambil Lokasi Saat Ini
+                  </button>
+
+                  {locationLat && locationLng ? (
+                    <span className="text-xs font-bold text-slate-500">
+                      {locationLat}, {locationLng}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap gap-2">
-                <MiniAction label="Foto" />
-                <MiniAction label="Aktivitas" />
-                <MiniAction label="Lokasi" />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(event) => handlePhotoFile(event.target.files?.[0])}
+                />
+
+                <ComposerButton
+                  active={composerMode === "photo" || Boolean(imageDataUrl)}
+                  icon={ImageIcon}
+                  label="Foto"
+                  onClick={() => fileInputRef.current?.click()}
+                />
+
+                <ComposerButton
+                  active={composerMode === "activity"}
+                  icon={Bike}
+                  label="Aktivitas"
+                  onClick={() => setComposerMode(composerMode === "activity" ? "post" : "activity")}
+                />
+
+                <ComposerButton
+                  active={composerMode === "location"}
+                  icon={MapPin}
+                  label="Lokasi"
+                  onClick={() => setComposerMode(composerMode === "location" ? "post" : "location")}
+                />
               </div>
 
               <button
                 type="button"
                 onClick={submitPost}
-                disabled={posting || !content.trim()}
+                disabled={posting || (!content.trim() && !imageDataUrl && !activityType && !locationText.trim())}
                 className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-purple-700 px-5 text-sm font-black text-white hover:bg-purple-800 disabled:cursor-not-allowed disabled:bg-slate-300"
               >
                 {posting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send size={17} />}
@@ -371,11 +669,30 @@ export default function CommunityFeedPanel() {
   );
 }
 
-function MiniAction({ label }: { label: string }) {
+function ComposerButton({
+  active,
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  icon: any;
+  label: string;
+  onClick: () => void;
+}) {
   return (
-    <span className="rounded-xl bg-slate-50 px-3 py-2 text-xs font-black text-slate-600">
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl px-3 text-xs font-black ${
+        active
+          ? "bg-purple-700 text-white"
+          : "bg-slate-50 text-slate-600 hover:bg-purple-50 hover:text-purple-700"
+      }`}
+    >
+      <Icon size={16} />
       {label}
-    </span>
+    </button>
   );
 }
 
@@ -422,37 +739,69 @@ function CommunityPostCard({
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="font-black text-slate-950">
-                {post.author_name || post.author_email || "AMOST User"}
-              </p>
-              <p className="mt-1 text-xs font-bold text-slate-500">
-                {post.role_label || "Umum"} • {formatRelativeTime(post.created_at)}
-              </p>
-            </div>
+          <div>
+            <p className="font-black text-slate-950">
+              {post.author_name || post.author_email || "AMOST User"}
+            </p>
+            <p className="mt-1 text-xs font-bold text-slate-500">
+              {post.role_label || "Umum"} • {formatRelativeTime(post.created_at)}
+            </p>
           </div>
 
-          <div className="mt-4 rounded-[1.25rem] border border-slate-100 bg-slate-50 p-5">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 text-purple-700">
-              <Icon size={24} />
+          <div className="mt-4 overflow-hidden rounded-[1.25rem] border border-slate-100 bg-slate-50">
+            <div className="p-5">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 text-purple-700">
+                <Icon size={24} />
+              </div>
+
+              <p className="mt-4 text-xs font-black uppercase tracking-wide text-purple-700">
+                {getTypeLabel(post.post_type)}
+              </p>
+
+              {post.content ? (
+                <p className="mt-2 whitespace-pre-wrap text-base font-semibold leading-7 text-slate-700">
+                  {post.content}
+                </p>
+              ) : null}
+
+              {post.activity_type ? (
+                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <InfoPill label="Aktivitas" value={String(post.activity_type).toUpperCase()} />
+                  <InfoPill label="Jarak" value={`${Number(post.activity_distance_km || 0).toFixed(2)} KM`} />
+                  <InfoPill label="Durasi" value={`${Number(post.activity_duration_minutes || 0)} menit`} />
+                </div>
+              ) : null}
+
+              {post.location_text ? (
+                <div className="mt-4 rounded-2xl bg-white p-4 text-sm font-bold text-slate-600 ring-1 ring-slate-100">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="text-purple-700" size={18} />
+                    <span>{post.location_text}</span>
+                  </div>
+                  {post.location_lat && post.location_lng ? (
+                    <p className="mt-2 text-xs text-slate-400">
+                      {post.location_lat}, {post.location_lng}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {action ? (
+                <Link
+                  href={action.href}
+                  className="mt-5 inline-flex h-10 items-center justify-center rounded-xl bg-purple-700 px-4 text-sm font-black text-white hover:bg-purple-800"
+                >
+                  {action.label}
+                </Link>
+              ) : null}
             </div>
 
-            <p className="mt-4 text-xs font-black uppercase tracking-wide text-purple-700">
-              {getTypeLabel(post.post_type)}
-            </p>
-
-            <p className="mt-2 whitespace-pre-wrap text-base font-semibold leading-7 text-slate-700">
-              {post.content}
-            </p>
-
-            {action ? (
-              <Link
-                href={action.href}
-                className="mt-5 inline-flex h-10 items-center justify-center rounded-xl bg-purple-700 px-4 text-sm font-black text-white hover:bg-purple-800"
-              >
-                {action.label}
-              </Link>
+            {post.image_data_url ? (
+              <img
+                src={post.image_data_url}
+                alt={post.image_name || "Foto postingan"}
+                className="max-h-[460px] w-full object-cover"
+              />
             ) : null}
           </div>
 
@@ -485,5 +834,14 @@ function CommunityPostCard({
         </div>
       </div>
     </article>
+  );
+}
+
+function InfoPill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-white p-4 ring-1 ring-slate-100">
+      <p className="text-xs font-black uppercase text-slate-400">{label}</p>
+      <p className="mt-1 text-sm font-black text-slate-950">{value}</p>
+    </div>
   );
 }
