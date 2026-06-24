@@ -6,33 +6,25 @@ import { useEffect, useMemo, useState, type ElementType } from "react";
 import {
   Activity,
   ArrowLeft,
-  BarChart3,
-  Bell,
   Bike,
   CalendarDays,
   CheckCircle2,
-  CloudSun,
-  Download,
-  Gauge,
+  Clock3,
   Gift,
-  HelpCircle,
-  Home,
+  Gauge,
   Layers,
   Loader2,
   MapPin,
   Maximize2,
+  Menu,
   Navigation,
   RefreshCw,
   Route,
   Satellite,
-  Search,
-  Settings,
   ShieldCheck,
-  Ticket,
   Trophy,
-  UserRound,
   UsersRound,
-  Wifi,
+  X,
 } from "lucide-react";
 
 type PublicEvent = {
@@ -198,6 +190,7 @@ export default function EventLiveViewPage() {
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
 
   const [errorMessage, setErrorMessage] = useState("");
   const [resultsError, setResultsError] = useState("");
@@ -297,7 +290,7 @@ export default function EventLiveViewPage() {
       <main className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-950">
         <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
           <Loader2 className="mx-auto h-10 w-10 animate-spin text-purple-700" />
-          <p className="mt-4 text-lg font-black">Memuat Tracking Live...</p>
+          <p className="mt-4 text-lg font-black">Memuat Live View Event...</p>
           <p className="mt-2 text-sm text-slate-500">
             Mengambil data event dan status peserta.
           </p>
@@ -330,11 +323,11 @@ export default function EventLiveViewPage() {
             <ShieldCheck size={30} />
           </div>
 
-          <h1 className="mt-5 text-2xl font-black">Akses Tracking Live Terkunci</h1>
+          <h1 className="mt-5 text-2xl font-black">Akses Live View Terkunci</h1>
 
           <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
-            Tracking Live hanya tersedia untuk peserta yang sudah terdaftar pada
-            event ini.
+            Live View Event hanya tersedia untuk peserta yang sudah terdaftar
+            pada event ini.
           </p>
 
           <Link
@@ -350,282 +343,141 @@ export default function EventLiveViewPage() {
 
   return (
     <main className="min-h-screen bg-[#f7f8fb] text-slate-950">
-      <LiveSidebar eventId={eventId} />
+      <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-xl">
+        <div className="mx-auto flex min-h-[88px] max-w-[1440px] flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-[40px] xl:px-[64px]">
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => setPanelOpen(true)}
+              className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 lg:hidden"
+              title="Buka panel"
+            >
+              <Menu size={21} />
+            </button>
 
-      <section className="min-h-screen lg:pl-[260px]">
-        <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-xl">
-          <div className="flex min-h-[88px] flex-col gap-4 px-4 py-4 md:flex-row md:items-center md:justify-between md:px-6">
-            <div className="flex items-center gap-4">
-              <Link
-                href={`/events/${eventId}`}
-                className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-              >
-                <ArrowLeft size={22} />
-              </Link>
+            <Link
+              href={`/events/${eventId}`}
+              className="hidden h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 sm:flex"
+              title="Kembali ke event"
+            >
+              <ArrowLeft size={21} />
+            </Link>
 
-              <div>
-                <h1 className="text-2xl font-black text-slate-950">
-                  Tracking Live
-                </h1>
-                <p className="mt-1 text-sm font-semibold text-slate-500">
-                  {eventTitle}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <TopStatusCard
-                icon={Wifi}
-                title="GPS Signal"
-                value="Standby"
-                accent="green"
+            <Link href="/" className="hidden items-center sm:flex">
+              <img
+                src="/amost_logo_wide_.png"
+                alt="AMOST"
+                className="h-[54px] w-auto object-contain"
               />
+            </Link>
 
-              <TopStatusCard
-                icon={CloudSun}
-                title="26°C"
-                value="Cerah"
-                accent="slate"
-              />
-
-              <button
-                type="button"
-                className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700"
-                title="Notifikasi"
-              >
-                <Bell size={20} />
-                <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-purple-700 text-[10px] font-black text-white">
-                  3
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => loadData(true)}
-                disabled={refreshing}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:opacity-70"
-              >
-                {refreshing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw size={17} />
-                )}
-                Refresh
-              </button>
-
-              <Link
-                href="/account"
-                className="flex h-11 items-center gap-3 rounded-2xl border border-purple-100 bg-purple-50 px-4 text-sm font-black text-purple-700"
-              >
-                <UserRound size={18} />
-                Akun Saya
-              </Link>
+            <div className="min-w-0 border-slate-200 sm:border-l sm:pl-5">
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-purple-700">
+                Live View Event
+              </p>
+              <h1 className="truncate text-xl font-black text-slate-950 lg:text-2xl">
+                {eventTitle}
+              </h1>
+              <p className="mt-1 hidden text-sm font-semibold text-slate-500 md:block">
+                Pantau status event, peserta, results, dan akses doorprize.
+              </p>
             </div>
           </div>
-        </header>
 
-        <section className="grid min-h-[calc(100vh-88px)] grid-cols-1 gap-5 p-4 xl:grid-cols-[minmax(0,1fr)_340px]">
-          <section className="relative min-h-[720px] overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
-            <MapMockup />
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => loadData(true)}
+              disabled={refreshing}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:opacity-70"
+            >
+              <RefreshCw size={17} className={refreshing ? "animate-spin" : ""} />
+              Refresh
+            </button>
 
-            <EventActiveCard
-              eventTitle={eventTitle}
-              event={event}
-              registration={registration}
-            />
+            <Link
+              href={`/events/${eventId}/results`}
+              className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50"
+            >
+              Results
+            </Link>
 
-            <NearbyParticipants results={results} />
+            <Link
+              href={`/events/${eventId}/doorprize`}
+              className="inline-flex h-11 items-center justify-center rounded-2xl bg-purple-700 px-4 text-sm font-black text-white hover:bg-purple-800"
+            >
+              Doorprize
+            </Link>
+          </div>
+        </div>
+      </header>
 
-            <TrackingControlCard />
+      <section className="grid min-h-[calc(100vh-88px)] grid-cols-1 gap-5 p-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <section className="relative min-h-[680px] overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm lg:min-h-[calc(100vh-120px)]">
+          <MapMockup />
 
-            <div className="absolute right-5 top-5 z-10 flex flex-col gap-3">
-              <MapToolButton icon={Satellite} label="Satelit" />
-              <MapToolButton icon={Layers} label="Layer" />
-              <MapToolButton icon={Maximize2} label="Full Map" />
-            </div>
-          </section>
+          <EventCard
+            event={event}
+            eventTitle={eventTitle}
+            registration={registration}
+          />
 
-          <aside className="space-y-5">
-            <RealtimeStats
-              distance={formatDistance(routeDistance)}
-              duration={formatDuration(leaderResult?.duration)}
-              speed={formatSpeed(leaderResult?.avg_speed)}
-              finishCount={finishedCount}
-            />
+          <ParticipantMiniPanel results={results} resultsError={resultsError} />
 
-            <RouteProgress
-              progressValue={progressValue}
-              finishedCount={finishedCount}
-              registeredCount={registeredCount}
-              quota={quota}
-            />
+          <LiveStatusCard />
 
-            <ResultMiniPanel
-              eventId={eventId}
-              results={results}
-              resultsError={resultsError}
-            />
-
-            <ShortcutPanel eventId={eventId} />
-          </aside>
+          <div className="absolute right-5 top-5 z-10 flex flex-col gap-3">
+            <MapToolButton icon={Satellite} label="Satelit" />
+            <MapToolButton icon={Layers} label="Layer" />
+            <MapToolButton icon={Maximize2} label="Full Map" />
+          </div>
         </section>
+
+        <aside className="hidden space-y-5 xl:block">
+          <LiveSidePanel
+            eventId={eventId}
+            event={event}
+            results={results}
+            resultsError={resultsError}
+            finishedCount={finishedCount}
+            registeredCount={registeredCount}
+            quota={quota}
+            progressValue={progressValue}
+            routeDistance={routeDistance}
+            leaderResult={leaderResult}
+          />
+        </aside>
       </section>
+
+      <MobilePanel
+        open={panelOpen}
+        onClose={() => setPanelOpen(false)}
+        eventId={eventId}
+        event={event}
+        results={results}
+        resultsError={resultsError}
+        finishedCount={finishedCount}
+        registeredCount={registeredCount}
+        quota={quota}
+        progressValue={progressValue}
+        routeDistance={routeDistance}
+        leaderResult={leaderResult}
+      />
     </main>
   );
 }
 
-function LiveSidebar({ eventId }: { eventId: string }) {
-  return (
-    <aside className="hidden fixed inset-y-0 left-0 z-[60] w-[260px] border-r border-slate-200 bg-white lg:flex lg:flex-col">
-      <div className="flex h-[88px] items-center px-8">
-        <Link href="/">
-          <img
-            src="/amost_logo_wide_.png"
-            alt="AMOST"
-            className="h-[62px] w-auto object-contain"
-          />
-        </Link>
-      </div>
-
-      <nav className="flex-1 space-y-2 px-5 py-5">
-        <SidebarItem href="/account" icon={Home} label="Dashboard" />
-        <SidebarItem
-          href={`/event/${eventId}/view`}
-          icon={Navigation}
-          label="Tracking"
-          active
-        />
-        <SidebarItem
-          href={`/events/${eventId}`}
-          icon={CalendarDays}
-          label="Event Detail"
-        />
-        <SidebarItem
-          href={`/events/${eventId}/results`}
-          icon={Trophy}
-          label="Results"
-        />
-        <SidebarItem
-          href={`/events/${eventId}/doorprize`}
-          icon={Gift}
-          label="Doorprize"
-        />
-        <SidebarItem href="/events" icon={Ticket} label="All Events" />
-        <SidebarItem href="/account" icon={UserRound} label="Profile" />
-        <SidebarItem href="/account" icon={Settings} label="Settings" />
-      </nav>
-
-      <div className="m-5 rounded-3xl border border-purple-100 bg-purple-50 p-5">
-        <p className="text-sm font-black text-purple-700">
-          Tracking lebih seru
-        </p>
-
-        <ul className="mt-3 space-y-2 text-xs font-semibold text-slate-600">
-          <li className="flex items-center gap-2">
-            <CheckCircle2 size={15} className="text-green-600" />
-            Live Tracking Event
-          </li>
-          <li className="flex items-center gap-2">
-            <CheckCircle2 size={15} className="text-green-600" />
-            Results & Doorprize
-          </li>
-          <li className="flex items-center gap-2">
-            <CheckCircle2 size={15} className="text-green-600" />
-            Panel peserta
-          </li>
-        </ul>
-
-        <Link
-          href="/download"
-          className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-purple-700 text-sm font-black text-white"
-        >
-          <Download size={16} />
-          Download App
-        </Link>
-      </div>
-
-      <div className="border-t border-slate-200 p-5">
-        <Link
-          href="/"
-          className="flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50"
-        >
-          <HelpCircle size={19} />
-          Pusat Bantuan
-        </Link>
-      </div>
-    </aside>
-  );
-}
-
-function SidebarItem({
-  href,
-  icon: Icon,
-  label,
-  active = false,
-}: {
-  href: string;
-  icon: ElementType;
-  label: string;
-  active?: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      className={`flex h-12 items-center gap-3 rounded-2xl px-4 text-sm font-black transition ${
-        active
-          ? "bg-purple-50 text-purple-700"
-          : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"
-      }`}
-    >
-      <Icon size={20} />
-      {label}
-    </Link>
-  );
-}
-
-function TopStatusCard({
-  icon: Icon,
-  title,
-  value,
-  accent,
-}: {
-  icon: ElementType;
-  title: string;
-  value: string;
-  accent: "green" | "slate";
-}) {
-  const color =
-    accent === "green"
-      ? "bg-green-50 text-green-700"
-      : "bg-slate-50 text-slate-700";
-
-  return (
-    <div className="hidden h-11 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 md:flex">
-      <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${color}`}>
-        <Icon size={17} />
-      </div>
-
-      <div>
-        <p className="text-xs font-black leading-none text-slate-950">{title}</p>
-        <p className="mt-1 text-xs font-bold leading-none text-slate-500">
-          {value}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function EventActiveCard({
-  eventTitle,
+function EventCard({
   event,
+  eventTitle,
   registration,
 }: {
-  eventTitle: string;
   event: PublicEvent | null;
+  eventTitle: string;
   registration: Registration | null;
 }) {
   return (
-    <div className="absolute left-5 top-5 z-10 w-[calc(100%-40px)] max-w-[380px] rounded-[1.5rem] border border-slate-200 bg-white/95 p-5 shadow-xl backdrop-blur">
+    <div className="absolute left-5 top-5 z-10 w-[calc(100%-40px)] max-w-[390px] rounded-[1.5rem] border border-slate-200 bg-white/95 p-5 shadow-xl backdrop-blur">
       <p className="text-xs font-black uppercase tracking-wide text-slate-500">
         Event Aktif
       </p>
@@ -677,7 +529,6 @@ function MapMockup() {
       <div className="absolute -left-24 top-4 h-[760px] w-[760px] rounded-full border border-slate-300/60" />
       <div className="absolute left-[28%] -top-28 h-[640px] w-[640px] rounded-full border border-slate-300/50" />
       <div className="absolute bottom-10 right-2 h-[520px] w-[520px] rounded-full border border-slate-300/50" />
-      <div className="absolute left-[12%] top-[18%] h-[380px] w-[720px] rotate-[-13deg] rounded-[100%] border border-slate-300/40" />
 
       <svg
         className="absolute inset-0 h-full w-full"
@@ -774,24 +625,34 @@ function MapToolButton({
   );
 }
 
-function NearbyParticipants({ results }: { results: EventResult[] }) {
+function ParticipantMiniPanel({
+  results,
+  resultsError,
+}: {
+  results: EventResult[];
+  resultsError: string;
+}) {
   return (
     <div className="absolute bottom-5 left-5 z-10 hidden w-[340px] rounded-[1.5rem] border border-slate-200 bg-white/95 p-5 shadow-xl backdrop-blur md:block">
       <div className="flex items-center justify-between">
         <p className="text-sm font-black text-slate-950">
-          Peserta di Event ({results.length})
+          Peserta / Results ({results.length})
         </p>
 
         <UsersRound size={18} className="text-purple-700" />
       </div>
 
-      {results.length === 0 ? (
+      {resultsError ? (
+        <div className="mt-4 rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-sm font-bold text-yellow-700">
+          {resultsError}
+        </div>
+      ) : results.length === 0 ? (
         <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-center">
           <p className="text-sm font-black text-slate-950">
             Belum ada data tracking
           </p>
           <p className="mt-1 text-xs leading-5 text-slate-500">
-            Peserta live akan tampil setelah data tracking tersambung.
+            Data live akan tampil setelah tracking tersambung.
           </p>
         </div>
       ) : (
@@ -834,11 +695,11 @@ function NearbyParticipants({ results }: { results: EventResult[] }) {
   );
 }
 
-function TrackingControlCard() {
+function LiveStatusCard() {
   return (
     <div className="absolute bottom-5 left-1/2 z-20 hidden w-[520px] -translate-x-1/2 rounded-[1.5rem] border border-slate-200 bg-white/95 p-5 shadow-xl backdrop-blur xl:block">
       <p className="text-center text-xs font-black uppercase tracking-wide text-slate-500">
-        Tracking Berlangsung
+        Live View Event
       </p>
 
       <div className="mt-3 flex items-center justify-center gap-6">
@@ -847,9 +708,9 @@ function TrackingControlCard() {
             type="button"
             className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-700"
           >
-            <Activity size={24} />
+            <Clock3 size={24} />
           </button>
-          <span className="mt-2 text-xs font-bold text-slate-500">Status</span>
+          <span className="mt-2 text-xs font-bold text-slate-500">Standby</span>
         </div>
 
         <div className="flex flex-col items-center">
@@ -867,50 +728,238 @@ function TrackingControlCard() {
             type="button"
             className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-700"
           >
-            <MapPin size={24} />
+            <Route size={24} />
           </button>
           <span className="mt-2 text-xs font-bold text-slate-500">Route</span>
         </div>
       </div>
 
       <p className="mt-3 text-center text-sm leading-6 text-slate-500">
-        Tampilan ini adalah Live View. Kontrol start/stop tetap dilakukan dari aplikasi Android.
+        Ini halaman Live View Event. Kontrol start/stop tetap dilakukan dari aplikasi Android.
       </p>
     </div>
   );
 }
 
-function RealtimeStats({
-  distance,
-  duration,
-  speed,
-  finishCount,
+function LiveSidePanel({
+  eventId,
+  event,
+  results,
+  resultsError,
+  finishedCount,
+  registeredCount,
+  quota,
+  progressValue,
+  routeDistance,
+  leaderResult,
 }: {
-  distance: string;
-  duration: string;
-  speed: string;
-  finishCount: number;
+  eventId: string;
+  event: PublicEvent | null;
+  results: EventResult[];
+  resultsError: string;
+  finishedCount: number;
+  registeredCount: number;
+  quota: number;
+  progressValue: number;
+  routeDistance: number;
+  leaderResult: EventResult | null;
 }) {
   return (
-    <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-black text-slate-950">
-          Statistik Real-time
-        </h3>
+    <>
+      <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-black text-slate-950">
+            Statistik Real-time
+          </h3>
 
-        <span className="inline-flex items-center gap-2 rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
-          <span className="h-2 w-2 rounded-full bg-green-500" />
-          Live
-        </span>
-      </div>
+          <span className="inline-flex items-center gap-2 rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
+            <span className="h-2 w-2 rounded-full bg-green-500" />
+            Standby
+          </span>
+        </div>
 
-      <div className="mt-5 grid grid-cols-2 overflow-hidden rounded-2xl border border-slate-200">
-        <StatCell label="Jarak" value={distance} unit="km" />
-        <StatCell label="Durasi" value={duration} unit="jam" />
-        <StatCell label="Kecepatan" value={speed} unit="km/h" />
-        <StatCell label="Finish" value={String(finishCount)} unit="orang" />
-      </div>
-    </section>
+        <div className="mt-5 grid grid-cols-2 overflow-hidden rounded-2xl border border-slate-200">
+          <StatCell label="Jarak Rute" value={formatDistance(routeDistance)} unit="km" />
+          <StatCell label="Durasi" value={formatDuration(leaderResult?.duration)} unit="jam" />
+          <StatCell label="Kecepatan" value={formatSpeed(leaderResult?.avg_speed)} unit="km/h" />
+          <StatCell label="Finish" value={String(finishedCount)} unit="orang" />
+        </div>
+      </section>
+
+      <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-black text-slate-950">Progress Event</h3>
+          <p className="text-sm font-black text-slate-500">{progressValue}%</p>
+        </div>
+
+        <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-100">
+          <div
+            className="h-full rounded-full bg-purple-700"
+            style={{ width: `${progressValue}%` }}
+          />
+        </div>
+
+        <div className="mt-5 grid grid-cols-3 gap-3">
+          <MiniStat label="Peserta" value={String(registeredCount)} />
+          <MiniStat label="Finish" value={String(finishedCount)} />
+          <MiniStat label="Kuota" value={quota ? String(quota) : "-"} />
+        </div>
+
+        <div className="mt-5">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-sm font-black text-slate-950">Check Point</p>
+            <p className="text-sm font-bold text-slate-500">0 / 6</p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {[1, 2, 3, 4, 5, 6].map((item) => (
+              <div key={item} className="flex flex-1 items-center">
+                <div
+                  className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-black ${
+                    item === 1
+                      ? "bg-purple-700 text-white"
+                      : "border border-slate-200 bg-white text-slate-400"
+                  }`}
+                >
+                  {item}
+                </div>
+                {item < 6 ? <div className="h-px flex-1 bg-slate-200" /> : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-black text-slate-950">Result Ringkas</h3>
+
+          <Link
+            href={`/events/${eventId}/results`}
+            className="text-sm font-black text-purple-700 hover:text-purple-800"
+          >
+            Lihat
+          </Link>
+        </div>
+
+        {resultsError ? (
+          <div className="mt-4 rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-sm font-bold text-yellow-700">
+            {resultsError}
+          </div>
+        ) : results.length === 0 ? (
+          <div className="mt-4 rounded-2xl bg-slate-50 p-5 text-center">
+            <Trophy className="mx-auto h-10 w-10 text-slate-300" />
+            <p className="mt-3 text-sm font-black text-slate-950">
+              Belum ada results
+            </p>
+          </div>
+        ) : (
+          <div className="mt-4 space-y-3">
+            {results.slice(0, 4).map((item, index) => (
+              <div
+                key={String(item.result_id)}
+                className="flex items-center justify-between rounded-2xl bg-slate-50 p-3"
+              >
+                <div>
+                  <p className="text-sm font-black text-slate-950">
+                    {index + 1}. {item.full_name || "Tanpa Nama"}
+                  </p>
+                  <p className="mt-1 text-xs font-bold text-slate-500">
+                    {item.participant_number || "-"} •{" "}
+                    {formatDistance(item.distance)} KM
+                  </p>
+                </div>
+
+                <span
+                  className={`rounded-full px-3 py-1 text-[10px] font-black uppercase ${getStatusBadgeClass(
+                    item.result_status
+                  )}`}
+                >
+                  {item.result_status || "REVIEW"}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
+        <h3 className="text-lg font-black text-slate-950">Pintasan</h3>
+
+        <div className="mt-4 grid grid-cols-3 gap-3">
+          <ShortcutLink
+            href={`/events/${eventId}`}
+            icon={CalendarDays}
+            label="Event"
+          />
+          <ShortcutLink
+            href={`/events/${eventId}/results`}
+            icon={Trophy}
+            label="Results"
+          />
+          <ShortcutLink
+            href={`/events/${eventId}/doorprize`}
+            icon={Gift}
+            label="Doorprize"
+          />
+        </div>
+      </section>
+    </>
+  );
+}
+
+function MobilePanel({
+  open,
+  onClose,
+  ...props
+}: {
+  open: boolean;
+  onClose: () => void;
+  eventId: string;
+  event: PublicEvent | null;
+  results: EventResult[];
+  resultsError: string;
+  finishedCount: number;
+  registeredCount: number;
+  quota: number;
+  progressValue: number;
+  routeDistance: number;
+  leaderResult: EventResult | null;
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[80] xl:hidden">
+      <button
+        type="button"
+        aria-label="Tutup panel"
+        className="absolute inset-0 bg-slate-950/50"
+        onClick={onClose}
+      />
+
+      <aside className="absolute right-0 top-0 h-full w-[min(92vw,420px)] overflow-y-auto bg-slate-50 p-4 shadow-2xl">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-wide text-purple-700">
+              Live Panel
+            </p>
+            <h2 className="text-xl font-black text-slate-950">Event Status</h2>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="space-y-5">
+          <LiveSidePanel {...props} />
+        </div>
+      </aside>
+    </div>
   );
 }
 
@@ -932,64 +981,6 @@ function StatCell({
   );
 }
 
-function RouteProgress({
-  progressValue,
-  finishedCount,
-  registeredCount,
-  quota,
-}: {
-  progressValue: number;
-  finishedCount: number;
-  registeredCount: number;
-  quota: number;
-}) {
-  return (
-    <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-black text-slate-950">Progress Rute</h3>
-        <p className="text-sm font-black text-slate-500">{progressValue}%</p>
-      </div>
-
-      <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-100">
-        <div
-          className="h-full rounded-full bg-purple-700"
-          style={{ width: `${progressValue}%` }}
-        />
-      </div>
-
-      <div className="mt-5 grid grid-cols-3 gap-3">
-        <MiniStat label="Peserta" value={String(registeredCount)} />
-        <MiniStat label="Finish" value={String(finishedCount)} />
-        <MiniStat label="Kuota" value={quota ? String(quota) : "-"} />
-      </div>
-
-      <div className="mt-5">
-        <div className="mb-3 flex items-center justify-between">
-          <p className="text-sm font-black text-slate-950">Check Point</p>
-          <p className="text-sm font-bold text-slate-500">0 / 6</p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {[1, 2, 3, 4, 5, 6].map((item) => (
-            <div key={item} className="flex flex-1 items-center">
-              <div
-                className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-black ${
-                  item === 1
-                    ? "bg-purple-700 text-white"
-                    : "border border-slate-200 bg-white text-slate-400"
-                }`}
-              >
-                {item}
-              </div>
-              {item < 6 ? <div className="h-px flex-1 bg-slate-200" /> : null}
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function MiniStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl bg-slate-50 p-4 text-center">
@@ -998,97 +989,6 @@ function MiniStat({ label, value }: { label: string; value: string }) {
         {label}
       </p>
     </div>
-  );
-}
-
-function ResultMiniPanel({
-  eventId,
-  results,
-  resultsError,
-}: {
-  eventId: string;
-  results: EventResult[];
-  resultsError: string;
-}) {
-  return (
-    <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-black text-slate-950">Result Ringkas</h3>
-
-        <Link
-          href={`/events/${eventId}/results`}
-          className="text-sm font-black text-purple-700 hover:text-purple-800"
-        >
-          Lihat
-        </Link>
-      </div>
-
-      {resultsError ? (
-        <div className="mt-4 rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-sm font-bold text-yellow-700">
-          {resultsError}
-        </div>
-      ) : results.length === 0 ? (
-        <div className="mt-4 rounded-2xl bg-slate-50 p-5 text-center">
-          <Trophy className="mx-auto h-10 w-10 text-slate-300" />
-          <p className="mt-3 text-sm font-black text-slate-950">
-            Belum ada results
-          </p>
-        </div>
-      ) : (
-        <div className="mt-4 space-y-3">
-          {results.slice(0, 4).map((item, index) => (
-            <div
-              key={String(item.result_id)}
-              className="flex items-center justify-between rounded-2xl bg-slate-50 p-3"
-            >
-              <div>
-                <p className="text-sm font-black text-slate-950">
-                  {index + 1}. {item.full_name || "Tanpa Nama"}
-                </p>
-                <p className="mt-1 text-xs font-bold text-slate-500">
-                  {item.participant_number || "-"} •{" "}
-                  {formatDistance(item.distance)} KM
-                </p>
-              </div>
-
-              <span
-                className={`rounded-full px-3 py-1 text-[10px] font-black uppercase ${getStatusBadgeClass(
-                  item.result_status
-                )}`}
-              >
-                {item.result_status || "REVIEW"}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function ShortcutPanel({ eventId }: { eventId: string }) {
-  return (
-    <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
-      <h3 className="text-lg font-black text-slate-950">Pintasan</h3>
-
-      <div className="mt-4 grid grid-cols-3 gap-3">
-        <ShortcutLink
-          href={`/events/${eventId}/results`}
-          icon={Trophy}
-          label="Results"
-        />
-        <ShortcutLink
-          href={`/events/${eventId}/doorprize`}
-          icon={Gift}
-          label="Doorprize"
-        />
-        <ShortcutLink
-          href={`/events/${eventId}`}
-          icon={CalendarDays}
-          label="Event"
-        />
-      </div>
-    </section>
   );
 }
 
