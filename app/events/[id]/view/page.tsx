@@ -6,22 +6,31 @@ import { useEffect, useMemo, useState, type ElementType } from "react";
 import {
   Activity,
   ArrowLeft,
+  BarChart3,
+  Bell,
   Bike,
   CalendarDays,
   CheckCircle2,
-  Clock3,
-  Gift,
+  CloudSun,
+  Download,
   Gauge,
+  Gift,
+  HelpCircle,
+  Home,
+  Layers,
   Loader2,
-  LocateFixed,
   MapPin,
   Maximize2,
   Navigation,
   RefreshCw,
   Route,
   Satellite,
+  Search,
+  Settings,
   ShieldCheck,
+  Ticket,
   Trophy,
+  UserRound,
   UsersRound,
   Wifi,
 } from "lucide-react";
@@ -102,7 +111,7 @@ function formatDate(value: string | null | undefined) {
 
   return date.toLocaleDateString("id-ID", {
     day: "2-digit",
-    month: "long",
+    month: "short",
     year: "numeric",
   });
 }
@@ -111,20 +120,20 @@ function formatDistance(value: number | string | null | undefined) {
   const numberValue = Number(value || 0);
 
   if (!Number.isFinite(numberValue) || numberValue <= 0) {
-    return "0.00 KM";
+    return "0.00";
   }
 
-  return `${numberValue.toFixed(2)} KM`;
+  return numberValue.toFixed(2);
 }
 
 function formatSpeed(value: number | string | null | undefined) {
   const numberValue = Number(value || 0);
 
   if (!Number.isFinite(numberValue) || numberValue <= 0) {
-    return "0.00 km/jam";
+    return "0.0";
   }
 
-  return `${numberValue.toFixed(2)} km/jam`;
+  return numberValue.toFixed(1);
 }
 
 function formatDuration(value: number | string | null | undefined) {
@@ -139,11 +148,11 @@ function formatDuration(value: number | string | null | undefined) {
   const remainingSeconds = Math.floor(seconds % 60);
 
   return [hours, minutes, remainingSeconds]
-    .map((value) => String(value).padStart(2, "0"))
+    .map((item) => String(item).padStart(2, "0"))
     .join(":");
 }
 
-function percent(value: number, total: number) {
+function calculatePercent(value: number, total: number) {
   if (!total || total <= 0) return 0;
 
   const result = Math.round((value / total) * 100);
@@ -152,6 +161,28 @@ function percent(value: number, total: number) {
   if (result > 100) return 100;
 
   return result;
+}
+
+function getStatusBadgeClass(status: string | null | undefined) {
+  const clean = String(status || "REVIEW").toUpperCase();
+
+  if (clean === "FINISH") {
+    return "bg-green-50 text-green-700";
+  }
+
+  if (clean === "DNF") {
+    return "bg-orange-50 text-orange-700";
+  }
+
+  if (clean === "DNS") {
+    return "bg-slate-100 text-slate-700";
+  }
+
+  if (clean === "REVIEW") {
+    return "bg-yellow-50 text-yellow-700";
+  }
+
+  return "bg-purple-50 text-purple-700";
 }
 
 export default function EventLiveViewPage() {
@@ -182,8 +213,7 @@ export default function EventLiveViewPage() {
   const registeredCount = Number(event?.participant_count || 0);
   const quota = Number(event?.quota || 0);
   const routeDistance = Number(event?.distance_km || 0);
-  const progressValue = percent(finishedCount, registeredCount || quota || 1);
-
+  const progressValue = calculatePercent(finishedCount, registeredCount || quota || 1);
   const leaderResult = results[0] || null;
 
   async function loadData(silent = false) {
@@ -265,9 +295,9 @@ export default function EventLiveViewPage() {
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-950">
-        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+        <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
           <Loader2 className="mx-auto h-10 w-10 animate-spin text-purple-700" />
-          <p className="mt-4 text-lg font-black">Memuat Live View...</p>
+          <p className="mt-4 text-lg font-black">Memuat Tracking Live...</p>
           <p className="mt-2 text-sm text-slate-500">
             Mengambil data event dan status peserta.
           </p>
@@ -279,7 +309,7 @@ export default function EventLiveViewPage() {
   if (errorMessage) {
     return (
       <main className="min-h-screen bg-slate-50 p-6 text-slate-950">
-        <div className="mx-auto max-w-[960px] rounded-2xl border border-red-200 bg-red-50 p-8 text-center text-red-700">
+        <div className="mx-auto max-w-[960px] rounded-3xl border border-red-200 bg-red-50 p-8 text-center text-red-700">
           <p className="text-xl font-black">{errorMessage}</p>
           <Link
             href={`/events/${eventId}`}
@@ -295,16 +325,16 @@ export default function EventLiveViewPage() {
   if (!isRegistered) {
     return (
       <main className="min-h-screen bg-slate-50 p-6 text-slate-950">
-        <div className="mx-auto max-w-[960px] rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+        <div className="mx-auto max-w-[960px] rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-purple-50 text-purple-700">
             <ShieldCheck size={30} />
           </div>
 
-          <h1 className="mt-5 text-2xl font-black">Akses Live View Terkunci</h1>
+          <h1 className="mt-5 text-2xl font-black">Akses Tracking Live Terkunci</h1>
 
           <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
-            Live View Tracking hanya tersedia untuk peserta yang sudah terdaftar
-            pada event ini.
+            Tracking Live hanya tersedia untuk peserta yang sudah terdaftar pada
+            event ini.
           </p>
 
           <Link
@@ -319,294 +349,260 @@ export default function EventLiveViewPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-950">
-      <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-xl">
-        <div className="mx-auto flex min-h-[92px] max-w-[1440px] flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-[88px]">
-          <div className="flex items-center gap-5">
-            <Link
-              href={`/events/${eventId}`}
-              className="flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-            >
-              <ArrowLeft size={22} />
-            </Link>
+    <main className="min-h-screen bg-[#f7f8fb] text-slate-950">
+      <LiveSidebar eventId={eventId} />
 
-            <Link href="/" className="flex items-center">
-              <img
-                src="/amost_logo_wide_.png"
-                alt="AMOST"
-                className="h-[58px] w-auto object-contain"
-              />
-            </Link>
+      <section className="min-h-screen lg:pl-[260px]">
+        <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-xl">
+          <div className="flex min-h-[88px] flex-col gap-4 px-4 py-4 md:flex-row md:items-center md:justify-between md:px-6">
+            <div className="flex items-center gap-4">
+              <Link
+                href={`/events/${eventId}`}
+                className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+              >
+                <ArrowLeft size={22} />
+              </Link>
 
-            <div className="hidden border-l border-slate-200 pl-5 md:block">
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-purple-700">
-                Tracking Live
-              </p>
-              <h1 className="mt-1 text-2xl font-black leading-tight text-slate-950">
-                {eventTitle}
-              </h1>
-              <p className="mt-1 max-w-xl text-sm font-medium leading-6 text-slate-500">
-                Live View event untuk peserta terdaftar.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <StatusPill icon={Wifi} title="GPS Signal" value="Standby" />
-
-            <button
-              type="button"
-              onClick={() => loadData(true)}
-              disabled={refreshing}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:opacity-70"
-            >
-              {refreshing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw size={17} />
-              )}
-              Refresh
-            </button>
-
-            <Link
-              href={`/events/${eventId}/results`}
-              className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50"
-            >
-              Results
-            </Link>
-
-            <Link
-              href={`/events/${eventId}/doorprize`}
-              className="inline-flex h-11 items-center justify-center rounded-xl bg-purple-700 px-4 text-sm font-black text-white hover:bg-purple-800"
-            >
-              Doorprize
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      <section className="mx-auto grid max-w-[1440px] grid-cols-1 gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:px-[88px]">
-        <section className="relative min-h-[680px] overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
-          <MapPlaceholder />
-
-          <div className="absolute left-5 top-5 z-10 w-[calc(100%-40px)] max-w-[380px] rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-lg backdrop-blur">
-            <div className="flex items-start gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-100 text-purple-700">
-                <Bike size={26} />
-              </div>
-
-              <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-wide text-slate-500">
-                  Event Aktif
-                </p>
-                <h2 className="mt-1 truncate text-lg font-black text-slate-950">
-                  {eventTitle}
-                </h2>
+              <div>
+                <h1 className="text-2xl font-black text-slate-950">
+                  Tracking Live
+                </h1>
                 <p className="mt-1 text-sm font-semibold text-slate-500">
-                  {formatDate(event?.event_date)} •{" "}
-                  {event?.location || "Lokasi menyusul"}
+                  {eventTitle}
                 </p>
               </div>
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-2">
-              <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-black uppercase text-purple-700">
-                {normalizeStatus(event?.status)}
-              </span>
-              <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-black uppercase text-green-700">
-                Peserta #{registration?.participant_number || registration?.id || "-"}
-              </span>
-            </div>
-          </div>
-
-          <div className="absolute bottom-5 left-5 right-5 z-10 rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-lg backdrop-blur md:left-1/2 md:right-auto md:w-[520px] md:-translate-x-1/2">
-            <p className="text-center text-xs font-black uppercase tracking-wide text-slate-500">
-              Status Live Tracking
-            </p>
-
-            <div className="mt-3 flex items-center justify-center gap-5">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-700">
-                <Clock3 size={24} />
-              </div>
-
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-purple-700 text-white">
-                <Navigation size={28} />
-              </div>
-
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-700">
-                <Maximize2 size={24} />
-              </div>
-            </div>
-
-            <p className="mt-3 text-center text-2xl font-black text-slate-950">
-              Live View Standby
-            </p>
-
-            <p className="mt-1 text-center text-sm leading-6 text-slate-500">
-              Peta live tracking belum tersambung ke data posisi real-time.
-              Tahap ini memastikan halaman live tidak 404 dan siap disambungkan
-              ke tracking.
-            </p>
-          </div>
-
-          <div className="absolute right-5 top-5 z-10 flex flex-col gap-3">
-            <MapToolButton icon={LocateFixed} label="Lokasi" />
-            <MapToolButton icon={Satellite} label="Satelit" />
-            <MapToolButton icon={Route} label="Rute" />
-          </div>
-        </section>
-
-        <aside className="space-y-6">
-          <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-black text-slate-950">
-                Statistik Real-time
-              </h3>
-
-              <span className="inline-flex items-center gap-2 rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
-                <span className="h-2 w-2 rounded-full bg-green-500" />
-                Standby
-              </span>
-            </div>
-
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <StatBox label="Jarak Rute" value={formatDistance(routeDistance)} />
-              <StatBox label="Durasi" value={formatDuration(leaderResult?.duration)} />
-              <StatBox label="Avg Speed" value={formatSpeed(leaderResult?.avg_speed)} />
-              <StatBox label="Finish" value={String(finishedCount)} />
-            </div>
-          </section>
-
-          <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-black text-slate-950">
-                Progress Event
-              </h3>
-
-              <p className="text-sm font-black text-slate-500">
-                {progressValue}%
-              </p>
-            </div>
-
-            <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-100">
-              <div
-                className="h-full rounded-full bg-purple-700"
-                style={{ width: `${progressValue}%` }}
+            <div className="flex flex-wrap items-center gap-3">
+              <TopStatusCard
+                icon={Wifi}
+                title="GPS Signal"
+                value="Standby"
+                accent="green"
               />
-            </div>
 
-            <div className="mt-5 grid grid-cols-3 gap-3">
-              <MiniCounter label="Peserta" value={String(registeredCount)} />
-              <MiniCounter label="Finish" value={String(finishedCount)} />
-              <MiniCounter label="Kuota" value={String(quota || "-")} />
-            </div>
-          </section>
+              <TopStatusCard
+                icon={CloudSun}
+                title="26°C"
+                value="Cerah"
+                accent="slate"
+              />
 
-          <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-black text-slate-950">
-                Peserta / Results
-              </h3>
+              <button
+                type="button"
+                className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700"
+                title="Notifikasi"
+              >
+                <Bell size={20} />
+                <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-purple-700 text-[10px] font-black text-white">
+                  3
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => loadData(true)}
+                disabled={refreshing}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:opacity-70"
+              >
+                {refreshing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw size={17} />
+                )}
+                Refresh
+              </button>
 
               <Link
-                href={`/events/${eventId}/results`}
-                className="text-sm font-black text-purple-700 hover:text-purple-800"
+                href="/account"
+                className="flex h-11 items-center gap-3 rounded-2xl border border-purple-100 bg-purple-50 px-4 text-sm font-black text-purple-700"
               >
-                Lihat Semua
+                <UserRound size={18} />
+                Akun Saya
               </Link>
             </div>
+          </div>
+        </header>
 
-            {resultsError ? (
-              <div className="mt-4 rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-sm font-bold text-yellow-700">
-                {resultsError}
-              </div>
-            ) : results.length === 0 ? (
-              <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-5 text-center">
-                <UsersRound className="mx-auto h-10 w-10 text-slate-300" />
-                <p className="mt-3 text-sm font-black text-slate-950">
-                  Belum ada data tracking
-                </p>
-                <p className="mt-1 text-xs leading-5 text-slate-500">
-                  Data peserta live akan muncul setelah tracking tersambung.
-                </p>
-              </div>
-            ) : (
-              <div className="mt-4 space-y-3">
-                {results.slice(0, 5).map((item, index) => (
-                  <div
-                    key={String(item.result_id)}
-                    className="flex items-center justify-between rounded-2xl bg-slate-50 p-3"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-100 text-sm font-black text-purple-700">
-                        {index + 1}
-                      </div>
+        <section className="grid min-h-[calc(100vh-88px)] grid-cols-1 gap-5 p-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+          <section className="relative min-h-[720px] overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
+            <MapMockup />
 
-                      <div>
-                        <p className="text-sm font-black text-slate-950">
-                          {item.full_name || "Tanpa Nama"}
-                        </p>
-                        <p className="text-xs font-bold text-slate-500">
-                          {item.participant_number || "-"} •{" "}
-                          {formatDistance(item.distance)}
-                        </p>
-                      </div>
-                    </div>
+            <EventActiveCard
+              eventTitle={eventTitle}
+              event={event}
+              registration={registration}
+            />
 
-                    <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-black uppercase text-green-700">
-                      {item.result_status || "REVIEW"}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
+            <NearbyParticipants results={results} />
 
-          <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
-            <h3 className="text-lg font-black text-slate-950">Pintasan</h3>
+            <TrackingControlCard />
 
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <ShortcutLink
-                href={`/events/${eventId}`}
-                icon={CalendarDays}
-                label="Detail Event"
-              />
-              <ShortcutLink
-                href={`/events/${eventId}/results`}
-                icon={Trophy}
-                label="Results"
-              />
-              <ShortcutLink
-                href={`/events/${eventId}/doorprize`}
-                icon={Gift}
-                label="Doorprize"
-              />
-              <ShortcutLink
-                href="/account"
-                icon={Activity}
-                label="Akun Saya"
-              />
+            <div className="absolute right-5 top-5 z-10 flex flex-col gap-3">
+              <MapToolButton icon={Satellite} label="Satelit" />
+              <MapToolButton icon={Layers} label="Layer" />
+              <MapToolButton icon={Maximize2} label="Full Map" />
             </div>
           </section>
-        </aside>
+
+          <aside className="space-y-5">
+            <RealtimeStats
+              distance={formatDistance(routeDistance)}
+              duration={formatDuration(leaderResult?.duration)}
+              speed={formatSpeed(leaderResult?.avg_speed)}
+              finishCount={finishedCount}
+            />
+
+            <RouteProgress
+              progressValue={progressValue}
+              finishedCount={finishedCount}
+              registeredCount={registeredCount}
+              quota={quota}
+            />
+
+            <ResultMiniPanel
+              eventId={eventId}
+              results={results}
+              resultsError={resultsError}
+            />
+
+            <ShortcutPanel eventId={eventId} />
+          </aside>
+        </section>
       </section>
     </main>
   );
 }
 
-function StatusPill({
+function LiveSidebar({ eventId }: { eventId: string }) {
+  return (
+    <aside className="hidden fixed inset-y-0 left-0 z-[60] w-[260px] border-r border-slate-200 bg-white lg:flex lg:flex-col">
+      <div className="flex h-[88px] items-center px-8">
+        <Link href="/">
+          <img
+            src="/amost_logo_wide_.png"
+            alt="AMOST"
+            className="h-[62px] w-auto object-contain"
+          />
+        </Link>
+      </div>
+
+      <nav className="flex-1 space-y-2 px-5 py-5">
+        <SidebarItem href="/account" icon={Home} label="Dashboard" />
+        <SidebarItem
+          href={`/event/${eventId}/view`}
+          icon={Navigation}
+          label="Tracking"
+          active
+        />
+        <SidebarItem
+          href={`/events/${eventId}`}
+          icon={CalendarDays}
+          label="Event Detail"
+        />
+        <SidebarItem
+          href={`/events/${eventId}/results`}
+          icon={Trophy}
+          label="Results"
+        />
+        <SidebarItem
+          href={`/events/${eventId}/doorprize`}
+          icon={Gift}
+          label="Doorprize"
+        />
+        <SidebarItem href="/events" icon={Ticket} label="All Events" />
+        <SidebarItem href="/account" icon={UserRound} label="Profile" />
+        <SidebarItem href="/account" icon={Settings} label="Settings" />
+      </nav>
+
+      <div className="m-5 rounded-3xl border border-purple-100 bg-purple-50 p-5">
+        <p className="text-sm font-black text-purple-700">
+          Tracking lebih seru
+        </p>
+
+        <ul className="mt-3 space-y-2 text-xs font-semibold text-slate-600">
+          <li className="flex items-center gap-2">
+            <CheckCircle2 size={15} className="text-green-600" />
+            Live Tracking Event
+          </li>
+          <li className="flex items-center gap-2">
+            <CheckCircle2 size={15} className="text-green-600" />
+            Results & Doorprize
+          </li>
+          <li className="flex items-center gap-2">
+            <CheckCircle2 size={15} className="text-green-600" />
+            Panel peserta
+          </li>
+        </ul>
+
+        <Link
+          href="/download"
+          className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-purple-700 text-sm font-black text-white"
+        >
+          <Download size={16} />
+          Download App
+        </Link>
+      </div>
+
+      <div className="border-t border-slate-200 p-5">
+        <Link
+          href="/"
+          className="flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50"
+        >
+          <HelpCircle size={19} />
+          Pusat Bantuan
+        </Link>
+      </div>
+    </aside>
+  );
+}
+
+function SidebarItem({
+  href,
+  icon: Icon,
+  label,
+  active = false,
+}: {
+  href: string;
+  icon: ElementType;
+  label: string;
+  active?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`flex h-12 items-center gap-3 rounded-2xl px-4 text-sm font-black transition ${
+        active
+          ? "bg-purple-50 text-purple-700"
+          : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"
+      }`}
+    >
+      <Icon size={20} />
+      {label}
+    </Link>
+  );
+}
+
+function TopStatusCard({
   icon: Icon,
   title,
   value,
+  accent,
 }: {
   icon: ElementType;
   title: string;
   value: string;
+  accent: "green" | "slate";
 }) {
+  const color =
+    accent === "green"
+      ? "bg-green-50 text-green-700"
+      : "bg-slate-50 text-slate-700";
+
   return (
-    <div className="hidden h-11 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 lg:flex">
-      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-green-50 text-green-700">
-        <Icon size={16} />
+    <div className="hidden h-11 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 md:flex">
+      <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${color}`}>
+        <Icon size={17} />
       </div>
 
       <div>
@@ -619,16 +615,69 @@ function StatusPill({
   );
 }
 
-function MapPlaceholder() {
+function EventActiveCard({
+  eventTitle,
+  event,
+  registration,
+}: {
+  eventTitle: string;
+  event: PublicEvent | null;
+  registration: Registration | null;
+}) {
+  return (
+    <div className="absolute left-5 top-5 z-10 w-[calc(100%-40px)] max-w-[380px] rounded-[1.5rem] border border-slate-200 bg-white/95 p-5 shadow-xl backdrop-blur">
+      <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+        Event Aktif
+      </p>
+
+      <div className="mt-3 flex items-start gap-4">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-100 text-purple-700">
+          <Bike size={25} />
+        </div>
+
+        <div className="min-w-0">
+          <h2 className="truncate text-lg font-black text-slate-950">
+            {eventTitle}
+          </h2>
+          <p className="mt-1 text-sm font-semibold text-slate-500">
+            {formatDate(event?.event_date)} • {event?.location || "Lokasi menyusul"}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 flex items-center justify-between gap-3">
+        <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-black uppercase text-green-700">
+          {normalizeStatus(event?.status)}
+        </span>
+
+        <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-black uppercase text-purple-700">
+          {registration?.participant_number || registration?.id || "Peserta"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function MapMockup() {
+  const checkpointPoints = [
+    { x: 155, y: 525, label: "S" },
+    { x: 315, y: 465, label: "1" },
+    { x: 455, y: 382, label: "2" },
+    { x: 592, y: 302, label: "3" },
+    { x: 720, y: 216, label: "4" },
+    { x: 846, y: 130, label: "F" },
+  ];
+
   return (
     <div className="absolute inset-0 overflow-hidden bg-[#eef3f1]">
       <div className="absolute inset-0 opacity-[0.55]">
-        <div className="h-full w-full bg-[linear-gradient(90deg,rgba(100,116,139,.12)_1px,transparent_1px),linear-gradient(0deg,rgba(100,116,139,.12)_1px,transparent_1px)] bg-[size:44px_44px]" />
+        <div className="h-full w-full bg-[linear-gradient(90deg,rgba(100,116,139,.14)_1px,transparent_1px),linear-gradient(0deg,rgba(100,116,139,.14)_1px,transparent_1px)] bg-[size:44px_44px]" />
       </div>
 
-      <div className="absolute left-[8%] top-[18%] h-[760px] w-[760px] rounded-full border border-slate-300/60" />
-      <div className="absolute left-[31%] top-[4%] h-[620px] w-[620px] rounded-full border border-slate-300/50" />
-      <div className="absolute bottom-[8%] right-[10%] h-[520px] w-[520px] rounded-full border border-slate-300/50" />
+      <div className="absolute -left-24 top-4 h-[760px] w-[760px] rounded-full border border-slate-300/60" />
+      <div className="absolute left-[28%] -top-28 h-[640px] w-[640px] rounded-full border border-slate-300/50" />
+      <div className="absolute bottom-10 right-2 h-[520px] w-[520px] rounded-full border border-slate-300/50" />
+      <div className="absolute left-[12%] top-[18%] h-[380px] w-[720px] rotate-[-13deg] rounded-[100%] border border-slate-300/40" />
 
       <svg
         className="absolute inset-0 h-full w-full"
@@ -637,15 +686,16 @@ function MapPlaceholder() {
         aria-hidden="true"
       >
         <path
-          d="M160 520 C230 505 255 455 315 462 C390 472 380 372 455 382 C528 392 520 295 592 300 C650 305 652 210 720 214 C775 218 780 128 846 132"
+          d="M155 525 C226 511 255 455 315 465 C390 478 381 372 455 382 C530 394 520 295 592 302 C650 310 650 210 720 216 C778 222 780 132 846 130"
           fill="none"
           stroke="#7e22ce"
-          strokeWidth="8"
+          strokeWidth="9"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
+
         <path
-          d="M160 520 C230 505 255 455 315 462 C390 472 380 372 455 382 C528 392 520 295 592 300 C650 305 652 210 720 214 C775 218 780 128 846 132"
+          d="M155 525 C226 511 255 455 315 465 C390 478 381 372 455 382 C530 394 520 295 592 302 C650 310 650 210 720 216 C778 222 780 132 846 130"
           fill="none"
           stroke="#a855f7"
           strokeWidth="3"
@@ -653,47 +703,55 @@ function MapPlaceholder() {
           strokeLinejoin="round"
         />
 
-        {[{ x: 160, y: 520, label: "START" }, { x: 315, y: 462, label: "1" }, { x: 455, y: 382, label: "2" }, { x: 592, y: 300, label: "3" }, { x: 720, y: 214, label: "4" }, { x: 846, y: 132, label: "FINISH" }].map(
-          (point) => (
-            <g key={point.label}>
-              <circle
-                cx={point.x}
-                cy={point.y}
-                r={18}
-                fill="white"
-                stroke="#7e22ce"
-                strokeWidth="3"
-              />
-              <text
-                x={point.x}
-                y={point.y + 5}
-                textAnchor="middle"
-                fontSize="16"
-                fontWeight="800"
-                fill="#7e22ce"
-              >
-                {point.label === "START"
-                  ? "S"
-                  : point.label === "FINISH"
-                    ? "F"
-                    : point.label}
-              </text>
-            </g>
-          )
-        )}
+        {checkpointPoints.map((point) => (
+          <g key={point.label}>
+            <circle
+              cx={point.x}
+              cy={point.y}
+              r={19}
+              fill="white"
+              stroke="#7e22ce"
+              strokeWidth="3"
+            />
+            <text
+              x={point.x}
+              y={point.y + 6}
+              textAnchor="middle"
+              fontSize="16"
+              fontWeight="900"
+              fill="#7e22ce"
+            >
+              {point.label}
+            </text>
+          </g>
+        ))}
 
         <g>
-          <circle cx="540" cy="335" r="38" fill="#2563eb" opacity="0.18" />
-          <circle cx="540" cy="335" r="18" fill="#2563eb" />
+          <circle cx="540" cy="335" r="42" fill="#2563eb" opacity="0.18" />
+          <circle cx="540" cy="335" r="20" fill="#2563eb" />
           <path
-            d="M540 315 L555 360 L540 350 L525 360 Z"
+            d="M540 313 L557 363 L540 351 L523 363 Z"
             fill="white"
             transform="rotate(35 540 335)"
           />
         </g>
       </svg>
 
-      <div className="absolute inset-0 bg-gradient-to-br from-white/25 via-transparent to-white/20" />
+      <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-white/25" />
+      <MapLabel className="left-[25%] top-[20%]" label="Karanglewas" />
+      <MapLabel className="left-[63%] top-[24%]" label="Kalisari" />
+      <MapLabel className="right-[18%] top-[31%]" label="Purwokerto" />
+      <MapLabel className="bottom-[20%] left-[38%]" label="Baturraden" />
+    </div>
+  );
+}
+
+function MapLabel({ label, className }: { label: string; className: string }) {
+  return (
+    <div
+      className={`absolute rounded-full bg-white/60 px-3 py-1 text-xs font-bold text-slate-400 ${className}`}
+    >
+      {label}
     </div>
   );
 }
@@ -708,7 +766,7 @@ function MapToolButton({
   return (
     <button
       type="button"
-      className="flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 bg-white/95 text-slate-700 shadow-sm backdrop-blur hover:bg-white"
+      className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white/95 text-slate-700 shadow-sm backdrop-blur hover:bg-white"
       title={label}
     >
       <Icon size={20} />
@@ -716,21 +774,321 @@ function MapToolButton({
   );
 }
 
-function StatBox({ label, value }: { label: string; value: string }) {
+function NearbyParticipants({ results }: { results: EventResult[] }) {
   return (
-    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-      <p className="text-xs font-black uppercase text-slate-500">{label}</p>
-      <p className="mt-2 text-xl font-black text-slate-950">{value}</p>
+    <div className="absolute bottom-5 left-5 z-10 hidden w-[340px] rounded-[1.5rem] border border-slate-200 bg-white/95 p-5 shadow-xl backdrop-blur md:block">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-black text-slate-950">
+          Peserta di Event ({results.length})
+        </p>
+
+        <UsersRound size={18} className="text-purple-700" />
+      </div>
+
+      {results.length === 0 ? (
+        <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-center">
+          <p className="text-sm font-black text-slate-950">
+            Belum ada data tracking
+          </p>
+          <p className="mt-1 text-xs leading-5 text-slate-500">
+            Peserta live akan tampil setelah data tracking tersambung.
+          </p>
+        </div>
+      ) : (
+        <div className="mt-4 space-y-3">
+          {results.slice(0, 5).map((item, index) => (
+            <div
+              key={String(item.result_id)}
+              className={`flex items-center justify-between rounded-2xl p-3 ${
+                index === 0 ? "bg-purple-50" : "bg-white"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-sm font-black text-purple-700 ring-1 ring-purple-100">
+                  {index + 1}
+                </div>
+
+                <div>
+                  <p className="text-sm font-black text-slate-950">
+                    {item.full_name || "Tanpa Nama"}
+                  </p>
+                  <p className="text-xs font-bold text-slate-500">
+                    {formatSpeed(item.avg_speed)} km/jam •{" "}
+                    {formatDistance(item.distance)} km
+                  </p>
+                </div>
+              </div>
+
+              <span
+                className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${getStatusBadgeClass(
+                  item.result_status
+                )}`}
+              >
+                {item.result_status || "REVIEW"}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-function MiniCounter({ label, value }: { label: string; value: string }) {
+function TrackingControlCard() {
+  return (
+    <div className="absolute bottom-5 left-1/2 z-20 hidden w-[520px] -translate-x-1/2 rounded-[1.5rem] border border-slate-200 bg-white/95 p-5 shadow-xl backdrop-blur xl:block">
+      <p className="text-center text-xs font-black uppercase tracking-wide text-slate-500">
+        Tracking Berlangsung
+      </p>
+
+      <div className="mt-3 flex items-center justify-center gap-6">
+        <div className="flex flex-col items-center">
+          <button
+            type="button"
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-700"
+          >
+            <Activity size={24} />
+          </button>
+          <span className="mt-2 text-xs font-bold text-slate-500">Status</span>
+        </div>
+
+        <div className="flex flex-col items-center">
+          <button
+            type="button"
+            className="flex h-16 w-16 items-center justify-center rounded-full bg-purple-700 text-white"
+          >
+            <Navigation size={28} />
+          </button>
+          <span className="mt-2 text-xs font-bold text-slate-500">Live</span>
+        </div>
+
+        <div className="flex flex-col items-center">
+          <button
+            type="button"
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-700"
+          >
+            <MapPin size={24} />
+          </button>
+          <span className="mt-2 text-xs font-bold text-slate-500">Route</span>
+        </div>
+      </div>
+
+      <p className="mt-3 text-center text-sm leading-6 text-slate-500">
+        Tampilan ini adalah Live View. Kontrol start/stop tetap dilakukan dari aplikasi Android.
+      </p>
+    </div>
+  );
+}
+
+function RealtimeStats({
+  distance,
+  duration,
+  speed,
+  finishCount,
+}: {
+  distance: string;
+  duration: string;
+  speed: string;
+  finishCount: number;
+}) {
+  return (
+    <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-black text-slate-950">
+          Statistik Real-time
+        </h3>
+
+        <span className="inline-flex items-center gap-2 rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
+          <span className="h-2 w-2 rounded-full bg-green-500" />
+          Live
+        </span>
+      </div>
+
+      <div className="mt-5 grid grid-cols-2 overflow-hidden rounded-2xl border border-slate-200">
+        <StatCell label="Jarak" value={distance} unit="km" />
+        <StatCell label="Durasi" value={duration} unit="jam" />
+        <StatCell label="Kecepatan" value={speed} unit="km/h" />
+        <StatCell label="Finish" value={String(finishCount)} unit="orang" />
+      </div>
+    </section>
+  );
+}
+
+function StatCell({
+  label,
+  value,
+  unit,
+}: {
+  label: string;
+  value: string;
+  unit: string;
+}) {
+  return (
+    <div className="border-b border-r border-slate-200 p-5 last:border-r-0">
+      <p className="text-xs font-bold text-slate-500">{label}</p>
+      <p className="mt-2 text-2xl font-black text-slate-950">{value}</p>
+      <p className="mt-1 text-xs font-bold text-slate-500">{unit}</p>
+    </div>
+  );
+}
+
+function RouteProgress({
+  progressValue,
+  finishedCount,
+  registeredCount,
+  quota,
+}: {
+  progressValue: number;
+  finishedCount: number;
+  registeredCount: number;
+  quota: number;
+}) {
+  return (
+    <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-black text-slate-950">Progress Rute</h3>
+        <p className="text-sm font-black text-slate-500">{progressValue}%</p>
+      </div>
+
+      <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-100">
+        <div
+          className="h-full rounded-full bg-purple-700"
+          style={{ width: `${progressValue}%` }}
+        />
+      </div>
+
+      <div className="mt-5 grid grid-cols-3 gap-3">
+        <MiniStat label="Peserta" value={String(registeredCount)} />
+        <MiniStat label="Finish" value={String(finishedCount)} />
+        <MiniStat label="Kuota" value={quota ? String(quota) : "-"} />
+      </div>
+
+      <div className="mt-5">
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-sm font-black text-slate-950">Check Point</p>
+          <p className="text-sm font-bold text-slate-500">0 / 6</p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {[1, 2, 3, 4, 5, 6].map((item) => (
+            <div key={item} className="flex flex-1 items-center">
+              <div
+                className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-black ${
+                  item === 1
+                    ? "bg-purple-700 text-white"
+                    : "border border-slate-200 bg-white text-slate-400"
+                }`}
+              >
+                {item}
+              </div>
+              {item < 6 ? <div className="h-px flex-1 bg-slate-200" /> : null}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl bg-slate-50 p-4 text-center">
       <p className="text-2xl font-black text-slate-950">{value}</p>
-      <p className="mt-1 text-xs font-black uppercase text-slate-500">{label}</p>
+      <p className="mt-1 text-xs font-black uppercase text-slate-500">
+        {label}
+      </p>
     </div>
+  );
+}
+
+function ResultMiniPanel({
+  eventId,
+  results,
+  resultsError,
+}: {
+  eventId: string;
+  results: EventResult[];
+  resultsError: string;
+}) {
+  return (
+    <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-black text-slate-950">Result Ringkas</h3>
+
+        <Link
+          href={`/events/${eventId}/results`}
+          className="text-sm font-black text-purple-700 hover:text-purple-800"
+        >
+          Lihat
+        </Link>
+      </div>
+
+      {resultsError ? (
+        <div className="mt-4 rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-sm font-bold text-yellow-700">
+          {resultsError}
+        </div>
+      ) : results.length === 0 ? (
+        <div className="mt-4 rounded-2xl bg-slate-50 p-5 text-center">
+          <Trophy className="mx-auto h-10 w-10 text-slate-300" />
+          <p className="mt-3 text-sm font-black text-slate-950">
+            Belum ada results
+          </p>
+        </div>
+      ) : (
+        <div className="mt-4 space-y-3">
+          {results.slice(0, 4).map((item, index) => (
+            <div
+              key={String(item.result_id)}
+              className="flex items-center justify-between rounded-2xl bg-slate-50 p-3"
+            >
+              <div>
+                <p className="text-sm font-black text-slate-950">
+                  {index + 1}. {item.full_name || "Tanpa Nama"}
+                </p>
+                <p className="mt-1 text-xs font-bold text-slate-500">
+                  {item.participant_number || "-"} •{" "}
+                  {formatDistance(item.distance)} KM
+                </p>
+              </div>
+
+              <span
+                className={`rounded-full px-3 py-1 text-[10px] font-black uppercase ${getStatusBadgeClass(
+                  item.result_status
+                )}`}
+              >
+                {item.result_status || "REVIEW"}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ShortcutPanel({ eventId }: { eventId: string }) {
+  return (
+    <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
+      <h3 className="text-lg font-black text-slate-950">Pintasan</h3>
+
+      <div className="mt-4 grid grid-cols-3 gap-3">
+        <ShortcutLink
+          href={`/events/${eventId}/results`}
+          icon={Trophy}
+          label="Results"
+        />
+        <ShortcutLink
+          href={`/events/${eventId}/doorprize`}
+          icon={Gift}
+          label="Doorprize"
+        />
+        <ShortcutLink
+          href={`/events/${eventId}`}
+          icon={CalendarDays}
+          label="Event"
+        />
+      </div>
+    </section>
   );
 }
 
@@ -746,9 +1104,9 @@ function ShortcutLink({
   return (
     <Link
       href={href}
-      className="flex min-h-[86px] flex-col items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-3 py-4 text-center text-sm font-black text-slate-950 hover:bg-purple-700 hover:text-white"
+      className="flex min-h-[82px] flex-col items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-3 py-4 text-center text-xs font-black text-slate-950 hover:bg-purple-700 hover:text-white"
     >
-      <Icon size={24} />
+      <Icon size={23} />
       <span className="mt-2">{label}</span>
     </Link>
   );
