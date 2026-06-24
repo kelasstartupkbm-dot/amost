@@ -348,7 +348,7 @@ export async function getAuthUser() {
   return getCurrentUser();
 }
 
-export async function getCurrentAmostUser() {
+export async function getCurrentAmostUser(_request?: unknown) {
   return getCurrentUser();
 }
 
