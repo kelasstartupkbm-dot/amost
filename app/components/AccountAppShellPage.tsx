@@ -13,7 +13,6 @@ import {
   HelpCircle,
   History,
   Home,
-  Loader2,
   LogOut,
   Medal,
   Navigation,
@@ -109,7 +108,7 @@ export default function AccountAppShellPage({
   const router = useRouter();
 
   const [user, setUser] = useState<CurrentUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [authChecked, setAuthChecked] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
 
@@ -120,14 +119,13 @@ export default function AccountAppShellPage({
   async function loadAccount(silent = false) {
     if (silent) {
       setRefreshing(true);
-    } else {
-      setLoading(true);
     }
 
     try {
       const response = await fetch("/api/auth/me", {
         method: "GET",
         cache: "no-store",
+        credentials: "include",
       });
 
       const data = await response.json().catch(() => null);
@@ -142,7 +140,7 @@ export default function AccountAppShellPage({
       console.error(error);
       router.replace("/login");
     } finally {
-      setLoading(false);
+      setAuthChecked(true);
       setRefreshing(false);
     }
   }
@@ -153,6 +151,7 @@ export default function AccountAppShellPage({
     try {
       await fetch("/api/auth/logout", {
         method: "POST",
+        credentials: "include",
       });
 
       router.replace("/login");
@@ -188,7 +187,7 @@ export default function AccountAppShellPage({
       <section className="min-h-screen lg:pl-[260px]">
         <AppTopbar
           title={title}
-          subtitle={`Halo, ${displayName}`}
+          subtitle={authChecked ? `Halo, ${displayName}` : "Memuat akun..."}
           displayName={displayName}
           initials={initials}
           roleLabel={roleLabel}
@@ -232,7 +231,7 @@ export default function AccountAppShellPage({
                 {displayName}
               </h2>
               <p className="mt-1 break-all text-sm font-semibold text-slate-500">
-                {user?.email || "-"}
+                {user?.email || (authChecked ? "-" : "Memuat akun...")}
               </p>
               <span className="mt-4 inline-flex rounded-full bg-purple-50 px-3 py-1 text-xs font-black uppercase text-purple-700">
                 {roleLabel}
@@ -338,6 +337,7 @@ function SidebarLink({
   return (
     <Link
       href={href}
+      prefetch
       className={`flex h-12 items-center gap-3 rounded-2xl px-4 text-sm font-black transition ${
         active
           ? "bg-purple-50 text-purple-700"
@@ -483,6 +483,7 @@ function QuickAccess({
   return (
     <Link
       href={href}
+      prefetch
       className="flex min-h-[82px] flex-col items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-3 py-4 text-center text-xs font-black text-slate-950 hover:bg-purple-700 hover:text-white"
     >
       <Icon size={23} />
