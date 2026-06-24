@@ -19,9 +19,7 @@ import {
   RefreshCw,
   Search,
   Settings,
-  ShieldCheck,
   Ticket,
-  Trophy,
   UserRound,
   Wifi,
 } from "lucide-react";
@@ -130,15 +128,17 @@ export default function AccountAppShellPage({
 
       const data = await response.json().catch(() => null);
 
-      if (!response.ok || !data?.ok || !data?.user) {
-        router.replace(`/login?next=${encodeURIComponent(window.location.pathname)}`);
+      if (response.status === 401 || !data?.ok || !data?.user) {
+        const nextPath =
+          typeof window !== "undefined" ? window.location.pathname : "/home";
+
+        router.replace(`/login?next=${encodeURIComponent(nextPath)}`);
         return;
       }
 
       setUser(data.user);
     } catch (error) {
       console.error(error);
-      router.replace("/login");
     } finally {
       setAuthChecked(true);
       setRefreshing(false);
@@ -167,18 +167,6 @@ export default function AccountAppShellPage({
   useEffect(() => {
     loadAccount();
   }, []);
-
-  if (loading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-950">
-        <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-          <Loader2 className="mx-auto h-10 w-10 animate-spin text-purple-700" />
-          <p className="mt-4 text-lg font-black">Memuat {title}...</p>
-          <p className="mt-2 text-sm text-slate-500">Mengambil data akun.</p>
-        </div>
-      </main>
-    );
-  }
 
   return (
     <main className="min-h-screen bg-[#f7f8fb] text-slate-950">
@@ -313,6 +301,7 @@ function AppSidebar({ active }: { active: AppMenuKey }) {
       <div className="border-t border-slate-200 p-5">
         <Link
           href="/events"
+          prefetch
           className="flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50"
         >
           <HelpCircle size={19} />
