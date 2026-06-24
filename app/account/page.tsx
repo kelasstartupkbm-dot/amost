@@ -369,7 +369,7 @@ export default function AccountProfilePage() {
                   icon={Activity}
                   label="Tracking"
                 />
-                <QuickAccess href="/events" icon={CalendarDays} label="Events" />
+                <QuickAccess href="/my-events" icon={CalendarDays} label="Events" />
                 <QuickAccess href="/download" icon={Download} label="Download" />
               </div>
             </section>
@@ -397,8 +397,8 @@ function AccountSidebar({ hasOfficialAccess }: { hasOfficialAccess: boolean }) {
         <SidebarLink href="/home" icon={Home} label="Dashboard" />
         <SidebarLink href="/account/tracking" icon={Navigation} label="Tracking" />
         <SidebarLink href="/home" icon={History} label="My Activities" />
-        <SidebarLink href="/events" icon={CalendarDays} label="My Events" />
-        <SidebarLink href="/events" icon={Ticket} label="My Tickets" />
+        <SidebarLink href="/my-events" icon={CalendarDays} label="My Events" />
+        <SidebarLink href="/my-events" icon={Ticket} label="My Tickets" />
         <SidebarLink href="/home" icon={Medal} label="Achievement" />
         <SidebarLink href="/home" icon={Activity} label="Statistics" />
         <SidebarLink href="/home" icon={Bell} label="Notification" />
@@ -440,7 +440,7 @@ function AccountSidebar({ hasOfficialAccess }: { hasOfficialAccess: boolean }) {
 
       <div className="border-t border-slate-200 p-5">
         <Link
-          href="/events"
+          href="/my-events"
           className="flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50"
         >
           <HelpCircle size={19} />
