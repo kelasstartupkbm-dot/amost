@@ -306,10 +306,12 @@ export default function OfficialPanelPage() {
                       Lihat Event
                     </Link>
 
-                    <Link
-                      href={`/events`}
-                      className="flex h-10 flex-1 items-center justify-center rounded-xl bg-green-700 text-sm font-black text-white hover:bg-green-800"
-                    >
+<Link
+  href={`/official/events/${item.event_id}`}
+  className="flex h-10 flex-1 items-center justify-center rounded-xl bg-green-700 text-sm font-black text-white hover:bg-green-800"
+>
+  Kelola
+</Link>
                       Kelola
                     </Link>
                   </div>
