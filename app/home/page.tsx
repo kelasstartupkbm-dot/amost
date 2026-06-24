@@ -231,7 +231,7 @@ function buildFeedPosts(
       statA: `${firstEvent.participant_count || 0}/${firstEvent.quota || 0} Peserta`,
       statB: normalizeStatus(firstEvent.status),
       statC: `${firstEvent.doorprize_count || 0} Hadiah`,
-      actionHref: `/events/${firstEvent.id}`,
+      actionHref: `/my-events/${firstEvent.id}`,
       actionLabel: "Detail Event",
       likes: 17,
       comments: 2,
@@ -251,7 +251,7 @@ function buildFeedPosts(
       statA: `${secondEvent.participant_count || 0}/${secondEvent.quota || 0} Peserta`,
       statB: normalizeStatus(secondEvent.status),
       statC: "Open",
-      actionHref: `/events/${secondEvent.id}`,
+      actionHref: `/my-events/${secondEvent.id}`,
       actionLabel: "Lihat Event",
       likes: 12,
       comments: 1,
@@ -296,7 +296,7 @@ function buildFeedPosts(
     statA: "Winner",
     statB: "Prize",
     statC: "Event",
-    actionHref: firstEvent ? `/events/${firstEvent.id}/doorprize` : "/events",
+    actionHref: firstEvent ? `/events/${firstEvent.id}/doorprize` : "/my-events",
     actionLabel: "Lihat Doorprize",
     likes: 15,
     comments: 2,
@@ -591,8 +591,8 @@ function AccountSidebar({
           active={activeTab === "history"}
           onClick={() => onTabChange("history")}
         />
-        <SidebarLink href="/events" icon={CalendarDays} label="My Events" />
-        <SidebarLink href="/events" icon={Ticket} label="My Tickets" />
+        <SidebarLink href="/my-events" icon={CalendarDays} label="My Events" />
+        <SidebarLink href="/my-events" icon={Ticket} label="My Tickets" />
         <SidebarButton
           icon={Medal}
           label="Achievement"
@@ -1065,7 +1065,7 @@ function RightQuickPanel({
               Belum ada event aktif
             </p>
             <Link
-              href="/events"
+              href="/my-events"
               className="mt-4 inline-flex h-10 items-center justify-center rounded-xl bg-purple-700 px-4 text-xs font-black text-white"
             >
               Cari Event
@@ -1082,14 +1082,14 @@ function RightQuickPanel({
 
         <div className="mt-4 grid grid-cols-2 gap-3">
           <QuickAccess href="/account/tracking" icon={Activity} label="Tracking" />
-          <QuickAccess href="/events" icon={CalendarDays} label="Events" />
+          <QuickAccess href="/my-events" icon={CalendarDays} label="Events" />
           <QuickAccess
-            href={activeEvent ? `/events/${activeEvent.id}/results` : "/events"}
+            href={activeEvent ? `/events/${activeEvent.id}/results` : "/my-events"}
             icon={Trophy}
             label="Results"
           />
           <QuickAccess
-            href={activeEvent ? `/events/${activeEvent.id}/doorprize` : "/events"}
+            href={activeEvent ? `/events/${activeEvent.id}/doorprize` : "/my-events"}
             icon={Gift}
             label="Doorprize"
           />
