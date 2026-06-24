@@ -592,7 +592,7 @@ function AccountSidebar({
           onClick={() => onTabChange("history")}
         />
         <SidebarLink href="/my-events" icon={CalendarDays} label="My Events" />
-        <SidebarLink href="/my-events" icon={Ticket} label="My Tickets" />
+        <SidebarLink href="/my-tickets" icon={Ticket} label="My Tickets" />
         <SidebarButton
           icon={Medal}
           label="Achievement"
@@ -607,7 +607,7 @@ function AccountSidebar({
         />
         <SidebarLink href="/account" icon={Bell} label="Notification" />
         <SidebarLink href="/account" icon={UserRound} label="Profile" />
-        <SidebarLink href="/account" icon={Settings} label="Settings" />
+        <SidebarLink href="/settings" icon={Settings} label="Settings" />
         {hasOfficialAccess ? (
           <SidebarLink href="/official" icon={ShieldCheck} label="Panel Official" />
         ) : null}

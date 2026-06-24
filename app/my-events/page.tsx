@@ -470,14 +470,14 @@ function AppSidebar({ active }: { active: "home" | "tracking" | "events" | "prof
       <nav className="flex-1 space-y-2 px-5 py-5">
         <SidebarLink href="/home" icon={Home} label="Dashboard" active={active === "home"} />
         <SidebarLink href="/account/tracking" icon={Navigation} label="Tracking" active={active === "tracking"} />
-        <SidebarLink href="/home" icon={History} label="My Activities" />
+        <SidebarLink href="/my-activities" icon={History} label="My Activities" />
         <SidebarLink href="/my-events" icon={CalendarDays} label="My Events" active={active === "events"} />
-        <SidebarLink href="/my-events" icon={Ticket} label="My Tickets" />
-        <SidebarLink href="/home" icon={Medal} label="Achievement" />
-        <SidebarLink href="/home" icon={Activity} label="Statistics" />
-        <SidebarLink href="/home" icon={Bell} label="Notification" />
+        <SidebarLink href="/my-tickets" icon={Ticket} label="My Tickets" />
+        <SidebarLink href="/achievement" icon={Medal} label="Achievement" />
+        <SidebarLink href="/statistics" icon={Activity} label="Statistics" />
+        <SidebarLink href="/notification" icon={Bell} label="Notification" />
         <SidebarLink href="/account" icon={UserRound} label="Profile" active={active === "profile"} />
-        <SidebarLink href="/account" icon={Settings} label="Settings" />
+        <SidebarLink href="/settings" icon={Settings} label="Settings" />
       </nav>
 
       <div className="m-5 rounded-3xl border border-purple-100 bg-purple-50 p-5">
