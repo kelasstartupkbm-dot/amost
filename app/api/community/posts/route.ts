@@ -4,6 +4,8 @@ import { getCurrentAmostUser } from "../../../lib/amostServerAuth";
 
 export const dynamic = "force-dynamic";
 
+type ColumnSet = Set<string>;
+
 function jsonError(message: string, status = 400, extra: Record<string, unknown> = {}) {
   return NextResponse.json(
     {
@@ -46,6 +48,41 @@ function clampLimit(rawValue: string | null) {
   return Math.floor(value);
 }
 
+async function getTableColumns(tableName: string): Promise<ColumnSet> {
+  const result = await dbQuery(
+    `
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = $1
+    `,
+    [tableName],
+  );
+
+  return new Set(result.rows.map((row: any) => String(row.column_name)));
+}
+
+function quotedColumn(tableAlias: string, columnName: string) {
+  return `${tableAlias}."${columnName.replace(/"/g, '""')}"`;
+}
+
+function firstExistingExpression(
+  columns: ColumnSet,
+  tableAlias: string,
+  candidateColumns: string[],
+  fallbackSql: string,
+) {
+  const expressions = candidateColumns
+    .filter((columnName) => columns.has(columnName))
+    .map((columnName) => `NULLIF(${quotedColumn(tableAlias, columnName)}::text, '')`);
+
+  if (expressions.length === 0) {
+    return fallbackSql;
+  }
+
+  return `COALESCE(${expressions.join(", ")}, ${fallbackSql})`;
+}
+
 export async function GET(request: NextRequest) {
   let user: any = null;
 
@@ -64,6 +101,25 @@ export async function GET(request: NextRequest) {
   const limit = clampLimit(request.nextUrl.searchParams.get("limit"));
 
   try {
+    const [userColumns, roleColumns] = await Promise.all([
+      getTableColumns("users"),
+      getTableColumns("roles"),
+    ]);
+
+    const authorNameSql = firstExistingExpression(
+      userColumns,
+      "u",
+      ["full_name", "fullName", "name", "username", "display_name"],
+      "u.email::text",
+    );
+
+    const roleLabelSql = firstExistingExpression(
+      roleColumns,
+      "r",
+      ["label", "name", "role_name", "title"],
+      "'Umum'",
+    );
+
     const result = await dbQuery(
       `
       SELECT
@@ -75,9 +131,9 @@ export async function GET(request: NextRequest) {
         p.visibility,
         p.created_at,
         p.updated_at,
-        COALESCE(NULLIF(u.full_name, ''), NULLIF(u.name, ''), u.email, 'AMOST User') AS author_name,
+        ${authorNameSql} AS author_name,
         u.email AS author_email,
-        COALESCE(r.label, r.name, 'Umum') AS role_label,
+        ${roleLabelSql} AS role_label,
         COALESCE(l.like_count, 0)::int AS like_count,
         COALESCE(c.comment_count, 0)::int AS comment_count,
         CASE WHEN viewer_like.user_id IS NULL THEN false ELSE true END AS viewer_liked
@@ -117,10 +173,7 @@ export async function GET(request: NextRequest) {
       "Community feed belum bisa dimuat.",
       500,
       {
-        detail:
-          process.env.NODE_ENV === "production"
-            ? undefined
-            : String(error?.message || error),
+        detail: String(error?.message || error),
       },
     );
   }
@@ -200,10 +253,7 @@ export async function POST(request: NextRequest) {
       "Postingan belum bisa disimpan.",
       500,
       {
-        detail:
-          process.env.NODE_ENV === "production"
-            ? undefined
-            : String(error?.message || error),
+        detail: String(error?.message || error),
       },
     );
   }

@@ -4,6 +4,8 @@ import { getCurrentAmostUser } from "../../../../../lib/amostServerAuth";
 
 export const dynamic = "force-dynamic";
 
+type ColumnSet = Set<string>;
+
 function jsonError(message: string, status = 400, extra: Record<string, unknown> = {}) {
   return NextResponse.json(
     {
@@ -28,6 +30,41 @@ function getPostId(context: any) {
   return id;
 }
 
+async function getTableColumns(tableName: string): Promise<ColumnSet> {
+  const result = await dbQuery(
+    `
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = $1
+    `,
+    [tableName],
+  );
+
+  return new Set(result.rows.map((row: any) => String(row.column_name)));
+}
+
+function quotedColumn(tableAlias: string, columnName: string) {
+  return `${tableAlias}."${columnName.replace(/"/g, '""')}"`;
+}
+
+function firstExistingExpression(
+  columns: ColumnSet,
+  tableAlias: string,
+  candidateColumns: string[],
+  fallbackSql: string,
+) {
+  const expressions = candidateColumns
+    .filter((columnName) => columns.has(columnName))
+    .map((columnName) => `NULLIF(${quotedColumn(tableAlias, columnName)}::text, '')`);
+
+  if (expressions.length === 0) {
+    return fallbackSql;
+  }
+
+  return `COALESCE(${expressions.join(", ")}, ${fallbackSql})`;
+}
+
 export async function GET(request: NextRequest, context: any) {
   let user: any = null;
 
@@ -50,6 +87,15 @@ export async function GET(request: NextRequest, context: any) {
   }
 
   try {
+    const userColumns = await getTableColumns("users");
+
+    const authorNameSql = firstExistingExpression(
+      userColumns,
+      "u",
+      ["full_name", "fullName", "name", "username", "display_name"],
+      "u.email::text",
+    );
+
     const result = await dbQuery(
       `
       SELECT
@@ -58,7 +104,7 @@ export async function GET(request: NextRequest, context: any) {
         c.user_id,
         c.comment_text,
         c.created_at,
-        COALESCE(NULLIF(u.full_name, ''), NULLIF(u.name, ''), u.email, 'AMOST User') AS author_name,
+        ${authorNameSql} AS author_name,
         u.email AS author_email
       FROM community_post_comments c
       JOIN users u ON u.id = c.user_id
@@ -82,10 +128,7 @@ export async function GET(request: NextRequest, context: any) {
       "Komentar belum bisa dimuat.",
       500,
       {
-        detail:
-          process.env.NODE_ENV === "production"
-            ? undefined
-            : String(error?.message || error),
+        detail: String(error?.message || error),
       },
     );
   }
@@ -163,10 +206,7 @@ export async function POST(request: NextRequest, context: any) {
       "Komentar belum bisa disimpan.",
       500,
       {
-        detail:
-          process.env.NODE_ENV === "production"
-            ? undefined
-            : String(error?.message || error),
+        detail: String(error?.message || error),
       },
     );
   }
