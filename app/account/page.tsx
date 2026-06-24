@@ -1,16 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ElementType } from "react";
 import { useRouter } from "next/navigation";
 import {
   Activity,
   Bell,
   Bike,
   CalendarDays,
+  CheckCircle2,
   ChevronRight,
+  CloudSun,
+  Download,
   Gift,
   Heart,
+  HelpCircle,
   History,
   Home,
   ImageIcon,
@@ -19,34 +23,34 @@ import {
   Medal,
   MessageCircle,
   MoreHorizontal,
-  Plus,
+  Navigation,
   RefreshCw,
+  Search,
   Send,
   Settings,
-  Share2,
   ShieldCheck,
   Ticket,
   Trophy,
-  User,
+  UserRound,
   UsersRound,
+  Wifi,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 
 type CurrentUser = {
   id: number;
-  fullName: string;
-  email: string;
+  fullName?: string | null;
+  email?: string | null;
   phone?: string | null;
-  status: string;
-  role: string;
+  status?: string | null;
+  role?: string | null;
 };
 
 type OfficialAccess = {
   id: number;
   event_id: number | string;
   user_id: number | string;
-  permission_level: string;
-  status: string;
+  permission_level?: string | null;
+  status?: string | null;
   notes?: string | null;
   event_title?: string | null;
   event_name?: string | null;
@@ -63,6 +67,7 @@ type EventItem = {
   participant_count?: number | string | null;
   quota?: number | string | null;
   doorprize_count?: number | string | null;
+  distance_km?: number | string | null;
 };
 
 type AccountTab = "feed" | "biodata" | "history" | "results";
@@ -185,7 +190,7 @@ function buildFeedPosts(
       type: "official",
       title: "Selamat datang di AMOST Community Feed",
       body:
-        "Dashboard account sekarang diarahkan menjadi timeline aktivitas publik seperti Strava. Di sini nanti muncul update tracking, finish event, doorprize, dan postingan komunitas.",
+        "Dashboard account sekarang menjadi timeline aktivitas publik seperti Strava. Di sini nanti muncul update tracking, finish event, doorprize, dan postingan komunitas.",
       meta: "Baru saja",
       statA: "Community",
       statB: "Tracking",
@@ -223,7 +228,7 @@ function buildFeedPosts(
       avatarLabel: "E",
       type: "event",
       title: eventTitle,
-      body: `${eventTitle} sudah tersedia di AMOST. Peserta dapat membuka detail event, Live View Tracking, Results, dan Doorprize melalui halaman event.`,
+      body: `${eventTitle} tersedia di AMOST. Peserta dapat membuka detail event, Live View Tracking, Results, dan Doorprize melalui halaman event.`,
       meta: `${formatDate(firstEvent.event_date)} • ${firstEvent.location || "Lokasi menyusul"}`,
       statA: `${firstEvent.participant_count || 0}/${firstEvent.quota || 0} Peserta`,
       statB: normalizeStatus(firstEvent.status),
@@ -314,7 +319,6 @@ export default function AccountPage() {
   const [activeTab, setActiveTab] = useState<AccountTab>("feed");
 
   const hasOfficialAccess = officialAccess.length > 0;
-
   const displayName = getDisplayName(user);
   const initials = getInitials(displayName);
   const roleLabel = formatRole(user?.role);
@@ -480,9 +484,9 @@ export default function AccountPage() {
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-950">
-        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+        <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-purple-100 text-purple-700">
-            <User size={28} />
+            <UserRound size={28} />
           </div>
           <p className="text-lg font-black text-slate-950">
             Memuat account feed...
@@ -500,157 +504,256 @@ export default function AccountPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-950">
-      <AccountHeader
-        displayName={displayName}
-        initials={initials}
-        roleLabel={roleLabel}
-        refreshing={refreshing}
-        logoutLoading={logoutLoading}
-        onRefresh={() => loadAccount(true)}
-        onLogout={handleLogout}
+    <main className="min-h-screen bg-[#f7f8fb] text-slate-950">
+      <AccountSidebar
+        activeTab={activeTab}
+        activeEventId={activeEvent?.id}
+        hasOfficialAccess={hasOfficialAccess}
+        onTabChange={setActiveTab}
       />
 
-      <section className="mx-auto grid max-w-[1440px] grid-cols-1 gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[290px_minmax(0,1fr)_340px] lg:px-[88px]">
-        <aside className="space-y-5">
-          <ProfileCard
-            displayName={displayName}
-            email={user.email}
-            initials={initials}
-            roleLabel={roleLabel}
-            hasOfficialAccess={hasOfficialAccess}
-          />
+      <section className="min-h-screen lg:pl-[260px]">
+        <AccountTopbar
+          title={
+            activeTab === "feed"
+              ? "Dashboard"
+              : activeTab === "biodata"
+                ? "Profile"
+                : activeTab === "history"
+                  ? "My Activities"
+                  : "Results"
+          }
+          subtitle={`Halo, ${displayName}`}
+          displayName={displayName}
+          initials={initials}
+          roleLabel={roleLabel}
+          refreshing={refreshing}
+          logoutLoading={logoutLoading}
+          onRefresh={() => loadAccount(true)}
+          onLogout={handleLogout}
+        />
 
-          <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-            <nav className="space-y-2">
-              <AccountMenu
-                active={activeTab === "feed"}
-                icon={Home}
-                label="Timeline"
-                onClick={() => setActiveTab("feed")}
-              />
-              <AccountMenu
-                href="/account/tracking"
-                highlight
-                icon={Activity}
-                label="Tracking Dashboard"
-              />
-              <AccountMenu
-                active={activeTab === "biodata"}
-                icon={User}
-                label="Biodata"
-                onClick={() => setActiveTab("biodata")}
-              />
-              <AccountMenu
-                active={activeTab === "history"}
-                icon={History}
-                label="History"
-                onClick={() => setActiveTab("history")}
-              />
-              <AccountMenu
-                active={activeTab === "results"}
-                icon={Medal}
-                label="Results"
-                onClick={() => setActiveTab("results")}
-              />
-              {hasOfficialAccess ? (
-                <AccountMenu
-                  href="/official"
-                  highlight
-                  icon={ShieldCheck}
-                  label="Panel Official"
-                />
-              ) : null}
-              <AccountMenu href="/events" icon={CalendarDays} label="Events" />
-              <AccountMenu href="/download" icon={Ticket} label="Download App" />
-              <AccountMenu href="/account" icon={Settings} label="Settings" />
-            </nav>
-          </section>
-        </aside>
-
-        <section className="space-y-5">
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.22em] text-purple-700">
-                  AMOST Community
-                </p>
-                <h1 className="mt-2 text-3xl font-black text-slate-950">
-                  {activeTab === "feed" && "Timeline Publik"}
-                  {activeTab === "biodata" && "Biodata Account"}
-                  {activeTab === "history" && "History Account"}
-                  {activeTab === "results" && "Results Account"}
-                </h1>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-                  {activeTab === "feed"
-                    ? "Update aktivitas publik AMOST seperti Strava: tracking, event, results, doorprize, dan postingan komunitas."
-                    : "Kelola informasi akun, riwayat aktivitas, dan hasil event."}
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <Link
-                  href="/account/tracking"
-                  className="flex h-11 items-center justify-center rounded-xl bg-purple-700 px-5 text-sm font-black text-white hover:bg-purple-800"
-                >
-                  Tracking Dashboard
-                </Link>
-
-                <Link
-                  href="/events"
-                  className="flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-black text-slate-700 hover:bg-slate-50"
-                >
-                  Jelajahi Event
-                </Link>
-              </div>
-            </div>
-          </section>
-
-          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {stats.map((item) => (
-              <StatCard
-                key={item.label}
-                icon={item.icon}
-                label={item.label}
-                value={item.value}
-              />
-            ))}
-          </section>
-
-          {activeTab === "feed" ? (
-            <FeedContent
-              user={user}
-              posts={feedPosts}
+        <section className="grid min-h-[calc(100vh-88px)] grid-cols-1 gap-5 p-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+          <section className="space-y-5">
+            <HeroCard
+              activeTab={activeTab}
               activeEvent={activeEvent}
-            />
-          ) : null}
-
-          {activeTab === "biodata" ? (
-            <BiodataContent
-              user={user}
               hasOfficialAccess={hasOfficialAccess}
-              officialAccess={officialAccess}
             />
-          ) : null}
 
-          {activeTab === "history" ? <HistoryContent activities={activities} /> : null}
+            <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {stats.map((item) => (
+                <StatCard
+                  key={item.label}
+                  icon={item.icon}
+                  label={item.label}
+                  value={item.value}
+                />
+              ))}
+            </section>
 
-          {activeTab === "results" ? <ResultsContent activities={activities} /> : null}
+            {activeTab === "feed" ? (
+              <FeedContent
+                user={user}
+                posts={feedPosts}
+                activeEvent={activeEvent}
+              />
+            ) : null}
+
+            {activeTab === "biodata" ? (
+              <BiodataContent
+                user={user}
+                hasOfficialAccess={hasOfficialAccess}
+                officialAccess={officialAccess}
+              />
+            ) : null}
+
+            {activeTab === "history" ? (
+              <HistoryContent activities={activities} />
+            ) : null}
+
+            {activeTab === "results" ? (
+              <ResultsContent activities={activities} />
+            ) : null}
+          </section>
+
+          <aside className="space-y-5">
+            <ProfileMiniCard
+              displayName={displayName}
+              email={user.email || "-"}
+              initials={initials}
+              roleLabel={roleLabel}
+              hasOfficialAccess={hasOfficialAccess}
+            />
+
+            <RightQuickPanel
+              activeEvent={activeEvent}
+              officialAccess={officialAccess}
+              hasOfficialAccess={hasOfficialAccess}
+            />
+          </aside>
         </section>
-
-        <aside className="space-y-5">
-          <RightQuickPanel
-            activeEvent={activeEvent}
-            officialAccess={officialAccess}
-            hasOfficialAccess={hasOfficialAccess}
-          />
-        </aside>
       </section>
     </main>
   );
 }
 
-function AccountHeader({
+function AccountSidebar({
+  activeTab,
+  activeEventId,
+  hasOfficialAccess,
+  onTabChange,
+}: {
+  activeTab: AccountTab;
+  activeEventId?: number | string;
+  hasOfficialAccess: boolean;
+  onTabChange: (tab: AccountTab) => void;
+}) {
+  return (
+    <aside className="hidden fixed inset-y-0 left-0 z-[60] w-[260px] border-r border-slate-200 bg-white lg:flex lg:flex-col">
+      <div className="flex h-[88px] items-center px-8">
+        <Link href="/">
+          <img
+            src="/amost_logo_wide_.png"
+            alt="AMOST"
+            className="h-[62px] w-auto object-contain"
+          />
+        </Link>
+      </div>
+
+      <nav className="flex-1 space-y-2 px-5 py-5">
+        <SidebarButton
+          icon={Home}
+          label="Dashboard"
+          active={activeTab === "feed"}
+          onClick={() => onTabChange("feed")}
+        />
+        <SidebarLink href="/account/tracking" icon={Navigation} label="Tracking" />
+        <SidebarButton
+          icon={History}
+          label="My Activities"
+          active={activeTab === "history"}
+          onClick={() => onTabChange("history")}
+        />
+        <SidebarLink href="/events" icon={CalendarDays} label="My Events" />
+        <SidebarLink href="/events" icon={Ticket} label="My Tickets" />
+        <SidebarButton
+          icon={Medal}
+          label="Achievement"
+          active={activeTab === "results"}
+          onClick={() => onTabChange("results")}
+        />
+        <SidebarButton
+          icon={Activity}
+          label="Statistics"
+          active={activeTab === "results"}
+          onClick={() => onTabChange("results")}
+        />
+        <SidebarLink href="/account" icon={Bell} label="Notification" />
+        <SidebarButton
+          icon={UserRound}
+          label="Profile"
+          active={activeTab === "biodata"}
+          onClick={() => onTabChange("biodata")}
+        />
+        <SidebarLink href="/account" icon={Settings} label="Settings" />
+        {hasOfficialAccess ? (
+          <SidebarLink href="/official" icon={ShieldCheck} label="Panel Official" />
+        ) : null}
+      </nav>
+
+      <div className="m-5 rounded-3xl border border-purple-100 bg-purple-50 p-5">
+        <p className="text-sm font-black text-purple-700">
+          Tracking lebih seru
+        </p>
+
+        <ul className="mt-3 space-y-2 text-xs font-semibold text-slate-600">
+          <li className="flex items-center gap-2">
+            <CheckCircle2 size={15} className="text-green-600" />
+            Community Feed
+          </li>
+          <li className="flex items-center gap-2">
+            <CheckCircle2 size={15} className="text-green-600" />
+            Tracking Dashboard
+          </li>
+          <li className="flex items-center gap-2">
+            <CheckCircle2 size={15} className="text-green-600" />
+            Results & Doorprize
+          </li>
+        </ul>
+
+        <Link
+          href="/download"
+          className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-purple-700 text-sm font-black text-white"
+        >
+          <Download size={16} />
+          Download App
+        </Link>
+      </div>
+
+      <div className="border-t border-slate-200 p-5">
+        <Link
+          href={activeEventId ? `/event/${activeEventId}/view` : "/events"}
+          className="flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50"
+        >
+          <HelpCircle size={19} />
+          Live View Event
+        </Link>
+      </div>
+    </aside>
+  );
+}
+
+function SidebarButton({
+  icon: Icon,
+  label,
+  active,
+  onClick,
+}: {
+  icon: ElementType;
+  label: string;
+  active?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex h-12 w-full items-center gap-3 rounded-2xl px-4 text-left text-sm font-black transition ${
+        active
+          ? "bg-purple-50 text-purple-700"
+          : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"
+      }`}
+    >
+      <Icon size={20} />
+      {label}
+    </button>
+  );
+}
+
+function SidebarLink({
+  href,
+  icon: Icon,
+  label,
+}: {
+  href: string;
+  icon: ElementType;
+  label: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="flex h-12 items-center gap-3 rounded-2xl px-4 text-sm font-black text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+    >
+      <Icon size={20} />
+      {label}
+    </Link>
+  );
+}
+
+function AccountTopbar({
+  title,
+  subtitle,
   displayName,
   initials,
   roleLabel,
@@ -659,6 +762,8 @@ function AccountHeader({
   onRefresh,
   onLogout,
 }: {
+  title: string;
+  subtitle: string;
   displayName: string;
   initials: string;
   roleLabel: string;
@@ -669,49 +774,57 @@ function AccountHeader({
 }) {
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-xl">
-      <div className="mx-auto flex min-h-[88px] max-w-[1440px] flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-[88px]">
-        <div className="flex items-center gap-5">
-          <Link href="/" className="flex items-center">
-            <img
-              src="/amost_logo_wide_.png"
-              alt="AMOST"
-              className="h-[58px] w-auto object-contain"
-            />
-          </Link>
-
-          <div className="hidden border-l border-slate-200 pl-5 md:block">
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-purple-700">
-              Account Dashboard
-            </p>
-            <h2 className="text-xl font-black text-slate-950">
-              AMOST Feed
-            </h2>
-          </div>
+      <div className="flex min-h-[88px] flex-col gap-4 px-4 py-4 md:flex-row md:items-center md:justify-between md:px-6">
+        <div>
+          <h1 className="text-2xl font-black text-slate-950">{title}</h1>
+          <p className="mt-1 text-sm font-semibold text-slate-500">{subtitle}</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          <TopStatusCard
+            icon={Wifi}
+            title="GPS Signal"
+            value="Standby"
+            accent="green"
+          />
+
+          <TopStatusCard
+            icon={CloudSun}
+            title="26°C"
+            value="Cerah"
+            accent="slate"
+          />
+
           <button
             type="button"
-            onClick={onRefresh}
-            disabled={refreshing}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:opacity-70"
+            className="hidden h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 md:flex"
+            title="Cari"
           >
-            <RefreshCw size={17} className={refreshing ? "animate-spin" : ""} />
-            Refresh
+            <Search size={20} />
           </button>
 
           <button
             type="button"
-            className="relative flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700"
+            className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700"
             title="Notifikasi"
           >
-            <Bell size={19} />
+            <Bell size={20} />
             <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-purple-700 text-[10px] font-black text-white">
               3
             </span>
           </button>
 
-          <div className="hidden items-center gap-3 rounded-xl border border-purple-100 bg-purple-50 px-4 py-2 md:flex">
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={refreshing}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:opacity-70"
+          >
+            <RefreshCw size={17} className={refreshing ? "animate-spin" : ""} />
+            Refresh
+          </button>
+
+          <div className="hidden items-center gap-3 rounded-2xl border border-purple-100 bg-purple-50 px-4 py-2 md:flex">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-purple-700 text-xs font-black text-white">
               {initials}
             </div>
@@ -729,7 +842,7 @@ function AccountHeader({
             type="button"
             disabled={logoutLoading}
             onClick={onLogout}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-black text-white hover:bg-slate-800 disabled:opacity-70"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white hover:bg-slate-800 disabled:opacity-70"
           >
             <LogOut size={17} />
             {logoutLoading ? "Keluar..." : "Keluar"}
@@ -740,7 +853,97 @@ function AccountHeader({
   );
 }
 
-function ProfileCard({
+function TopStatusCard({
+  icon: Icon,
+  title,
+  value,
+  accent,
+}: {
+  icon: ElementType;
+  title: string;
+  value: string;
+  accent: "green" | "slate";
+}) {
+  const color =
+    accent === "green"
+      ? "bg-green-50 text-green-700"
+      : "bg-slate-50 text-slate-700";
+
+  return (
+    <div className="hidden h-11 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 md:flex">
+      <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${color}`}>
+        <Icon size={17} />
+      </div>
+
+      <div>
+        <p className="text-xs font-black leading-none text-slate-950">{title}</p>
+        <p className="mt-1 text-xs font-bold leading-none text-slate-500">
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function HeroCard({
+  activeTab,
+  activeEvent,
+  hasOfficialAccess,
+}: {
+  activeTab: AccountTab;
+  activeEvent: EventItem | null;
+  hasOfficialAccess: boolean;
+}) {
+  return (
+    <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-purple-700">
+            AMOST Community
+          </p>
+          <h2 className="mt-2 text-3xl font-black text-slate-950">
+            {activeTab === "feed" && "Timeline Publik"}
+            {activeTab === "biodata" && "Biodata Account"}
+            {activeTab === "history" && "History Account"}
+            {activeTab === "results" && "Results Account"}
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+            {activeTab === "feed"
+              ? "Update aktivitas publik AMOST seperti Strava: tracking, event, results, doorprize, dan postingan komunitas."
+              : "Kelola informasi akun, riwayat aktivitas, dan hasil event."}
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Link
+            href="/account/tracking"
+            className="flex h-11 items-center justify-center rounded-xl bg-purple-700 px-5 text-sm font-black text-white hover:bg-purple-800"
+          >
+            Tracking Dashboard
+          </Link>
+
+          {hasOfficialAccess ? (
+            <Link
+              href="/official"
+              className="flex h-11 items-center justify-center rounded-xl bg-green-700 px-5 text-sm font-black text-white hover:bg-green-800"
+            >
+              Panel Official
+            </Link>
+          ) : null}
+
+          <Link
+            href={activeEvent ? `/events/${activeEvent.id}` : "/events"}
+            className="flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-black text-slate-700 hover:bg-slate-50"
+          >
+            Jelajahi Event
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ProfileMiniCard({
   displayName,
   email,
   initials,
@@ -754,7 +957,7 @@ function ProfileCard({
   hasOfficialAccess: boolean;
 }) {
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-5 text-center shadow-sm">
+    <section className="rounded-[2rem] border border-slate-200 bg-white p-5 text-center shadow-sm">
       <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-purple-700 text-2xl font-black text-white">
         {initials}
       </div>
@@ -777,57 +980,17 @@ function ProfileCard({
   );
 }
 
-function AccountMenu({
-  href,
-  icon: Icon,
-  label,
-  active,
-  highlight,
-  onClick,
-}: {
-  href?: string;
-  icon: LucideIcon;
-  label: string;
-  active?: boolean;
-  highlight?: boolean;
-  onClick?: () => void;
-}) {
-  const className = `flex h-11 w-full items-center gap-3 rounded-xl px-4 text-left text-sm font-black transition ${
-    active
-      ? "bg-purple-700 text-white"
-      : highlight
-        ? "bg-purple-50 text-purple-700 hover:bg-purple-100"
-        : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"
-  }`;
-
-  if (href) {
-    return (
-      <Link href={href} className={className}>
-        <Icon size={18} />
-        {label}
-      </Link>
-    );
-  }
-
-  return (
-    <button type="button" onClick={onClick} className={className}>
-      <Icon size={18} />
-      {label}
-    </button>
-  );
-}
-
 function StatCard({
   icon: Icon,
   label,
   value,
 }: {
-  icon: LucideIcon;
+  icon: ElementType;
   label: string;
   value: string;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-50 text-purple-700">
         <Icon size={22} />
       </div>
@@ -877,7 +1040,7 @@ function ComposeCard({
   const displayName = getDisplayName(user);
 
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+    <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex gap-4">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-purple-700 text-sm font-black text-white">
           {getInitials(displayName)}
@@ -934,7 +1097,7 @@ function FeedFilter({ label, active }: { label: string; active?: boolean }) {
 }
 
 function FeedPostCard({ post }: { post: FeedPost }) {
-  const iconMap: Record<FeedPost["type"], LucideIcon> = {
+  const iconMap: Record<FeedPost["type"], ElementType> = {
     activity: Bike,
     event: CalendarDays,
     result: Trophy,
@@ -945,7 +1108,7 @@ function FeedPostCard({ post }: { post: FeedPost }) {
   const Icon = iconMap[post.type];
 
   return (
-    <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+    <article className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-start gap-4">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-purple-700 text-sm font-black text-white">
           {post.avatarLabel}
@@ -1007,7 +1170,6 @@ function FeedPostCard({ post }: { post: FeedPost }) {
               {post.comments}
             </button>
             <button className="inline-flex h-9 items-center gap-2 rounded-xl px-3 text-sm font-black text-slate-600 hover:bg-slate-50">
-              <Share2 size={17} />
               Bagikan
             </button>
           </div>
@@ -1037,7 +1199,7 @@ function RightQuickPanel({
 }) {
   return (
     <>
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-black text-slate-950">Event Aktif</h3>
           <CalendarDays className="text-purple-700" size={22} />
@@ -1054,8 +1216,14 @@ function RightQuickPanel({
             </p>
 
             <div className="mt-4 grid grid-cols-2 gap-3">
-              <SmallInfo label="Peserta" value={`${activeEvent.participant_count || 0}/${activeEvent.quota || 0}`} />
-              <SmallInfo label="Doorprize" value={String(activeEvent.doorprize_count || 0)} />
+              <SmallInfo
+                label="Peserta"
+                value={`${activeEvent.participant_count || 0}/${activeEvent.quota || 0}`}
+              />
+              <SmallInfo
+                label="Doorprize"
+                value={String(activeEvent.doorprize_count || 0)}
+              />
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-3">
@@ -1088,10 +1256,10 @@ function RightQuickPanel({
         )}
       </section>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-black text-slate-950">Quick Access</h3>
-          <Plus className="text-purple-700" size={22} />
+          <UsersRound className="text-purple-700" size={22} />
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-3">
@@ -1110,7 +1278,7 @@ function RightQuickPanel({
         </div>
       </section>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-black text-slate-950">Official Access</h3>
           <ShieldCheck
@@ -1161,7 +1329,7 @@ function QuickAccess({
   label,
 }: {
   href: string;
-  icon: LucideIcon;
+  icon: ElementType;
   label: string;
 }) {
   return (
@@ -1185,7 +1353,7 @@ function BiodataContent({
   officialAccess: OfficialAccess[];
 }) {
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-sm">
       <h3 className="text-xl font-black text-slate-950">Informasi Akun</h3>
 
       <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -1228,7 +1396,7 @@ function HistoryContent({
   }>;
 }) {
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-sm">
       <h3 className="text-xl font-black text-slate-950">History Aktivitas</h3>
 
       <div className="mt-5 space-y-3">
@@ -1271,7 +1439,7 @@ function ResultsContent({
   }>;
 }) {
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-sm">
       <h3 className="text-xl font-black text-slate-950">Results</h3>
 
       <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
