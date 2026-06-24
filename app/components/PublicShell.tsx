@@ -28,6 +28,7 @@ function shouldHidePublicLayout(pathname: string) {
   const hiddenPrefixes = [
     "/home",
     "/account",
+    "/my-events",
     "/official",
     "/admin",
     "/event",
