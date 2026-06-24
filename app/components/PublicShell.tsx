@@ -26,8 +26,11 @@ export default function PublicShell({ children }: { children: React.ReactNode })
 
 function shouldHidePublicLayout(pathname: string) {
   const hiddenPrefixes = [
-    "/admin",
+    "/home",
     "/account",
+    "/official",
+    "/admin",
+    "/event",
     "/login",
     "/register",
     "/api",
