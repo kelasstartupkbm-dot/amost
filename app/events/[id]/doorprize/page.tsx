@@ -174,37 +174,17 @@ export default function PublicEventDoorprizePage() {
   const latestWinner = winners[0] || null;
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/95 backdrop-blur-xl">
-        <div className="mx-auto flex min-h-[92px] max-w-[1440px] flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-[88px]">
-          <div className="flex items-center gap-5">
-            <Link
-              href={`/events/${eventId}`}
-              className="flex h-12 w-12 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white hover:bg-white/10"
-            >
-              <ArrowLeft size={22} />
-            </Link>
+    <main className="min-h-[calc(100vh-92px)] bg-slate-950 text-white">
 
-            <Link href="/" className="flex items-center">
-              <img
-                src="/amost_logo_wide_.png"
-                alt="AMOST"
-                className="h-[58px] w-auto object-contain"
-              />
-            </Link>
-
-            <div className="hidden border-l border-white/10 pl-5 md:block">
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-green-400">
-                Doorprize Event
-              </p>
-              <h1 className="mt-1 text-2xl font-black leading-tight text-white">
-                {title}
-              </h1>
-              <p className="mt-1 max-w-xl text-sm font-medium leading-6 text-slate-300">
-                Halaman undian dan riwayat pemenang doorprize.
-              </p>
-            </div>
-          </div>
+      <section className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-[88px]">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <Link
+            href={`/events/${eventId}`}
+            className="inline-flex h-11 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-black text-white hover:bg-white/10"
+          >
+            <ArrowLeft size={18} />
+            Detail Event
+          </Link>
 
           <button
             type="button"
@@ -215,9 +195,6 @@ export default function PublicEventDoorprizePage() {
             Refresh
           </button>
         </div>
-      </header>
-
-      <section className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-[88px]">
         <section className="rounded-[2rem] border border-white/10 bg-gradient-to-br from-green-500/20 via-slate-900 to-purple-600/20 p-6 shadow-2xl lg:p-10">
           <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
             <div>
