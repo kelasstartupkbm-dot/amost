@@ -1,107 +1,436 @@
-import { AMOST_ROLES, normalizeRole, type RawUserRole } from "./amostRoles";
+import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
+import { dbQuery } from "./amostDb";
 
-export type PermissionUser = {
-  id?: number | string | null;
-  role?: RawUserRole;
-  email?: string | null;
+export type AuthUser = {
+  id: number;
+  fullName: string;
+  email: string;
+  roleId: number | null;
+  roleName: string;
+  roleLabel: string;
 };
 
-export function isSuperAdmin(user?: PermissionUser | null): boolean {
-  return normalizeRole(user?.role) === AMOST_ROLES.SUPER_ADMIN;
+type UserRow = {
+  id: number | string;
+  full_name: string | null;
+  email: string | null;
+  role_id: number | string | null;
+  role_name: string | null;
+  role_label: string | null;
+};
+
+const ADMIN_ROLES = new Set(["super_admin", "staff_amost"]);
+
+function normalizeRole(role: string | null | undefined) {
+  return String(role || "").trim().toLowerCase();
 }
 
-export function isStaffAmost(user?: PermissionUser | null): boolean {
-  return normalizeRole(user?.role) === AMOST_ROLES.STAFF_AMOST;
+function toNumber(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
-export function isUmum(user?: PermissionUser | null): boolean {
-  return normalizeRole(user?.role) === AMOST_ROLES.UMUM;
+function mapUserRow(row: UserRow): AuthUser {
+  return {
+    id: Number(row.id),
+    fullName: row.full_name || "AMOST User",
+    email: row.email || "",
+    roleId:
+      row.role_id === null || row.role_id === undefined
+        ? null
+        : Number(row.role_id),
+    roleName: normalizeRole(row.role_name || "umum"),
+    roleLabel: row.role_label || "Umum",
+  };
 }
 
-export function canAccessAdmin(user?: PermissionUser | null): boolean {
-  return isSuperAdmin(user) || isStaffAmost(user);
-}
-
-export function canManageAllEvents(user?: PermissionUser | null): boolean {
-  return isSuperAdmin(user) || isStaffAmost(user);
-}
-
-export function canCreateEvent(user?: PermissionUser | null): boolean {
-  return isSuperAdmin(user) || isStaffAmost(user);
-}
-
-export function canManageMembers(user?: PermissionUser | null): boolean {
-  return isSuperAdmin(user) || isStaffAmost(user);
-}
-
-export function canChangeUserRole(
-  actor?: PermissionUser | null,
-  target?: PermissionUser | null,
-  nextRole?: RawUserRole,
-): boolean {
-  if (!actor) return false;
-
-  const actorRole = normalizeRole(actor.role);
-  const targetRole = normalizeRole(target?.role);
-  const normalizedNextRole = normalizeRole(nextRole);
-
-  if (actorRole === AMOST_ROLES.SUPER_ADMIN) {
-    return true;
-  }
-
-  if (actorRole === AMOST_ROLES.STAFF_AMOST) {
-    if (targetRole === AMOST_ROLES.SUPER_ADMIN) return false;
-    if (normalizedNextRole === AMOST_ROLES.SUPER_ADMIN) return false;
-    return true;
-  }
-
-  return false;
-}
-
-export function canAssignOfficialEvent(user?: PermissionUser | null): boolean {
-  return isSuperAdmin(user) || isStaffAmost(user);
-}
-
-export function canManageDoorprize(user?: PermissionUser | null): boolean {
-  return isSuperAdmin(user) || isStaffAmost(user);
-}
-
-export function canManageNews(user?: PermissionUser | null): boolean {
-  return isSuperAdmin(user) || isStaffAmost(user);
-}
-
-export function canManageDownloadApp(user?: PermissionUser | null): boolean {
-  return isSuperAdmin(user) || isStaffAmost(user);
-}
-
-export function canViewOwnAccount(
-  actor?: PermissionUser | null,
-  ownerUserId?: number | string | null,
-): boolean {
-  if (!actor) return false;
-  if (isSuperAdmin(actor) || isStaffAmost(actor)) return true;
-
-  return String(actor.id || "") === String(ownerUserId || "");
-}
-
-export function assertAdminAccess(user?: PermissionUser | null) {
-  if (!canAccessAdmin(user)) {
-    throw new Error("FORBIDDEN_ADMIN_ACCESS");
+function safeDecode(value: string) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
   }
 }
 
-export function assertSuperAdminAccess(user?: PermissionUser | null) {
-  if (!isSuperAdmin(user)) {
-    throw new Error("FORBIDDEN_SUPER_ADMIN_ONLY");
+function parseJsonCookie(value: string) {
+  try {
+    return JSON.parse(safeDecode(value));
+  } catch {
+    return null;
   }
 }
 
-export function assertCanChangeUserRole(
-  actor?: PermissionUser | null,
-  target?: PermissionUser | null,
-  nextRole?: RawUserRole,
+function extractEmail(value: string) {
+  const decoded = safeDecode(value);
+  const match = decoded.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  return match ? match[0].toLowerCase() : null;
+}
+
+function extractNumericId(value: string) {
+  const decoded = safeDecode(value).trim();
+
+  if (/^\d+$/.test(decoded)) {
+    return Number(decoded);
+  }
+
+  const json = parseJsonCookie(decoded);
+
+  if (json) {
+    const possibleId =
+      json.id ||
+      json.userId ||
+      json.user_id ||
+      json.uid ||
+      json.sub ||
+      json.user?.id ||
+      json.user?.userId ||
+      json.user?.user_id;
+
+    const parsedId = toNumber(possibleId);
+    if (parsedId) return parsedId;
+  }
+
+  return null;
+}
+
+function getCookieValue(names: string[]) {
+  const cookieStore = cookies();
+
+  for (const name of names) {
+    const value = cookieStore.get(name)?.value;
+    if (value) return value;
+  }
+
+  return "";
+}
+
+export function jsonError(
+  message: unknown = "Terjadi kesalahan.",
+  status = 400,
+  extraOrCode: Record<string, unknown> | string = {},
+  maybeExtra: Record<string, unknown> = {}
 ) {
-  if (!canChangeUserRole(actor, target, nextRole)) {
-    throw new Error("FORBIDDEN_CHANGE_USER_ROLE");
+  const errorMessage =
+    message instanceof Error
+      ? message.message
+      : typeof message === "string"
+      ? message
+      : "Terjadi kesalahan.";
+
+  const extra =
+    typeof extraOrCode === "string"
+      ? { code: extraOrCode, ...maybeExtra }
+      : extraOrCode || {};
+
+  return NextResponse.json(
+    {
+      ok: false,
+      message: errorMessage,
+      error: errorMessage,
+      ...extra,
+    },
+    { status }
+  );
+}
+
+export function jsonOk(data: Record<string, unknown> = {}, status = 200) {
+  return NextResponse.json(
+    {
+      ok: true,
+      ...data,
+    },
+    { status }
+  );
+}
+
+export async function getUserById(userId: number): Promise<AuthUser | null> {
+  const result = await dbQuery(
+    `
+      SELECT
+        u.id,
+        u.full_name,
+        u.email,
+        u.role_id,
+        r.name AS role_name,
+        r.label AS role_label
+      FROM users u
+      LEFT JOIN roles r ON u.role_id = r.id
+      WHERE u.id = $1
+      LIMIT 1
+    `,
+    [userId]
+  );
+
+  const row = result.rows[0] as UserRow | undefined;
+
+  if (!row) return null;
+
+  return mapUserRow(row);
+}
+
+export async function getUserByEmail(email: string): Promise<AuthUser | null> {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  if (!normalizedEmail) return null;
+
+  const result = await dbQuery(
+    `
+      SELECT
+        u.id,
+        u.full_name,
+        u.email,
+        u.role_id,
+        r.name AS role_name,
+        r.label AS role_label
+      FROM users u
+      LEFT JOIN roles r ON u.role_id = r.id
+      WHERE LOWER(u.email) = LOWER($1)
+      LIMIT 1
+    `,
+    [normalizedEmail]
+  );
+
+  const row = result.rows[0] as UserRow | undefined;
+
+  if (!row) return null;
+
+  return mapUserRow(row);
+}
+
+async function getUserFromSessionTable(
+  sessionToken: string
+): Promise<AuthUser | null> {
+  if (!sessionToken) return null;
+
+  const sessionQueries = [
+    {
+      sql: `
+        SELECT user_id
+        FROM sessions
+        WHERE token = $1
+        LIMIT 1
+      `,
+      params: [sessionToken],
+    },
+    {
+      sql: `
+        SELECT user_id
+        FROM sessions
+        WHERE session_token = $1
+        LIMIT 1
+      `,
+      params: [sessionToken],
+    },
+    {
+      sql: `
+        SELECT user_id
+        FROM sessions
+        WHERE id::text = $1
+        LIMIT 1
+      `,
+      params: [sessionToken],
+    },
+  ];
+
+  for (const query of sessionQueries) {
+    try {
+      const result = await dbQuery(query.sql, query.params);
+      const row = result.rows[0] as { user_id?: number | string } | undefined;
+      const userId = toNumber(row?.user_id);
+
+      if (userId) {
+        return await getUserById(userId);
+      }
+    } catch {
+      // Struktur sessions bisa berbeda. Abaikan dan lanjut pola berikutnya.
+    }
   }
+
+  return null;
+}
+
+export async function getCurrentUser(_request?: unknown): Promise<AuthUser | null> {
+  const idCookie = getCookieValue([
+    "amost_user_id",
+    "user_id",
+    "userId",
+    "auth_user_id",
+    "admin_user_id",
+  ]);
+
+  const idFromCookie = idCookie ? extractNumericId(idCookie) : null;
+
+  if (idFromCookie) {
+    const user = await getUserById(idFromCookie);
+    if (user) return user;
+  }
+
+  const sessionCookie = getCookieValue([
+    "amost_session",
+    "session",
+    "session_id",
+    "sessionId",
+    "auth_session",
+    "auth_token",
+    "admin_token",
+    "amost_auth",
+    "token",
+  ]);
+
+  if (sessionCookie) {
+    const json = parseJsonCookie(sessionCookie);
+
+    if (json) {
+      const possibleId =
+        json.id ||
+        json.userId ||
+        json.user_id ||
+        json.uid ||
+        json.sub ||
+        json.user?.id ||
+        json.user?.userId ||
+        json.user?.user_id;
+
+      const userId = toNumber(possibleId);
+
+      if (userId) {
+        const user = await getUserById(userId);
+        if (user) return user;
+      }
+
+      const possibleEmail =
+        json.email ||
+        json.userEmail ||
+        json.user_email ||
+        json.user?.email ||
+        "";
+
+      if (possibleEmail) {
+        const user = await getUserByEmail(String(possibleEmail));
+        if (user) return user;
+      }
+    }
+
+    const emailFromToken = extractEmail(sessionCookie);
+
+    if (emailFromToken) {
+      const user = await getUserByEmail(emailFromToken);
+      if (user) return user;
+    }
+
+    const userFromSession = await getUserFromSessionTable(sessionCookie);
+    if (userFromSession) return userFromSession;
+  }
+
+  return null;
+}
+
+export async function getCurrentAuthUser(_request?: unknown) {
+  return getCurrentUser();
+}
+
+export async function getServerAuthUser(_request?: unknown) {
+  return getCurrentUser();
+}
+
+export async function getAuthUser(_request?: unknown) {
+  return getCurrentUser();
+}
+
+export async function getCurrentAmostUser(_request?: unknown) {
+  return getCurrentUser();
+}
+
+export function isSuperAdmin(user: AuthUser | null | undefined) {
+  return normalizeRole(user?.roleName) === "super_admin";
+}
+
+export function isStaffAmost(user: AuthUser | null | undefined) {
+  return normalizeRole(user?.roleName) === "staff_amost";
+}
+
+export function isAdminUser(user: AuthUser | null | undefined) {
+  return ADMIN_ROLES.has(normalizeRole(user?.roleName));
+}
+
+export function isGlobalAdminUser(user: AuthUser | null | undefined) {
+  return isAdminUser(user);
+}
+
+export function canAccessAdminPanel(user: AuthUser | null | undefined) {
+  return isAdminUser(user);
+}
+
+export function canManageOfficialEvent(user: AuthUser | null | undefined) {
+  return isAdminUser(user);
+}
+
+export async function requireCurrentUser(_request?: unknown): Promise<AuthUser> {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    throw new Error("Sesi login tidak valid. Silakan login ulang.");
+  }
+
+  return user;
+}
+
+export async function requireAuthUser(_request?: unknown): Promise<AuthUser> {
+  return requireCurrentUser();
+}
+
+export async function requireAdminUser(_request?: unknown): Promise<AuthUser> {
+  const user = await requireCurrentUser();
+
+  if (!isAdminUser(user)) {
+    throw new Error("Akses ditolak. Hanya Super Admin atau Staff AMOST.");
+  }
+
+  return user;
+}
+
+export async function requireAdmin(_request?: unknown): Promise<AuthUser> {
+  return requireAdminUser();
+}
+
+export async function requireAdminAccess(_request?: unknown): Promise<AuthUser> {
+  return requireAdminUser();
+}
+
+export async function requireSuperAdminOrStaff(
+  _request?: unknown
+): Promise<AuthUser> {
+  return requireAdminUser();
+}
+
+export async function requireAmostAdmin(_request?: unknown): Promise<any> {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return {
+      ok: false,
+      user: null,
+      response: jsonError("Sesi login tidak valid. Silakan login ulang.", 401, {
+        code: "UNAUTHORIZED",
+      }),
+    };
+  }
+
+  if (!isAdminUser(user)) {
+    return {
+      ok: false,
+      user,
+      response: jsonError("Akses ditolak. Hanya Super Admin atau Staff AMOST.", 403, {
+        code: "FORBIDDEN",
+      }),
+    };
+  }
+
+  return {
+    ok: true,
+    ...user,
+    user,
+    response: null,
+  };
 }
