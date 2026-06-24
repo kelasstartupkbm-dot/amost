@@ -207,39 +207,19 @@ export default function PublicEventDetailPage() {
     registration?.participant_number || registration?.id || "-";
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-950">
-      <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-xl">
-        <div className="mx-auto flex min-h-[92px] max-w-[1440px] flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-[88px]">
-          <div className="flex items-center gap-5">
-            <Link
-              href="/events"
-              className="flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-            >
-              <ArrowLeft size={22} />
-            </Link>
+    <main className="min-h-[calc(100vh-92px)] bg-slate-50 text-slate-950">
 
-            <Link href="/" className="flex items-center">
-              <img
-                src="/amost_logo_wide_.png"
-                alt="AMOST"
-                className="h-[58px] w-auto object-contain"
-              />
-            </Link>
+      <section className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-[88px]">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <Link
+            href="/events"
+            className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50"
+          >
+            <ArrowLeft size={18} />
+            Semua Event
+          </Link>
 
-            <div className="hidden border-l border-slate-200 pl-5 md:block">
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-purple-700">
-                AMOST Event
-              </p>
-              <h1 className="mt-1 text-2xl font-black leading-tight text-slate-950">
-                {title}
-              </h1>
-              <p className="mt-1 max-w-xl text-sm font-medium leading-6 text-slate-500">
-                Detail event, pendaftaran, akses live tracking, results, dan doorprize.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap gap-3">
             <Link
               href="/account"
               className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50"
@@ -248,16 +228,13 @@ export default function PublicEventDetailPage() {
             </Link>
 
             <Link
-              href="/events"
+              href={`/event/${event.id}/view`}
               className="inline-flex h-11 items-center justify-center rounded-xl bg-purple-700 px-4 text-sm font-black text-white hover:bg-purple-800"
             >
-              Semua Event
+              Live View Tracking
             </Link>
           </div>
         </div>
-      </header>
-
-      <section className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-[88px]">
         <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
           {event.image_url ? (
             <img
