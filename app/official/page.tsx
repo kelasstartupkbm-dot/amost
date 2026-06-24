@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   ArrowLeft,
   CalendarDays,
@@ -90,15 +90,11 @@ export default function OfficialPanelPage() {
   }, []);
 
   const stats = useMemo(() => {
-    const active = items.filter((item) => item.status === "active").length;
-    const doorprize = items.filter(
-      (item) => item.permission_level === "doorprize"
-    ).length;
-
     return {
       total: items.length,
-      active,
-      doorprize,
+      active: items.filter((item) => item.status === "active").length,
+      doorprize: items.filter((item) => item.permission_level === "doorprize")
+        .length,
     };
   }, [items]);
 
@@ -200,9 +196,11 @@ export default function OfficialPanelPage() {
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-green-700">
                 <UserCog size={30} />
               </div>
+
               <h3 className="mt-5 text-2xl font-black text-slate-950">
                 Belum Ada Akses Official Event
               </h3>
+
               <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
                 Akunmu belum ditugaskan sebagai Official Event pada event
                 manapun.
@@ -239,6 +237,7 @@ export default function OfficialPanelPage() {
                       value={formatPermission(item.permission_level)}
                       green
                     />
+
                     <InfoBox label="Kategori" value={item.category || "Event"} />
                   </div>
 
@@ -248,6 +247,7 @@ export default function OfficialPanelPage() {
                       value={String(item.quota || 0)}
                       icon={<Ticket size={15} />}
                     />
+
                     <InfoBox
                       label="Status Event"
                       value={item.event_status || "-"}
@@ -255,7 +255,7 @@ export default function OfficialPanelPage() {
                     />
                   </div>
 
-                  {item.notes && (
+                  {item.notes ? (
                     <div className="mt-4 rounded-xl border border-slate-200 p-3">
                       <p className="text-xs font-black uppercase text-slate-500">
                         Catatan
@@ -264,23 +264,20 @@ export default function OfficialPanelPage() {
                         {item.notes}
                       </p>
                     </div>
-                  )}
+                  ) : null}
 
-<div className="mt-5 flex gap-3">
-  <Link
-    href={`/official/events/${item.event_id}`}
-    className="flex h-10 flex-1 items-center justify-center rounded-xl border border-slate-200 text-sm font-black text-slate-700 hover:bg-slate-50"
-  >
-    Lihat Detail
-  </Link>
+                  <div className="mt-5 flex gap-3">
+                    <Link
+                      href={`/official/events/${item.event_id}`}
+                      className="flex h-10 flex-1 items-center justify-center rounded-xl border border-slate-200 text-sm font-black text-slate-700 hover:bg-slate-50"
+                    >
+                      Lihat Detail
+                    </Link>
 
-  <Link
-    href={`/official/events/${item.event_id}`}
-    className="flex h-10 flex-1 items-center justify-center rounded-xl bg-green-700 text-sm font-black text-white hover:bg-green-800"
-  >
-    Kelola
-  </Link>
-</div>
+                    <Link
+                      href={`/official/events/${item.event_id}`}
+                      className="flex h-10 flex-1 items-center justify-center rounded-xl bg-green-700 text-sm font-black text-white hover:bg-green-800"
+                    >
                       Kelola
                     </Link>
                   </div>
@@ -312,11 +309,12 @@ function InfoBox({
   label: string;
   value: string;
   green?: boolean;
-  icon?: React.ReactNode;
+  icon?: ReactNode;
 }) {
   return (
     <div className="rounded-xl bg-slate-50 p-3">
       <p className="text-xs font-black uppercase text-slate-500">{label}</p>
+
       <p
         className={`mt-1 flex items-center gap-2 text-sm font-black ${
           green ? "text-green-700" : "text-slate-950"
