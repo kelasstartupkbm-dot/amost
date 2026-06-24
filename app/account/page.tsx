@@ -13,6 +13,7 @@ import {
   MapPin,
   Medal,
   Settings,
+  ShieldCheck,
   Ticket,
   User,
 } from "lucide-react";
@@ -27,15 +28,29 @@ type CurrentUser = {
   role: string;
 };
 
+type OfficialAccess = {
+  id: number;
+  event_id: number | string;
+  user_id: number | string;
+  permission_level: string;
+  status: string;
+  notes?: string | null;
+  event_title?: string | null;
+  event_name?: string | null;
+};
+
 type AccountTab = "biodata" | "history" | "results";
 
 export default function AccountPage() {
   const router = useRouter();
 
   const [user, setUser] = useState<CurrentUser | null>(null);
+  const [officialAccess, setOfficialAccess] = useState<OfficialAccess[]>([]);
   const [loading, setLoading] = useState(true);
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<AccountTab>("biodata");
+
+  const hasOfficialAccess = officialAccess.length > 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -56,6 +71,30 @@ export default function AccountPage() {
 
         if (!cancelled) {
           setUser(data.user);
+        }
+
+        try {
+          const officialResponse = await fetch("/api/account/event-officials", {
+            method: "GET",
+            cache: "no-store",
+          });
+
+          const officialData = await officialResponse.json().catch(() => null);
+
+          if (!cancelled && officialResponse.ok && officialData?.ok) {
+            const rows = Array.isArray(officialData.data)
+              ? officialData.data
+              : Array.isArray(officialData.items)
+              ? officialData.items
+              : [];
+
+            setOfficialAccess(rows);
+          }
+        } catch (officialError) {
+          console.error(officialError);
+          if (!cancelled) {
+            setOfficialAccess([]);
+          }
         }
       } catch (error) {
         console.error(error);
@@ -198,9 +237,17 @@ export default function AccountPage() {
                 {user.fullName}
               </h2>
               <p className="truncate text-sm text-slate-500">{user.email}</p>
-              <p className="mt-1 text-sm font-semibold capitalize text-purple-700">
-                {formatRole(user.role)}
-              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-black text-purple-700">
+                  {formatRole(user.role)}
+                </span>
+
+                {hasOfficialAccess && (
+                  <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
+                    Official Event
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -213,6 +260,27 @@ export default function AccountPage() {
               Gowes Banyumas Challenge
             </p>
           </div>
+
+          {hasOfficialAccess && (
+            <div className="mt-4 rounded-xl border border-green-200 bg-green-50 p-4">
+              <p className="text-xs font-black uppercase tracking-wide text-green-700">
+                Akses Official Event
+              </p>
+              <p className="mt-2 text-2xl font-black text-slate-950">
+                {officialAccess.length}
+              </p>
+              <p className="mt-1 text-sm text-slate-600">
+                Event ditugaskan sebagai official.
+              </p>
+
+              <Link
+                href="/official"
+                className="mt-4 flex h-10 items-center justify-center rounded-xl bg-green-700 text-sm font-black text-white hover:bg-green-800"
+              >
+                Buka Panel Official
+              </Link>
+            </div>
+          )}
 
           <nav className="mt-6 space-y-2">
             <AccountMenu
@@ -233,6 +301,14 @@ export default function AccountPage() {
               label="Results"
               onClick={() => setActiveTab("results")}
             />
+            {hasOfficialAccess && (
+              <AccountMenu
+                href="/official"
+                highlight
+                icon={ShieldCheck}
+                label="Panel Official Event"
+              />
+            )}
             <AccountMenu icon={CalendarDays} label="Event Saya" />
             <AccountMenu icon={Ticket} label="Tiket / Pendaftaran" />
             <AccountMenu icon={Medal} label="Achievement" />
@@ -268,12 +344,23 @@ export default function AccountPage() {
                 </p>
               </div>
 
-              <Link
-                href="/events"
-                className="flex h-11 items-center justify-center rounded-lg bg-purple-700 px-5 text-sm font-black text-white hover:bg-purple-800"
-              >
-                Jelajahi Event
-              </Link>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                {hasOfficialAccess && (
+                  <Link
+                    href="/official"
+                    className="flex h-11 items-center justify-center rounded-lg bg-green-700 px-5 text-sm font-black text-white hover:bg-green-800"
+                  >
+                    Panel Official
+                  </Link>
+                )}
+
+                <Link
+                  href="/events"
+                  className="flex h-11 items-center justify-center rounded-lg bg-purple-700 px-5 text-sm font-black text-white hover:bg-purple-800"
+                >
+                  Jelajahi Event
+                </Link>
+              </div>
             </div>
           </section>
 
@@ -297,7 +384,14 @@ export default function AccountPage() {
             ))}
           </section>
 
-          {activeTab === "biodata" && <BiodataContent user={user} tickets={tickets} />}
+          {activeTab === "biodata" && (
+            <BiodataContent
+              user={user}
+              tickets={tickets}
+              hasOfficialAccess={hasOfficialAccess}
+              officialAccess={officialAccess}
+            />
+          )}
           {activeTab === "history" && <HistoryContent activities={activities} />}
           {activeTab === "results" && <ResultsContent activities={activities} />}
         </div>
@@ -413,27 +507,45 @@ function AccountMenu({
   label,
   active,
   onClick,
+  href,
+  highlight,
 }: {
   icon: LucideIcon;
   label: string;
   active?: boolean;
   onClick?: () => void;
+  href?: string;
+  highlight?: boolean;
 }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex w-full items-center justify-between rounded-xl px-4 py-3 text-left text-sm font-bold transition ${
-        active
-          ? "bg-purple-700 text-white"
-          : "text-slate-700 hover:bg-slate-100"
-      }`}
-    >
+  const className = `flex w-full items-center justify-between rounded-xl px-4 py-3 text-left text-sm font-bold transition ${
+    active
+      ? "bg-purple-700 text-white"
+      : highlight
+      ? "bg-green-50 text-green-700 hover:bg-green-100"
+      : "text-slate-700 hover:bg-slate-100"
+  }`;
+
+  const content = (
+    <>
       <span className="flex items-center gap-3">
         <Icon size={18} />
         {label}
       </span>
       <ChevronRight size={16} />
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link href={href} className={className}>
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <button type="button" onClick={onClick} className={className}>
+      {content}
     </button>
   );
 }
@@ -441,9 +553,13 @@ function AccountMenu({
 function BiodataContent({
   user,
   tickets,
+  hasOfficialAccess,
+  officialAccess,
 }: {
   user: CurrentUser;
   tickets: Array<{ event: string; number: string; status: string }>;
+  hasOfficialAccess: boolean;
+  officialAccess: OfficialAccess[];
 }) {
   return (
     <section className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_360px]">
@@ -455,7 +571,15 @@ function BiodataContent({
           <InfoBox label="Email" value={user.email} />
           <InfoBox label="Nomor HP" value={user.phone || "Belum diisi"} />
           <InfoBox label="Status Akun" value={formatStatus(user.status)} />
-          <InfoBox label="Role" value={formatRole(user.role)} />
+          <InfoBox label="Role Utama" value={formatRole(user.role)} />
+          <InfoBox
+            label="Akses Tambahan"
+            value={hasOfficialAccess ? "Official Event" : "-"}
+          />
+          <InfoBox
+            label="Jumlah Event Official"
+            value={hasOfficialAccess ? String(officialAccess.length) : "0"}
+          />
           <InfoBox label="ID Member" value={String(user.id)} />
         </div>
       </div>
