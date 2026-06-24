@@ -284,6 +284,12 @@ export default function AccountPage() {
 
           <nav className="mt-6 space-y-2">
             <AccountMenu
+              href="/account/tracking"
+              highlight
+              icon={Activity}
+              label="Tracking Dashboard"
+            />
+            <AccountMenu
               active={activeTab === "biodata"}
               icon={User}
               label="Biodata"
@@ -345,6 +351,13 @@ export default function AccountPage() {
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row">
+                <Link
+                  href="/account/tracking"
+                  className="flex h-11 items-center justify-center rounded-lg bg-purple-700 px-5 text-sm font-black text-white hover:bg-purple-800"
+                >
+                  Tracking Dashboard
+                </Link>
+
                 {hasOfficialAccess && (
                   <Link
                     href="/official"
@@ -356,12 +369,40 @@ export default function AccountPage() {
 
                 <Link
                   href="/events"
-                  className="flex h-11 items-center justify-center rounded-lg bg-purple-700 px-5 text-sm font-black text-white hover:bg-purple-800"
+                  className="flex h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-5 text-sm font-black text-slate-700 hover:bg-slate-50"
                 >
                   Jelajahi Event
                 </Link>
               </div>
             </div>
+          </section>
+
+          <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <AccountQuickLink
+              href="/account/tracking"
+              icon={Activity}
+              title="Tracking Dashboard"
+              description="Buka dashboard tracking akun seperti mockup lama."
+              tone="purple"
+            />
+            <AccountQuickLink
+              href="/events"
+              icon={CalendarDays}
+              title="Event Saya"
+              description="Lihat dan pilih event yang ingin diikuti."
+              tone="slate"
+            />
+            <AccountQuickLink
+              href="/official"
+              icon={ShieldCheck}
+              title="Panel Official"
+              description={
+                hasOfficialAccess
+                  ? "Kelola event yang ditugaskan sebagai official."
+                  : "Muncul aktif jika akun diberi akses official event."
+              }
+              tone={hasOfficialAccess ? "green" : "slate"}
+            />
           </section>
 
           <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -475,6 +516,48 @@ function AccountTopHeader({
         </div>
       </div>
     </header>
+  );
+}
+
+function AccountQuickLink({
+  href,
+  icon: Icon,
+  title,
+  description,
+  tone,
+}: {
+  href: string;
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  tone: "purple" | "green" | "slate";
+}) {
+  const toneClass =
+    tone === "green"
+      ? "border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
+      : tone === "purple"
+        ? "border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100"
+        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50";
+
+  return (
+    <Link
+      href={href}
+      className={`group rounded-2xl border p-5 shadow-sm transition ${toneClass}`}
+    >
+      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/80">
+        <Icon size={23} />
+      </div>
+
+      <h3 className="mt-5 text-lg font-black text-slate-950">{title}</h3>
+      <p className="mt-2 text-sm font-medium leading-6 text-slate-600">
+        {description}
+      </p>
+
+      <p className="mt-4 inline-flex items-center gap-2 text-sm font-black">
+        Buka
+        <ChevronRight size={16} />
+      </p>
+    </Link>
   );
 }
 
