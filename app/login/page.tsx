@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -59,7 +60,7 @@ export default function LoginPage() {
         return;
       }
 
-      router.replace("/account");
+      router.replace(getLoginRedirectPath());
       router.refresh();
     } catch (err) {
       console.error(err);
@@ -253,6 +254,30 @@ export default function LoginPage() {
       </section>
     </main>
   );
+}
+
+
+function getLoginRedirectPath() {
+  if (typeof window === "undefined") {
+    return "/home";
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const next = params.get("next");
+
+  if (!next) {
+    return "/home";
+  }
+
+  if (!next.startsWith("/") || next.startsWith("//")) {
+    return "/home";
+  }
+
+  if (next.startsWith("/login") || next.startsWith("/register")) {
+    return "/home";
+  }
+
+  return next;
 }
 
 function RoleCard({
