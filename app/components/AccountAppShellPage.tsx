@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type ElementType, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ElementType, type ReactNode } from "react";
 import {
   Activity,
   Bell,
@@ -19,6 +19,7 @@ import {
   RefreshCw,
   Search,
   Settings,
+  ShieldCheck,
   Ticket,
   UserRound,
   Wifi,
@@ -29,6 +30,8 @@ type CurrentUser = {
   fullName?: string | null;
   email?: string | null;
   role?: string | null;
+  role_id?: number | string | null;
+  roleId?: number | string | null;
   status?: string | null;
 };
 
@@ -53,42 +56,6 @@ type AccountAppShellPageProps = {
   children: ReactNode;
   rightPanel?: ReactNode;
 };
-
-
-type PanelAction = {
-  label: string;
-  href: string;
-};
-
-function getPanelAction(
-  user: CurrentUser | null,
-  hasOfficialAccess = false,
-): PanelAction | null {
-  const role = String(user?.role || "").toLowerCase().replace(/\s+/g, "_");
-
-  if (role.includes("super_admin") || role.includes("super")) {
-    return {
-      label: "Control Panel",
-      href: "/api/admin-entry",
-    };
-  }
-
-  if (role.includes("staff_amost") || role.includes("staff")) {
-    return {
-      label: "Staff AMOST",
-      href: "/api/admin-entry",
-    };
-  }
-
-  if (hasOfficialAccess) {
-    return {
-      label: "Official Event",
-      href: "/official",
-    };
-  }
-
-  return null;
-}
 
 function getDisplayName(user: CurrentUser | null) {
   const clean = user?.fullName?.trim();
@@ -116,8 +83,15 @@ function getInitials(name: string) {
     .join("");
 }
 
+function normalizeRole(value: unknown) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+}
+
 function formatRole(role: string | null | undefined) {
-  const clean = String(role || "umum").toLowerCase();
+  const clean = normalizeRole(role);
 
   if (clean === "super_admin") return "Super Admin";
   if (clean === "staff_amost") return "Staff AMOST";
@@ -128,6 +102,50 @@ function formatRole(role: string | null | undefined) {
     .filter(Boolean)
     .map((word) => word[0]?.toUpperCase() + word.slice(1))
     .join(" ");
+}
+
+function isSuperAdmin(user: CurrentUser | null) {
+  const role = normalizeRole(user?.role);
+  const roleId = Number(user?.role_id || user?.roleId || 0);
+
+  return role === "super_admin" || roleId === 1;
+}
+
+function isStaffAmost(user: CurrentUser | null) {
+  const role = normalizeRole(user?.role);
+  const roleId = Number(user?.role_id || user?.roleId || 0);
+
+  return role === "staff_amost" || roleId === 2;
+}
+
+type TopAction = {
+  href: string;
+  label: string;
+};
+
+function getTopAction(user: CurrentUser | null, officialCount: number): TopAction | null {
+  if (isSuperAdmin(user)) {
+    return {
+      href: "/api/admin-entry",
+      label: "Control Panel",
+    };
+  }
+
+  if (isStaffAmost(user)) {
+    return {
+      href: "/api/admin-entry",
+      label: "Staff AMOST",
+    };
+  }
+
+  if (officialCount > 0) {
+    return {
+      href: "/official",
+      label: "Official Event",
+    };
+  }
+
+  return null;
 }
 
 export default function AccountAppShellPage({
@@ -142,7 +160,7 @@ export default function AccountAppShellPage({
   const router = useRouter();
 
   const [user, setUser] = useState<CurrentUser | null>(null);
-  const [officialAccessCount, setOfficialAccessCount] = useState(0);
+  const [officialCount, setOfficialCount] = useState(0);
   const [authChecked, setAuthChecked] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
@@ -150,7 +168,38 @@ export default function AccountAppShellPage({
   const displayName = getDisplayName(user);
   const initials = getInitials(displayName);
   const roleLabel = formatRole(user?.role);
-  const panelAction = getPanelAction(user, officialAccessCount > 0);
+  const topAction = useMemo(
+    () => getTopAction(user, officialCount),
+    [user, officialCount],
+  );
+
+  async function loadOfficialAccess() {
+    try {
+      const response = await fetch("/api/account/event-officials", {
+        method: "GET",
+        cache: "no-store",
+        credentials: "include",
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || data?.ok === false) {
+        setOfficialCount(0);
+        return;
+      }
+
+      const rows = Array.isArray(data?.data)
+        ? data.data
+        : Array.isArray(data?.items)
+          ? data.items
+          : [];
+
+      setOfficialCount(rows.length);
+    } catch (error) {
+      console.error(error);
+      setOfficialCount(0);
+    }
+  }
 
   async function loadAccount(silent = false) {
     if (silent) {
@@ -176,31 +225,11 @@ export default function AccountAppShellPage({
 
       setUser(data.user);
 
-      try {
-        const officialResponse = await fetch("/api/account/event-officials", {
-          method: "GET",
-          cache: "no-store",
-          credentials: "include",
-        });
-
-        const officialData = await officialResponse.json().catch(() => null);
-
-        if (officialResponse.ok && officialData?.ok) {
-          const rows = Array.isArray(officialData.data)
-            ? officialData.data
-            : Array.isArray(officialData.items)
-              ? officialData.items
-              : [];
-
-          setOfficialAccessCount(rows.length);
-        } else {
-          setOfficialAccessCount(0);
-        }
-      } catch (officialError) {
-        console.error(officialError);
-        setOfficialAccessCount(0);
+      if (!isSuperAdmin(data.user) && !isStaffAmost(data.user)) {
+        loadOfficialAccess();
+      } else {
+        setOfficialCount(0);
       }
-
     } catch (error) {
       console.error(error);
     } finally {
@@ -243,9 +272,9 @@ export default function AccountAppShellPage({
           displayName={displayName}
           initials={initials}
           roleLabel={roleLabel}
-          panelAction={panelAction}
           refreshing={refreshing}
           logoutLoading={logoutLoading}
+          topAction={topAction}
           onRefresh={() => loadAccount(true)}
           onLogout={handleLogout}
         />
@@ -410,9 +439,9 @@ function AppTopbar({
   displayName,
   initials,
   roleLabel,
-  panelAction,
   refreshing,
   logoutLoading,
+  topAction,
   onRefresh,
   onLogout,
 }: {
@@ -421,9 +450,9 @@ function AppTopbar({
   displayName: string;
   initials: string;
   roleLabel: string;
-  panelAction?: PanelAction | null;
   refreshing: boolean;
   logoutLoading: boolean;
+  topAction: TopAction | null;
   onRefresh: () => void;
   onLogout: () => void;
 }) {
@@ -458,12 +487,14 @@ function AppTopbar({
             </span>
           </button>
 
-          {panelAction ? (
+          {topAction ? (
             <Link
-              href={panelAction.href}
-              className="inline-flex h-11 items-center justify-center rounded-2xl bg-purple-700 px-4 text-sm font-black text-white hover:bg-purple-800"
+              href={topAction.href}
+              prefetch={false}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-purple-700 px-4 text-sm font-black text-white hover:bg-purple-800"
             >
-              {panelAction.label}
+              <ShieldCheck size={17} />
+              {topAction.label}
             </Link>
           ) : (
             <button
