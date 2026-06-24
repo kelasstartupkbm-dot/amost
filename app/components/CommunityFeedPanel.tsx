@@ -13,6 +13,9 @@ import {
   MessageCircle,
   RefreshCw,
   Send,
+  Edit3,
+  Eye,
+  Save,
   ShieldCheck,
   Trash2,
   Trophy,
@@ -122,6 +125,13 @@ function canDeletePost(user: CurrentUser | null, post: CommunityPost) {
   return Boolean(userId && (userId === ownerId || isGlobalAdmin(user)));
 }
 
+function canDeleteComment(user: CurrentUser | null, comment: CommunityComment) {
+  const userId = getCurrentUserId(user);
+  const ownerId = Number(comment.user_id || 0);
+
+  return Boolean(userId && (userId === ownerId || isGlobalAdmin(user)));
+}
+
 function getPostIcon(type: string) {
   const clean = String(type || "post").toLowerCase();
 
@@ -209,6 +219,11 @@ export default function CommunityFeedPanel() {
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
   const [openCommentsPostId, setOpenCommentsPostId] = useState<string | null>(null);
   const [loadingCommentsPostId, setLoadingCommentsPostId] = useState<string | null>(null);
+
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
+  const [savingEditPostId, setSavingEditPostId] = useState<string | null>(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -471,6 +486,122 @@ export default function CommunityFeedPanel() {
       setErrorMessage("Koneksi ke server bermasalah.");
     } finally {
       setPosting(false);
+    }
+  }
+
+  function startEditPost(post: CommunityPost) {
+    setEditingPostId(String(post.id));
+    setEditContent(String(post.content || ""));
+    setErrorMessage("");
+    setLastActionMessage("");
+  }
+
+  function cancelEditPost() {
+    setEditingPostId(null);
+    setEditContent("");
+    setSavingEditPostId(null);
+  }
+
+  async function saveEditPost(post: CommunityPost) {
+    const cleanContent = editContent.trim();
+
+    if (!cleanContent) {
+      setErrorMessage("Isi postingan tidak boleh kosong.");
+      return;
+    }
+
+    const postId = String(post.id);
+
+    setSavingEditPostId(postId);
+    setErrorMessage("");
+    setLastActionMessage("");
+
+    try {
+      const response = await fetch(`/api/community/posts/${post.id}`, {
+        method: "PATCH",
+        cache: "no-store",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          content: cleanContent,
+        }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || data?.ok === false) {
+        setErrorMessage(data?.message || data?.error || "Postingan belum bisa diedit.");
+        return;
+      }
+
+      setPosts((current) =>
+        current.map((item) =>
+          String(item.id) === postId
+            ? {
+                ...item,
+                content: cleanContent,
+              }
+            : item,
+        ),
+      );
+
+      cancelEditPost();
+      setLastActionMessage("Postingan berhasil diperbarui.");
+    } catch (error) {
+      console.error(error);
+      setErrorMessage("Koneksi edit postingan bermasalah.");
+    } finally {
+      setSavingEditPostId(null);
+    }
+  }
+
+  async function deleteComment(post: CommunityPost, comment: CommunityComment) {
+    const confirmed = window.confirm("Hapus komentar ini?");
+
+    if (!confirmed) return;
+
+    const postId = String(post.id);
+    const commentId = String(comment.id);
+
+    setErrorMessage("");
+    setLastActionMessage("");
+
+    try {
+      const response = await fetch(`/api/community/comments/${comment.id}`, {
+        method: "DELETE",
+        cache: "no-store",
+        credentials: "include",
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || data?.ok === false) {
+        setErrorMessage(data?.message || data?.error || "Komentar belum bisa dihapus.");
+        return;
+      }
+
+      setCommentsByPostId((current) => ({
+        ...current,
+        [postId]: (current[postId] || []).filter((item) => String(item.id) !== commentId),
+      }));
+
+      setPosts((current) =>
+        current.map((item) => {
+          if (String(item.id) !== postId) return item;
+
+          return {
+            ...item,
+            comment_count: Math.max(0, Number(item.comment_count || 0) - 1),
+          };
+        }),
+      );
+
+      setLastActionMessage("Komentar berhasil dihapus.");
+    } catch (error) {
+      console.error(error);
+      setErrorMessage("Koneksi hapus komentar bermasalah.");
     }
   }
 
@@ -868,11 +999,20 @@ export default function CommunityFeedPanel() {
             <CommunityPostCard
               key={postId}
               post={post}
+              currentUser={currentUser}
               canDelete={canDeletePost(currentUser, post)}
+              canEdit={canDeletePost(currentUser, post)}
+              isEditing={editingPostId === postId}
+              editContent={editingPostId === postId ? editContent : ""}
+              savingEdit={savingEditPostId === postId}
               commentsOpen={openCommentsPostId === postId}
               comments={comments}
               commentsLoading={loadingCommentsPostId === postId}
               commentInput={commentInputs[postId] || ""}
+              onEditContentChange={setEditContent}
+              onStartEdit={() => startEditPost(post)}
+              onCancelEdit={cancelEditPost}
+              onSaveEdit={() => saveEditPost(post)}
               onCommentInputChange={(value) =>
                 setCommentInputs((current) => ({
                   ...current,
@@ -883,10 +1023,32 @@ export default function CommunityFeedPanel() {
               onToggleComments={() => toggleComments(post.id)}
               onSubmitComment={() => submitComment(post.id)}
               onDelete={() => deletePost(post)}
+              onDeleteComment={(comment) => deleteComment(post, comment)}
+              onPreviewPhoto={(url) => setPhotoPreviewUrl(url)}
             />
           );
         })
       )}
+
+      {photoPreviewUrl ? (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 p-4">
+          <div className="relative max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-[2rem] bg-white shadow-2xl">
+            <button
+              type="button"
+              onClick={() => setPhotoPreviewUrl(null)}
+              className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow hover:bg-white"
+              title="Tutup foto"
+            >
+              <X size={20} />
+            </button>
+            <img
+              src={photoPreviewUrl}
+              alt="Preview foto"
+              className="max-h-[92vh] w-full object-contain"
+            />
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -944,28 +1106,50 @@ function FeedFilter({
 
 function CommunityPostCard({
   post,
+  currentUser,
   canDelete,
+  canEdit,
+  isEditing,
+  editContent,
+  savingEdit,
   commentsOpen,
   comments,
   commentsLoading,
   commentInput,
+  onEditContentChange,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
   onCommentInputChange,
   onLike,
   onToggleComments,
   onSubmitComment,
   onDelete,
+  onDeleteComment,
+  onPreviewPhoto,
 }: {
   post: CommunityPost;
+  currentUser: CurrentUser | null;
   canDelete: boolean;
+  canEdit: boolean;
+  isEditing: boolean;
+  editContent: string;
+  savingEdit: boolean;
   commentsOpen: boolean;
   comments: CommunityComment[];
   commentsLoading: boolean;
   commentInput: string;
+  onEditContentChange: (value: string) => void;
+  onStartEdit: () => void;
+  onCancelEdit: () => void;
+  onSaveEdit: () => void;
   onCommentInputChange: (value: string) => void;
   onLike: () => void;
   onToggleComments: () => void;
   onSubmitComment: () => void;
   onDelete: () => void;
+  onDeleteComment: (comment: CommunityComment) => void;
+  onPreviewPhoto: (url: string) => void;
 }) {
   const Icon = getPostIcon(post.post_type);
   const initials = getInitials(post.author_name || post.author_email);
@@ -989,17 +1173,31 @@ function CommunityPostCard({
               </p>
             </div>
 
-            {canDelete ? (
-              <button
-                type="button"
-                onClick={onDelete}
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-red-50 px-3 text-xs font-black text-red-600 hover:bg-red-100"
-                title="Hapus postingan"
-              >
-                <Trash2 size={15} />
-                Hapus
-              </button>
-            ) : null}
+            <div className="flex shrink-0 items-center gap-2">
+              {canEdit ? (
+                <button
+                  type="button"
+                  onClick={onStartEdit}
+                  className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-purple-50 px-3 text-xs font-black text-purple-700 hover:bg-purple-100"
+                  title="Edit postingan"
+                >
+                  <Edit3 size={15} />
+                  Edit
+                </button>
+              ) : null}
+
+              {canDelete ? (
+                <button
+                  type="button"
+                  onClick={onDelete}
+                  className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-red-50 px-3 text-xs font-black text-red-600 hover:bg-red-100"
+                  title="Hapus postingan"
+                >
+                  <Trash2 size={15} />
+                  Hapus
+                </button>
+              ) : null}
+            </div>
           </div>
 
           <div className="mt-4 overflow-hidden rounded-[1.25rem] border border-slate-100 bg-slate-50">
@@ -1012,7 +1210,35 @@ function CommunityPostCard({
                 {getTypeLabel(post.post_type)}
               </p>
 
-              {post.content ? (
+              {isEditing ? (
+                <div className="mt-4 rounded-2xl bg-white p-4 ring-1 ring-purple-100">
+                  <textarea
+                    value={editContent}
+                    onChange={(event) => onEditContentChange(event.target.value)}
+                    className="min-h-[110px] w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-bold text-slate-700 outline-none focus:border-purple-300"
+                    maxLength={2000}
+                    placeholder="Edit isi postingan..."
+                  />
+                  <div className="mt-3 flex flex-wrap justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={onCancelEdit}
+                      className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-xs font-black text-slate-600"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onSaveEdit}
+                      disabled={savingEdit || !editContent.trim()}
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-purple-700 px-4 text-xs font-black text-white hover:bg-purple-800 disabled:bg-slate-300"
+                    >
+                      {savingEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save size={15} />}
+                      Simpan
+                    </button>
+                  </div>
+                </div>
+              ) : post.content ? (
                 <p className="mt-2 whitespace-pre-wrap text-base font-semibold leading-7 text-slate-700">
                   {post.content}
                 </p>
@@ -1051,11 +1277,21 @@ function CommunityPostCard({
             </div>
 
             {post.image_data_url ? (
-              <img
-                src={post.image_data_url}
-                alt={post.image_name || "Foto postingan"}
-                className="max-h-[320px] w-full object-cover md:max-h-[380px]"
-              />
+              <div className="relative">
+                <img
+                  src={post.image_data_url}
+                  alt={post.image_name || "Foto postingan"}
+                  className="max-h-[260px] w-full object-cover md:max-h-[320px]"
+                />
+                <button
+                  type="button"
+                  onClick={() => onPreviewPhoto(String(post.image_data_url || ""))}
+                  className="absolute bottom-4 right-4 inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-white/95 px-4 text-xs font-black text-slate-700 shadow hover:bg-white"
+                >
+                  <Eye size={16} />
+                  Lihat Foto
+                </button>
+              </div>
             ) : null}
           </div>
 
@@ -1103,15 +1339,30 @@ function CommunityPostCard({
                 ) : (
                   comments.map((comment) => (
                     <div key={String(comment.id)} className="rounded-xl bg-white p-3 ring-1 ring-slate-100">
-                      <p className="text-sm font-black text-slate-950">
-                        {comment.author_name || comment.author_email || "AMOST User"}
-                      </p>
-                      <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
-                        {comment.comment_text}
-                      </p>
-                      <p className="mt-1 text-xs font-bold text-slate-400">
-                        {formatRelativeTime(comment.created_at)}
-                      </p>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-black text-slate-950">
+                            {comment.author_name || comment.author_email || "AMOST User"}
+                          </p>
+                          <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
+                            {comment.comment_text}
+                          </p>
+                          <p className="mt-1 text-xs font-bold text-slate-400">
+                            {formatRelativeTime(comment.created_at)}
+                          </p>
+                        </div>
+
+                        {canDeleteComment(currentUser, comment) ? (
+                          <button
+                            type="button"
+                            onClick={() => onDeleteComment(comment)}
+                            className="shrink-0 rounded-lg bg-red-50 p-2 text-red-600 hover:bg-red-100"
+                            title="Hapus komentar"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
                   ))
                 )}
