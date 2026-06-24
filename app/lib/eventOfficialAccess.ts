@@ -1,123 +1,154 @@
 import { dbQuery } from "./amostDb";
-import {
-  isGlobalAdminUser,
-  type AuthUser,
-} from "./amostServerAuth";
 
-export const EVENT_OFFICIAL_PERMISSION_LEVELS = [
-  "viewer",
-  "operator",
-  "manager",
-] as const;
-
-export type EventOfficialPermissionLevel =
-  (typeof EVENT_OFFICIAL_PERMISSION_LEVELS)[number];
-
-export type EventOfficialStatus = "active" | "inactive";
-
-export type EventOfficialRow = {
+export type EventOfficialAccessRecord = {
   id: number;
-  event_id: number;
-  user_id: number;
-  permission_level: EventOfficialPermissionLevel;
-  status: EventOfficialStatus;
+  event_id: number | string;
+  user_id: number | string;
+  permission_level: string;
+  status: string;
   notes: string | null;
-  created_by: number | null;
-  created_at: string;
-  updated_at: string;
-  user_full_name?: string | null;
-  user_email?: string | null;
-  created_by_full_name?: string | null;
+  created_by: number | string | null;
+  created_at: string | Date | null;
+  updated_at: string | Date | null;
+  user_name?: string | null;
+  full_name?: string | null;
+  email?: string | null;
+  event_title?: string | null;
+  event_name?: string | null;
 };
 
-export function normalizePermissionLevel(
-  value: unknown,
-): EventOfficialPermissionLevel {
-  const normalized = String(value || "operator").trim().toLowerCase();
+export type CreateEventOfficialInput = {
+  eventId: number | string;
+  userId: number | string;
+  permissionLevel?: string | null;
+  notes?: string | null;
+  createdBy?: number | string | null;
+};
 
-  if (normalized === "viewer") return "viewer";
-  if (normalized === "manager") return "manager";
-  return "operator";
-}
-
-export function normalizeOfficialStatus(value: unknown): EventOfficialStatus {
-  const normalized = String(value || "active").trim().toLowerCase();
-  return normalized === "inactive" ? "inactive" : "active";
-}
+export type UpdateEventOfficialInput = {
+  permissionLevel?: string | null;
+  status?: string | null;
+  notes?: string | null;
+};
 
 export function toPositiveBigInt(value: unknown) {
-  const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed <= 0) return null;
+  const clean = String(value || "").trim();
+
+  if (!/^\d+$/.test(clean)) {
+    return null;
+  }
+
+  return clean;
+}
+
+export function toPositiveInt(value: unknown) {
+  const clean = toPositiveBigInt(value);
+
+  if (!clean) {
+    return null;
+  }
+
+  const parsed = Number(clean);
+
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+
   return parsed;
 }
 
-export async function ensureUserExists(userId: number) {
-  const result = await dbQuery<{ id: number }>(
-    `SELECT id FROM users WHERE id = $1 LIMIT 1`,
-    [userId],
-  );
+export function normalizePermissionLevel(value: unknown) {
+  const level = String(value || "operator")
+    .trim()
+    .toLowerCase();
 
-  return Boolean(result.rows[0]);
+  if (!level) return "operator";
+
+  const allowed = new Set(["operator", "result", "doorprize", "viewer"]);
+
+  return allowed.has(level) ? level : "operator";
 }
 
-export async function listEventOfficials({
-  eventId,
-  userId,
-  status,
-}: {
-  eventId?: number | null;
-  userId?: number | null;
-  status?: EventOfficialStatus | "all" | null;
-}) {
-  const conditions: string[] = [];
-  const params: unknown[] = [];
+export function normalizeOfficialStatus(value: unknown) {
+  const status = String(value || "active")
+    .trim()
+    .toLowerCase();
 
-  if (eventId) {
-    params.push(eventId);
-    conditions.push(`eo.event_id = $${params.length}`);
+  if (status === "inactive") return "inactive";
+  if (status === "disabled") return "inactive";
+  if (status === "active") return "active";
+
+  return "active";
+}
+
+export async function ensureUserExists(userId: number | string) {
+  const id = toPositiveBigInt(userId);
+
+  if (!id) {
+    return false;
   }
 
-  if (userId) {
-    params.push(userId);
-    conditions.push(`eo.user_id = $${params.length}`);
-  }
-
-  if (status && status !== "all") {
-    params.push(status);
-    conditions.push(`eo.status = $${params.length}`);
-  }
-
-  const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
-
-  const result = await dbQuery<EventOfficialRow>(
+  const result = await dbQuery(
     `
-      SELECT
-        eo.id,
-        eo.event_id,
-        eo.user_id,
-        eo.permission_level,
-        eo.status,
-        eo.notes,
-        eo.created_by,
-        eo.created_at,
-        eo.updated_at,
-        u.full_name AS user_full_name,
-        u.email AS user_email,
-        creator.full_name AS created_by_full_name
-      FROM event_officials eo
-      LEFT JOIN users u ON u.id = eo.user_id
-      LEFT JOIN users creator ON creator.id = eo.created_by
-      ${whereClause}
-      ORDER BY eo.created_at DESC, eo.id DESC
+      SELECT id
+      FROM users
+      WHERE id = $1
+      LIMIT 1
     `,
-    params,
+    [id]
   );
 
-  return result.rows;
+  return result.rows.length > 0;
 }
 
-export async function getEventOfficialById(id: number) {
-  const result = await dbQuery<EventOfficialRow>(
+export async function ensureEventExists(eventId: number | string) {
+  const id = toPositiveBigInt(eventId);
+
+  if (!id) {
+    return false;
+  }
+
+  const result = await dbQuery(
+    `
+      SELECT id
+      FROM events
+      WHERE id = $1
+      LIMIT 1
+    `,
+    [id]
+  );
+
+  return result.rows.length > 0;
+}
+
+export async function ensureEventOfficialExists(id: number | string) {
+  const officialId = toPositiveBigInt(id);
+
+  if (!officialId) {
+    return false;
+  }
+
+  const result = await dbQuery(
+    `
+      SELECT id
+      FROM event_officials
+      WHERE id = $1
+      LIMIT 1
+    `,
+    [officialId]
+  );
+
+  return result.rows.length > 0;
+}
+
+export async function getEventOfficialById(id: number | string) {
+  const officialId = toPositiveBigInt(id);
+
+  if (!officialId) {
+    return null;
+  }
+
+  const result = await dbQuery(
     `
       SELECT
         eo.id,
@@ -129,37 +160,121 @@ export async function getEventOfficialById(id: number) {
         eo.created_by,
         eo.created_at,
         eo.updated_at,
-        u.full_name AS user_full_name,
-        u.email AS user_email,
-        creator.full_name AS created_by_full_name
+        u.full_name AS user_name,
+        u.full_name AS full_name,
+        u.email AS email,
+        e.title AS event_title,
+        e.title AS event_name
       FROM event_officials eo
       LEFT JOIN users u ON u.id = eo.user_id
-      LEFT JOIN users creator ON creator.id = eo.created_by
+      LEFT JOIN events e ON e.id = eo.event_id
       WHERE eo.id = $1
       LIMIT 1
     `,
-    [id],
+    [officialId]
   );
 
-  return result.rows[0] || null;
+  return (result.rows[0] || null) as EventOfficialAccessRecord | null;
 }
 
-export async function assignEventOfficial({
-  eventId,
-  userId,
-  permissionLevel,
-  status,
-  notes,
-  createdBy,
-}: {
-  eventId: number;
-  userId: number;
-  permissionLevel: EventOfficialPermissionLevel;
-  status: EventOfficialStatus;
-  notes?: string | null;
-  createdBy?: number | null;
-}) {
-  const result = await dbQuery<EventOfficialRow>(
+export async function getEventOfficialByEventAndUser(
+  eventId: number | string,
+  userId: number | string
+) {
+  const cleanEventId = toPositiveBigInt(eventId);
+  const cleanUserId = toPositiveBigInt(userId);
+
+  if (!cleanEventId || !cleanUserId) {
+    return null;
+  }
+
+  const result = await dbQuery(
+    `
+      SELECT
+        eo.id,
+        eo.event_id,
+        eo.user_id,
+        eo.permission_level,
+        eo.status,
+        eo.notes,
+        eo.created_by,
+        eo.created_at,
+        eo.updated_at,
+        u.full_name AS user_name,
+        u.full_name AS full_name,
+        u.email AS email,
+        e.title AS event_title,
+        e.title AS event_name
+      FROM event_officials eo
+      LEFT JOIN users u ON u.id = eo.user_id
+      LEFT JOIN events e ON e.id = eo.event_id
+      WHERE eo.event_id = $1
+        AND eo.user_id = $2
+      LIMIT 1
+    `,
+    [cleanEventId, cleanUserId]
+  );
+
+  return (result.rows[0] || null) as EventOfficialAccessRecord | null;
+}
+
+export async function listEventOfficials(eventId?: number | string | null) {
+  const cleanEventId = eventId ? toPositiveBigInt(eventId) : null;
+
+  const params: unknown[] = [];
+  let whereSql = "";
+
+  if (cleanEventId) {
+    params.push(cleanEventId);
+    whereSql = `WHERE eo.event_id = $${params.length}`;
+  }
+
+  const result = await dbQuery(
+    `
+      SELECT
+        eo.id,
+        eo.event_id,
+        eo.user_id,
+        eo.permission_level,
+        eo.status,
+        eo.notes,
+        eo.created_by,
+        eo.created_at,
+        eo.updated_at,
+        u.full_name AS user_name,
+        u.full_name AS full_name,
+        u.email AS email,
+        e.title AS event_title,
+        e.title AS event_name
+      FROM event_officials eo
+      LEFT JOIN users u ON u.id = eo.user_id
+      LEFT JOIN events e ON e.id = eo.event_id
+      ${whereSql}
+      ORDER BY eo.created_at DESC, eo.id DESC
+      LIMIT 300
+    `,
+    params
+  );
+
+  return result.rows as EventOfficialAccessRecord[];
+}
+
+export async function createEventOfficial(input: CreateEventOfficialInput) {
+  const eventId = toPositiveBigInt(input.eventId);
+  const userId = toPositiveBigInt(input.userId);
+  const createdBy = input.createdBy ? toPositiveBigInt(input.createdBy) : null;
+
+  if (!eventId || !userId) {
+    throw new Error("Event ID dan User ID wajib diisi.");
+  }
+
+  const permissionLevel = normalizePermissionLevel(input.permissionLevel);
+  const notes =
+    input.notes === undefined || input.notes === null
+      ? null
+      : String(input.notes).trim() || null;
+
+  const result = await dbQuery(
     `
       INSERT INTO event_officials (
         event_id,
@@ -171,67 +286,125 @@ export async function assignEventOfficial({
         created_at,
         updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
-      ON CONFLICT (event_id, user_id)
-      DO UPDATE SET
-        permission_level = EXCLUDED.permission_level,
-        status = EXCLUDED.status,
-        notes = EXCLUDED.notes,
-        updated_at = NOW()
-      RETURNING *
+      VALUES ($1, $2, $3, 'active', $4, $5, NOW(), NOW())
+      RETURNING
+        id,
+        event_id,
+        user_id,
+        permission_level,
+        status,
+        notes,
+        created_by,
+        created_at,
+        updated_at
     `,
-    [eventId, userId, permissionLevel, status, notes || null, createdBy || null],
+    [eventId, userId, permissionLevel, notes, createdBy]
   );
 
-  return result.rows[0];
+  return result.rows[0] as EventOfficialAccessRecord;
 }
 
-export async function updateEventOfficial({
-  id,
-  permissionLevel,
-  status,
-  notes,
-}: {
-  id: number;
-  permissionLevel?: EventOfficialPermissionLevel;
-  status?: EventOfficialStatus;
-  notes?: string | null;
-}) {
-  const current = await getEventOfficialById(id);
-  if (!current) return null;
+export async function updateEventOfficial(
+  id: number | string,
+  input: UpdateEventOfficialInput
+) {
+  const officialId = toPositiveBigInt(id);
 
-  const nextPermissionLevel = permissionLevel || current.permission_level;
-  const nextStatus = status || current.status;
-  const nextNotes = notes === undefined ? current.notes : notes;
+  if (!officialId) {
+    throw new Error("ID Official Event tidak valid.");
+  }
 
-  const result = await dbQuery<EventOfficialRow>(
+  const updates: string[] = [];
+  const params: unknown[] = [];
+
+  if (input.permissionLevel !== undefined && input.permissionLevel !== null) {
+    params.push(normalizePermissionLevel(input.permissionLevel));
+    updates.push(`permission_level = $${params.length}`);
+  }
+
+  if (input.status !== undefined && input.status !== null) {
+    params.push(normalizeOfficialStatus(input.status));
+    updates.push(`status = $${params.length}`);
+  }
+
+  if (input.notes !== undefined) {
+    const notes =
+      input.notes === null ? null : String(input.notes).trim() || null;
+
+    params.push(notes);
+    updates.push(`notes = $${params.length}`);
+  }
+
+  if (updates.length === 0) {
+    throw new Error("Tidak ada data yang diubah.");
+  }
+
+  updates.push(`updated_at = NOW()`);
+
+  params.push(officialId);
+
+  const result = await dbQuery(
     `
       UPDATE event_officials
-      SET
-        permission_level = $2,
-        status = $3,
-        notes = $4,
-        updated_at = NOW()
-      WHERE id = $1
-      RETURNING *
+      SET ${updates.join(", ")}
+      WHERE id = $${params.length}
+      RETURNING
+        id,
+        event_id,
+        user_id,
+        permission_level,
+        status,
+        notes,
+        created_by,
+        created_at,
+        updated_at
     `,
-    [id, nextPermissionLevel, nextStatus, nextNotes || null],
+    params
   );
 
-  return result.rows[0] || null;
+  return (result.rows[0] || null) as EventOfficialAccessRecord | null;
 }
 
-export async function deleteEventOfficial(id: number) {
-  const result = await dbQuery<{ id: number }>(
-    `DELETE FROM event_officials WHERE id = $1 RETURNING id`,
-    [id],
+export async function deleteEventOfficial(id: number | string) {
+  const officialId = toPositiveBigInt(id);
+
+  if (!officialId) {
+    throw new Error("ID Official Event tidak valid.");
+  }
+
+  const result = await dbQuery(
+    `
+      DELETE FROM event_officials
+      WHERE id = $1
+      RETURNING
+        id,
+        event_id,
+        user_id,
+        permission_level,
+        status,
+        notes,
+        created_by,
+        created_at,
+        updated_at
+    `,
+    [officialId]
   );
 
-  return Boolean(result.rows[0]);
+  return (result.rows[0] || null) as EventOfficialAccessRecord | null;
 }
 
-export async function isActiveEventOfficial(userId: number, eventId: number) {
-  const result = await dbQuery<{ id: number }>(
+export async function userHasEventOfficialAccess(
+  userId: number | string,
+  eventId: number | string
+) {
+  const cleanUserId = toPositiveBigInt(userId);
+  const cleanEventId = toPositiveBigInt(eventId);
+
+  if (!cleanUserId || !cleanEventId) {
+    return false;
+  }
+
+  const result = await dbQuery(
     `
       SELECT id
       FROM event_officials
@@ -240,18 +413,43 @@ export async function isActiveEventOfficial(userId: number, eventId: number) {
         AND status = 'active'
       LIMIT 1
     `,
-    [userId, eventId],
+    [cleanUserId, cleanEventId]
   );
 
-  return Boolean(result.rows[0]);
+  return result.rows.length > 0;
 }
 
-export async function canManageEvent(
-  user: AuthUser | null,
-  eventId: number,
+export async function getUserEventOfficialAccess(
+  userId: number | string,
+  eventId: number | string
 ) {
-  if (!user) return false;
-  if (isGlobalAdminUser(user)) return true;
+  const cleanUserId = toPositiveBigInt(userId);
+  const cleanEventId = toPositiveBigInt(eventId);
 
-  return isActiveEventOfficial(user.id, eventId);
+  if (!cleanUserId || !cleanEventId) {
+    return null;
+  }
+
+  const result = await dbQuery(
+    `
+      SELECT
+        id,
+        event_id,
+        user_id,
+        permission_level,
+        status,
+        notes,
+        created_by,
+        created_at,
+        updated_at
+      FROM event_officials
+      WHERE user_id = $1
+        AND event_id = $2
+        AND status = 'active'
+      LIMIT 1
+    `,
+    [cleanUserId, cleanEventId]
+  );
+
+  return (result.rows[0] || null) as EventOfficialAccessRecord | null;
 }
