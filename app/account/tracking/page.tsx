@@ -410,7 +410,7 @@ function TrackingMobileSidebar({
           <MobileTrackingLink href="/home" icon={Home} label="Dashboard" onClick={onClose} />
           <MobileTrackingLink href="/account/tracking" icon={Navigation} label="Tracking" active onClick={onClose} />
           <MobileTrackingLink href="/account#history" icon={History} label="My Activities" onClick={onClose} />
-          <MobileTrackingLink href="/events" icon={CalendarDays} label="My Events" onClick={onClose} />
+          <MobileTrackingLink href="/my-events" icon={CalendarDays} label="My Events" onClick={onClose} />
           <MobileTrackingLink href="/account#results" icon={Ticket} label="My Tickets" onClick={onClose} />
           <MobileTrackingLink href="/account#results" icon={Trophy} label="Achievement" onClick={onClose} />
           <MobileTrackingLink href="/account#results" icon={BarChart3} label="Statistics" onClick={onClose} />
@@ -421,7 +421,7 @@ function TrackingMobileSidebar({
 
         <div className="border-t border-slate-200 p-5">
           <Link
-            href={activeEventId ? `/event/${activeEventId}/view` : "/events"}
+            href={activeEventId ? `/event/${activeEventId}/view` : "/my-events"}
             onClick={onClose}
             className="flex h-12 items-center justify-center rounded-2xl bg-purple-700 text-sm font-black text-white"
           >
@@ -479,7 +479,7 @@ function TrackingSidebar({ activeEventId }: { activeEventId?: number | string })
         <SidebarItem href="/home" icon={Home} label="Dashboard" />
         <SidebarItem href="/account/tracking" icon={Navigation} label="Tracking" active />
         <SidebarItem href="/account#history" icon={History} label="My Activities" />
-        <SidebarItem href="/events" icon={CalendarDays} label="My Events" />
+        <SidebarItem href="/my-events" icon={CalendarDays} label="My Events" />
         <SidebarItem href="/account#results" icon={Ticket} label="My Tickets" />
         <SidebarItem href="/account#results" icon={Trophy} label="Achievement" />
         <SidebarItem href="/account#results" icon={BarChart3} label="Statistics" />
@@ -519,7 +519,7 @@ function TrackingSidebar({ activeEventId }: { activeEventId?: number | string })
 
       <div className="border-t border-slate-200 p-5">
         <Link
-          href={activeEventId ? `/event/${activeEventId}/view` : "/events"}
+          href={activeEventId ? `/event/${activeEventId}/view` : "/my-events"}
           className="flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50"
         >
           <HelpCircle size={19} />
@@ -764,7 +764,7 @@ function NearbyParticipants({ events }: { events: EventItem[] }) {
           {events.slice(0, 5).map((event, index) => (
             <Link
               key={String(event.id)}
-              href={`/events/${event.id}`}
+              href={`/my-events/${event.id}`}
               className={`flex items-center justify-between rounded-2xl p-3 ${
                 index === 0 ? "bg-purple-50" : "bg-white hover:bg-slate-50"
               }`}
@@ -967,7 +967,7 @@ function MyEventsMiniPanel({ events }: { events: EventItem[] }) {
         <h3 className="text-lg font-black text-slate-950">My Events</h3>
 
         <Link
-          href="/events"
+          href="/my-events"
           className="text-sm font-black text-purple-700 hover:text-purple-800"
         >
           Semua
@@ -986,7 +986,7 @@ function MyEventsMiniPanel({ events }: { events: EventItem[] }) {
           {events.slice(0, 4).map((event) => (
             <Link
               key={String(event.id)}
-              href={`/events/${event.id}`}
+              href={`/my-events/${event.id}`}
               className="flex items-center justify-between rounded-2xl bg-slate-50 p-3 hover:bg-purple-50"
             >
               <div>
@@ -1016,7 +1016,7 @@ function ShortcutPanel({ activeEventId }: { activeEventId?: number | string }) {
 
       <div className="mt-4 grid grid-cols-3 gap-3">
         <ShortcutLink
-          href={activeEventId ? `/event/${activeEventId}/view` : "/events"}
+          href={activeEventId ? `/event/${activeEventId}/view` : "/my-events"}
           icon={Navigation}
           label="Live"
         />
