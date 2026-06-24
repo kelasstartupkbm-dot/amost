@@ -59,6 +59,42 @@ type EventItem = {
   route_file?: string | null;
 };
 
+
+type PanelAction = {
+  label: string;
+  href: string;
+};
+
+function getPanelAction(
+  user: CurrentUser | null,
+  hasOfficialAccess = false,
+): PanelAction | null {
+  const role = String(user?.role || "").toLowerCase().replace(/\s+/g, "_");
+
+  if (role.includes("super_admin") || role.includes("super")) {
+    return {
+      label: "Control Panel",
+      href: "/admin",
+    };
+  }
+
+  if (role.includes("staff_amost") || role.includes("staff")) {
+    return {
+      label: "Staff AMOST",
+      href: "/admin",
+    };
+  }
+
+  if (hasOfficialAccess) {
+    return {
+      label: "Official Event",
+      href: "/official",
+    };
+  }
+
+  return null;
+}
+
 function getDisplayName(user: CurrentUser | null) {
   if (!user) return "AMOST User";
 
@@ -146,10 +182,13 @@ export default function AccountTrackingPage() {
 
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [events, setEvents] = useState<EventItem[]>([]);
+  const [officialAccessCount, setOfficialAccessCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+
+  const panelAction = getPanelAction(user, officialAccessCount > 0);
 
   const activeEvent = useMemo(() => {
     if (events.length === 0) return null;
@@ -186,6 +225,31 @@ export default function AccountTrackingPage() {
       }
 
       setUser(meData.user);
+
+      try {
+        const officialResponse = await fetch("/api/account/event-officials", {
+          method: "GET",
+          cache: "no-store",
+          credentials: "include",
+        });
+
+        const officialData = await officialResponse.json().catch(() => null);
+
+        if (officialResponse.ok && officialData?.ok) {
+          const rows = Array.isArray(officialData.data)
+            ? officialData.data
+            : Array.isArray(officialData.items)
+              ? officialData.items
+              : [];
+
+          setOfficialAccessCount(rows.length);
+        } else {
+          setOfficialAccessCount(0);
+        }
+      } catch (officialError) {
+        console.error(officialError);
+        setOfficialAccessCount(0);
+      }
 
       const eventsResponse = await fetch("/api/events", {
         method: "GET",
@@ -302,19 +366,28 @@ export default function AccountTrackingPage() {
                 </span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => loadData(true)}
-                disabled={refreshing}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:opacity-70"
-              >
-                {refreshing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw size={17} />
-                )}
-                Refresh
-              </button>
+              {panelAction ? (
+                <Link
+                  href={panelAction.href}
+                  className="inline-flex h-11 items-center justify-center rounded-2xl bg-purple-700 px-4 text-sm font-black text-white hover:bg-purple-800"
+                >
+                  {panelAction.label}
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => loadData(true)}
+                  disabled={refreshing}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:opacity-70"
+                >
+                  {refreshing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw size={17} />
+                  )}
+                  Refresh
+                </button>
+              )}
 
               <Link
                 href="/account"
@@ -416,7 +489,7 @@ function TrackingMobileSidebar({
           <MobileTrackingLink href="/account#results" icon={BarChart3} label="Statistics" onClick={onClose} />
           <MobileTrackingLink href="/account" icon={Bell} label="Notification" onClick={onClose} />
           <MobileTrackingLink href="/account" icon={UserRound} label="Profile" onClick={onClose} />
-          <MobileTrackingLink href="/settings" icon={Settings} label="Settings" onClick={onClose} />
+          <MobileTrackingLink href="/account" icon={Settings} label="Settings" onClick={onClose} />
         </nav>
 
         <div className="border-t border-slate-200 p-5">
@@ -485,7 +558,7 @@ function TrackingSidebar({ activeEventId }: { activeEventId?: number | string })
         <SidebarItem href="/account#results" icon={BarChart3} label="Statistics" />
         <SidebarItem href="/account" icon={Bell} label="Notification" />
         <SidebarItem href="/account" icon={UserRound} label="Profile" />
-        <SidebarItem href="/settings" icon={Settings} label="Settings" />
+        <SidebarItem href="/account" icon={Settings} label="Settings" />
       </nav>
 
       <div className="m-5 rounded-3xl border border-purple-100 bg-purple-50 p-5">

@@ -47,6 +47,42 @@ type OfficialAccess = {
   event_name?: string | null;
 };
 
+
+type PanelAction = {
+  label: string;
+  href: string;
+};
+
+function getPanelAction(
+  user: CurrentUser | null,
+  hasOfficialAccess = false,
+): PanelAction | null {
+  const role = String(user?.role || "").toLowerCase().replace(/\s+/g, "_");
+
+  if (role.includes("super_admin") || role.includes("super")) {
+    return {
+      label: "Control Panel",
+      href: "/admin",
+    };
+  }
+
+  if (role.includes("staff_amost") || role.includes("staff")) {
+    return {
+      label: "Staff AMOST",
+      href: "/admin",
+    };
+  }
+
+  if (hasOfficialAccess) {
+    return {
+      label: "Official Event",
+      href: "/official",
+    };
+  }
+
+  return null;
+}
+
 function getDisplayName(user: CurrentUser | null) {
   const clean = user?.fullName?.trim();
 
@@ -215,6 +251,7 @@ export default function AccountProfilePage() {
           displayName={displayName}
           initials={initials}
           roleLabel={roleLabel}
+          panelAction={getPanelAction(user, hasOfficialAccess)}
           refreshing={refreshing}
           logoutLoading={logoutLoading}
           onRefresh={() => loadAccount(true)}
@@ -396,14 +433,14 @@ function AccountSidebar({ hasOfficialAccess }: { hasOfficialAccess: boolean }) {
       <nav className="flex-1 space-y-2 px-5 py-5">
         <SidebarLink href="/home" icon={Home} label="Dashboard" />
         <SidebarLink href="/account/tracking" icon={Navigation} label="Tracking" />
-        <SidebarLink href="/my-activities" icon={History} label="My Activities" />
+        <SidebarLink href="/home" icon={History} label="My Activities" />
         <SidebarLink href="/my-events" icon={CalendarDays} label="My Events" />
-        <SidebarLink href="/my-tickets" icon={Ticket} label="My Tickets" />
-        <SidebarLink href="/achievement" icon={Medal} label="Achievement" />
-        <SidebarLink href="/statistics" icon={Activity} label="Statistics" />
-        <SidebarLink href="/notification" icon={Bell} label="Notification" />
+        <SidebarLink href="/my-events" icon={Ticket} label="My Tickets" />
+        <SidebarLink href="/home" icon={Medal} label="Achievement" />
+        <SidebarLink href="/home" icon={Activity} label="Statistics" />
+        <SidebarLink href="/home" icon={Bell} label="Notification" />
         <SidebarLink href="/account" icon={UserRound} label="Profile" active />
-        <SidebarLink href="/settings" icon={Settings} label="Settings" active />
+        <SidebarLink href="/account" icon={Settings} label="Settings" active />
         {hasOfficialAccess ? (
           <SidebarLink href="/official" icon={ShieldCheck} label="Panel Official" />
         ) : null}
@@ -483,6 +520,7 @@ function AccountTopbar({
   displayName,
   initials,
   roleLabel,
+  panelAction,
   refreshing,
   logoutLoading,
   onRefresh,
@@ -493,6 +531,7 @@ function AccountTopbar({
   displayName: string;
   initials: string;
   roleLabel: string;
+  panelAction?: PanelAction | null;
   refreshing: boolean;
   logoutLoading: boolean;
   onRefresh: () => void;
@@ -540,15 +579,24 @@ function AccountTopbar({
             </span>
           </button>
 
-          <button
-            type="button"
-            onClick={onRefresh}
-            disabled={refreshing}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:opacity-70"
-          >
-            <RefreshCw size={17} className={refreshing ? "animate-spin" : ""} />
-            Refresh
-          </button>
+          {panelAction ? (
+            <Link
+              href={panelAction.href}
+              className="inline-flex h-11 items-center justify-center rounded-2xl bg-purple-700 px-4 text-sm font-black text-white hover:bg-purple-800"
+            >
+              {panelAction.label}
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={refreshing}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:opacity-70"
+            >
+              <RefreshCw size={17} className={refreshing ? "animate-spin" : ""} />
+              Refresh
+            </button>
+          )}
 
           <div className="hidden items-center gap-3 rounded-2xl border border-purple-100 bg-purple-50 px-4 py-2 md:flex">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-purple-700 text-xs font-black text-white">
