@@ -12,7 +12,6 @@ import {
   CheckCircle2,
   CloudSun,
   Download,
-  Gauge,
   Gift,
   HelpCircle,
   History,
@@ -23,11 +22,9 @@ import {
   Maximize2,
   Navigation,
   RefreshCw,
-  Route,
   Satellite,
   Search,
   Settings,
-  ShieldCheck,
   Ticket,
   Trophy,
   UserRound,
@@ -128,6 +125,18 @@ function formatSpeed(value: number | string | null | undefined) {
   }
 
   return numberValue.toFixed(1);
+}
+
+
+function calculatePercent(value: number, total: number) {
+  if (!total || total <= 0) return 0;
+
+  const result = Math.round((value / total) * 100);
+
+  if (result < 0) return 0;
+  if (result > 100) return 100;
+
+  return result;
 }
 
 export default function AccountTrackingPage() {
