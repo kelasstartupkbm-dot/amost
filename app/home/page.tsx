@@ -17,7 +17,6 @@ import {
   HelpCircle,
   History,
   Home,
-  ImageIcon,
   LogOut,
   MapPin,
   Medal,
@@ -26,7 +25,6 @@ import {
   Navigation,
   RefreshCw,
   Search,
-  Send,
   Settings,
   ShieldCheck,
   Ticket,
@@ -426,31 +424,6 @@ export default function HomePage() {
     }
   }
 
-  const stats = useMemo(
-    () => [
-      {
-        label: "Timeline",
-        value: "Aktif",
-        icon: Home,
-      },
-      {
-        label: "Event",
-        value: String(events.length),
-        icon: CalendarDays,
-      },
-      {
-        label: "Tracking",
-        value: "Standby",
-        icon: Activity,
-      },
-      {
-        label: "Official",
-        value: hasOfficialAccess ? String(officialAccess.length) : "-",
-        icon: ShieldCheck,
-      },
-    ],
-    [events.length, hasOfficialAccess, officialAccess.length],
-  );
 
   const feedPosts = useMemo(() => {
     if (!user) return [];
@@ -535,23 +508,6 @@ export default function HomePage() {
 
         <section className="grid min-h-[calc(100vh-88px)] grid-cols-1 gap-5 p-4 xl:grid-cols-[minmax(0,1fr)_340px]">
           <section className="space-y-5">
-            <HeroCard
-              activeTab={activeTab}
-              activeEvent={activeEvent}
-              hasOfficialAccess={hasOfficialAccess}
-            />
-
-            <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              {stats.map((item) => (
-                <StatCard
-                  key={item.label}
-                  icon={item.icon}
-                  label={item.label}
-                  value={item.value}
-                />
-              ))}
-            </section>
-
             {activeTab === "feed" ? (
               <FeedContent
                 user={user}
@@ -880,64 +836,6 @@ function TopStatusCard({
   );
 }
 
-function HeroCard({
-  activeTab,
-  activeEvent,
-  hasOfficialAccess,
-}: {
-  activeTab: AccountTab;
-  activeEvent: EventItem | null;
-  hasOfficialAccess: boolean;
-}) {
-  return (
-    <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-purple-700">
-            AMOST Community
-          </p>
-          <h2 className="mt-2 text-3xl font-black text-slate-950">
-            {activeTab === "feed" && "Timeline Publik"}
-            {activeTab === "biodata" && "Biodata Account"}
-            {activeTab === "history" && "History Account"}
-            {activeTab === "results" && "Results Account"}
-          </h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-            {activeTab === "feed"
-              ? "Update aktivitas publik AMOST seperti Strava: tracking, event, results, doorprize, dan postingan komunitas."
-              : "Kelola informasi akun, riwayat aktivitas, dan hasil event."}
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <Link
-            href="/account/tracking"
-            className="flex h-11 items-center justify-center rounded-xl bg-purple-700 px-5 text-sm font-black text-white hover:bg-purple-800"
-          >
-            Tracking Dashboard
-          </Link>
-
-          {hasOfficialAccess ? (
-            <Link
-              href="/official"
-              className="flex h-11 items-center justify-center rounded-xl bg-green-700 px-5 text-sm font-black text-white hover:bg-green-800"
-            >
-              Panel Official
-            </Link>
-          ) : null}
-
-          <Link
-            href={activeEvent ? `/events/${activeEvent.id}` : "/events"}
-            className="flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-black text-slate-700 hover:bg-slate-50"
-          >
-            Jelajahi Event
-          </Link>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function ProfileMiniCard({
   displayName,
   email,
@@ -975,28 +873,6 @@ function ProfileMiniCard({
   );
 }
 
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: ElementType;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-50 text-purple-700">
-        <Icon size={22} />
-      </div>
-      <p className="mt-4 text-xs font-black uppercase tracking-wide text-slate-500">
-        {label}
-      </p>
-      <p className="mt-2 text-2xl font-black text-slate-950">{value}</p>
-    </div>
-  );
-}
-
 function FeedContent({
   user,
   posts,
@@ -1008,8 +884,6 @@ function FeedContent({
 }) {
   return (
     <section className="space-y-5">
-      <ComposeCard user={user} activeEvent={activeEvent} />
-
       <div className="flex flex-wrap gap-2">
         <FeedFilter active label="Semua" />
         <FeedFilter label="Tracking" />
@@ -1021,57 +895,6 @@ function FeedContent({
       {posts.map((post) => (
         <FeedPostCard key={post.id} post={post} />
       ))}
-    </section>
-  );
-}
-
-function ComposeCard({
-  user,
-  activeEvent,
-}: {
-  user: CurrentUser;
-  activeEvent: EventItem | null;
-}) {
-  const displayName = getDisplayName(user);
-
-  return (
-    <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex gap-4">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-purple-700 text-sm font-black text-white">
-          {getInitials(displayName)}
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-500">
-            Bagikan update aktivitasmu, progress latihan, atau pengalaman event...
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap gap-2">
-              <button className="inline-flex h-9 items-center gap-2 rounded-xl bg-slate-50 px-3 text-xs font-black text-slate-600 hover:bg-slate-100">
-                <ImageIcon size={15} />
-                Foto
-              </button>
-              <button className="inline-flex h-9 items-center gap-2 rounded-xl bg-slate-50 px-3 text-xs font-black text-slate-600 hover:bg-slate-100">
-                <Activity size={15} />
-                Aktivitas
-              </button>
-              <button className="inline-flex h-9 items-center gap-2 rounded-xl bg-slate-50 px-3 text-xs font-black text-slate-600 hover:bg-slate-100">
-                <MapPin size={15} />
-                Lokasi
-              </button>
-            </div>
-
-            <Link
-              href={activeEvent ? `/events/${activeEvent.id}` : "/events"}
-              className="inline-flex h-9 items-center gap-2 rounded-xl bg-purple-700 px-4 text-xs font-black text-white hover:bg-purple-800"
-            >
-              <Send size={15} />
-              Post
-            </Link>
-          </div>
-        </div>
-      </div>
     </section>
   );
 }
