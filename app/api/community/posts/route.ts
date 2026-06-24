@@ -83,6 +83,52 @@ function firstExistingExpression(
   return `COALESCE(${expressions.join(", ")}, ${fallbackSql})`;
 }
 
+function optionalSelect(postsColumns: ColumnSet, columnName: string, alias?: string) {
+  const outAlias = alias || columnName;
+
+  if (!postsColumns.has(columnName)) {
+    return `NULL AS ${outAlias}`;
+  }
+
+  return `p.${columnName} AS ${outAlias}`;
+}
+
+function cleanText(value: unknown, maxLength: number) {
+  const text = String(value || "").trim();
+
+  if (!text) return "";
+
+  return text.slice(0, maxLength);
+}
+
+function cleanNumber(value: unknown) {
+  if (value === null || value === undefined || value === "") return null;
+
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) return null;
+
+  return number;
+}
+
+function cleanImageDataUrl(value: unknown) {
+  const text = String(value || "").trim();
+
+  if (!text) return null;
+
+  if (!text.startsWith("data:image/")) {
+    return null;
+  }
+
+  // Simpan gambar kecil/terkompresi saja agar PostgreSQL tidak berat.
+  // 1.8 MB string base64 kira-kira masih aman untuk tahap awal.
+  if (text.length > 1_800_000) {
+    throw new Error("Ukuran foto terlalu besar. Gunakan foto yang lebih kecil.");
+  }
+
+  return text;
+}
+
 export async function GET(request: NextRequest) {
   let user: any = null;
 
@@ -101,9 +147,10 @@ export async function GET(request: NextRequest) {
   const limit = clampLimit(request.nextUrl.searchParams.get("limit"));
 
   try {
-    const [userColumns, roleColumns] = await Promise.all([
+    const [userColumns, roleColumns, postsColumns] = await Promise.all([
       getTableColumns("users"),
       getTableColumns("roles"),
+      getTableColumns("community_posts"),
     ]);
 
     const authorNameSql = firstExistingExpression(
@@ -131,6 +178,14 @@ export async function GET(request: NextRequest) {
         p.visibility,
         p.created_at,
         p.updated_at,
+        ${optionalSelect(postsColumns, "image_data_url")},
+        ${optionalSelect(postsColumns, "image_name")},
+        ${optionalSelect(postsColumns, "activity_type")},
+        ${optionalSelect(postsColumns, "activity_distance_km")},
+        ${optionalSelect(postsColumns, "activity_duration_minutes")},
+        ${optionalSelect(postsColumns, "location_text")},
+        ${optionalSelect(postsColumns, "location_lat")},
+        ${optionalSelect(postsColumns, "location_lng")},
         ${authorNameSql} AS author_name,
         u.email AS author_email,
         ${roleLabelSql} AS role_label,
@@ -202,16 +257,28 @@ export async function POST(request: NextRequest) {
     body = {};
   }
 
-  const content = String(body?.content || "").trim();
+  const content = cleanText(body?.content, 2000);
   const postType = normalizePostType(body?.postType || body?.post_type);
   const eventId = body?.eventId || body?.event_id ? Number(body?.eventId || body?.event_id) : null;
 
-  if (!content) {
-    return jsonError("Isi postingan tidak boleh kosong.", 400);
+  const imageName = cleanText(body?.imageName || body?.image_name, 255) || null;
+  const activityType = cleanText(body?.activityType || body?.activity_type, 50) || null;
+  const activityDistanceKm = cleanNumber(body?.activityDistanceKm || body?.activity_distance_km);
+  const activityDurationMinutes = cleanNumber(body?.activityDurationMinutes || body?.activity_duration_minutes);
+  const locationText = cleanText(body?.locationText || body?.location_text, 255) || null;
+  const locationLat = cleanNumber(body?.locationLat || body?.location_lat);
+  const locationLng = cleanNumber(body?.locationLng || body?.location_lng);
+
+  let imageDataUrl: string | null = null;
+
+  try {
+    imageDataUrl = cleanImageDataUrl(body?.imageDataUrl || body?.image_data_url);
+  } catch (error: any) {
+    return jsonError(String(error?.message || error), 400);
   }
 
-  if (content.length > 2000) {
-    return jsonError("Isi postingan maksimal 2000 karakter.", 400);
+  if (!content && !imageDataUrl && !activityType && !locationText) {
+    return jsonError("Isi postingan tidak boleh kosong.", 400);
   }
 
   try {
@@ -223,10 +290,22 @@ export async function POST(request: NextRequest) {
         content,
         event_id,
         visibility,
+        image_data_url,
+        image_name,
+        activity_type,
+        activity_distance_km,
+        activity_duration_minutes,
+        location_text,
+        location_lat,
+        location_lng,
         created_at,
         updated_at
       )
-      VALUES ($1, $2, $3, $4, 'public', NOW(), NOW())
+      VALUES (
+        $1, $2, $3, $4, 'public',
+        $5, $6, $7, $8, $9, $10, $11, $12,
+        NOW(), NOW()
+      )
       RETURNING
         id,
         user_id,
@@ -234,10 +313,31 @@ export async function POST(request: NextRequest) {
         content,
         event_id,
         visibility,
+        image_data_url,
+        image_name,
+        activity_type,
+        activity_distance_km,
+        activity_duration_minutes,
+        location_text,
+        location_lat,
+        location_lng,
         created_at,
         updated_at
       `,
-      [userId, postType, content, Number.isFinite(eventId) ? eventId : null],
+      [
+        userId,
+        postType,
+        content,
+        Number.isFinite(eventId) ? eventId : null,
+        imageDataUrl,
+        imageName,
+        activityType,
+        activityDistanceKm,
+        activityDurationMinutes,
+        locationText,
+        locationLat,
+        locationLng,
+      ],
     );
 
     return NextResponse.json({
