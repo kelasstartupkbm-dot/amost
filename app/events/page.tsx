@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ElementType } from "react";
 import {
   ArrowRight,
   CalendarDays,
   Gift,
+  Loader2,
   MapPin,
   Search,
   Ticket,
@@ -13,58 +14,103 @@ import {
 } from "lucide-react";
 
 type EventItem = {
-  id: string;
-  title: string;
-  category: string;
-  date: string;
-  location: string;
-  participants: string;
-  doorprize: string;
-  status: "Buka" | "Segera" | "Selesai";
-  description: string;
+  id: number | string;
+  title?: string | null;
+  slug?: string | null;
+  category?: string | null;
+  event_date?: string | null;
+  location?: string | null;
+  participant_count?: number | string | null;
+  quota?: number | string | null;
+  doorprize_count?: number | string | null;
+  status?: string | null;
+  description?: string | null;
+  image_url?: string | null;
 };
 
-const events: EventItem[] = [
-  {
-    id: "gowes-banyumas-challenge",
-    title: "Gowes Banyumas Challenge",
-    category: "Sepeda",
-    date: "22 Juni 2026",
-    location: "Purwokerto, Banyumas",
-    participants: "257+ peserta",
-    doorprize: "Doorprize tersedia",
-    status: "Buka",
-    description:
-      "Event gowes outdoor untuk komunitas sepeda, peserta umum, dan pegiat olahraga Banyumas.",
-  },
-  {
-    id: "sehat-bersama-amost",
-    title: "Sehat Bersama AMOST",
-    category: "Jalan Sehat",
-    date: "28 Juni 2026",
-    location: "GOR Satria Purwokerto",
-    participants: "180+ peserta",
-    doorprize: "Doorprize tersedia",
-    status: "Buka",
-    description:
-      "Jalan sehat berbasis nomor peserta dengan pencatatan aktivitas dan sistem doorprize AMOST.",
-  },
-  {
-    id: "trail-run-baturaden",
-    title: "Baturaden Trail Run",
-    category: "Trail Run",
-    date: "Juli 2026",
-    location: "Baturaden",
-    participants: "120+ peserta",
-    doorprize: "Hadiah finisher",
-    status: "Segera",
-    description:
-      "Trail run ringan untuk mengenalkan pengalaman tracking outdoor berbasis AMOST.",
-  },
-];
+function getEventHref(event: EventItem) {
+  return `/events/${event.slug || event.id}`;
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return "Tanggal menyusul";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+
+  return date.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function normalizeStatus(status: string | null | undefined) {
+  const raw = String(status || "published").toLowerCase();
+
+  if (["published", "open", "active", "buka", "live"].includes(raw)) {
+    return "Buka";
+  }
+
+  if (["upcoming", "draft", "soon", "segera"].includes(raw)) {
+    return "Segera";
+  }
+
+  if (["closed", "selesai", "finish", "finished"].includes(raw)) {
+    return "Selesai";
+  }
+
+  return status || "Buka";
+}
 
 export default function EventsPage() {
   const [query, setQuery] = useState("");
+  const [events, setEvents] = useState<EventItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  async function loadEvents() {
+    setLoading(true);
+    setErrorMessage("");
+
+    try {
+      const response = await fetch("/api/events", {
+        method: "GET",
+        cache: "no-store",
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || data?.ok === false) {
+        setEvents([]);
+        setErrorMessage(
+          data?.message || data?.error || "Data event belum bisa dimuat."
+        );
+        return;
+      }
+
+      const rows = Array.isArray(data?.events)
+        ? data.events
+        : Array.isArray(data?.data)
+          ? data.data
+          : [];
+
+      setEvents(rows);
+    } catch (error) {
+      console.error(error);
+      setEvents([]);
+      setErrorMessage("Koneksi ke server bermasalah.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadEvents();
+  }, []);
 
   const filteredEvents = useMemo(() => {
     const keyword = query.trim().toLowerCase();
@@ -73,9 +119,10 @@ export default function EventsPage() {
 
     return events.filter((event) => {
       return [
+        event.id,
         event.title,
         event.category,
-        event.date,
+        formatDate(event.event_date),
         event.location,
         event.status,
         event.description,
@@ -84,7 +131,23 @@ export default function EventsPage() {
         .toLowerCase()
         .includes(keyword);
     });
-  }, [query]);
+  }, [events, query]);
+
+  const stats = useMemo(() => {
+    const totalParticipants = events.reduce((sum, event) => {
+      return sum + Number(event.participant_count || 0);
+    }, 0);
+
+    const totalDoorprize = events.reduce((sum, event) => {
+      return sum + Number(event.doorprize_count || 0);
+    }, 0);
+
+    return {
+      activeEvents: events.length,
+      totalParticipants,
+      totalDoorprize,
+    };
+  }, [events]);
 
   return (
     <div className="min-h-screen bg-white text-slate-950">
@@ -128,9 +191,21 @@ export default function EventsPage() {
           </div>
 
           <div className="mt-12 grid max-w-5xl grid-cols-1 gap-4 sm:grid-cols-3">
-            <StatCard icon={CalendarDays} value="3" label="Event Aktif" />
-            <StatCard icon={Users} value="257+" label="Total Peserta" />
-            <StatCard icon={Gift} value="35+" label="Doorprize" />
+            <StatCard
+              icon={CalendarDays}
+              value={String(stats.activeEvents)}
+              label="Event Aktif"
+            />
+            <StatCard
+              icon={Users}
+              value={`${stats.totalParticipants}+`}
+              label="Total Peserta"
+            />
+            <StatCard
+              icon={Gift}
+              value={`${stats.totalDoorprize}+`}
+              label="Doorprize"
+            />
           </div>
         </div>
       </section>
@@ -146,8 +221,8 @@ export default function EventsPage() {
                 Event yang Tersedia
               </h2>
               <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-                Pilih event yang sesuai, masuk atau daftar akun, lalu ikuti
-                instruksi pendaftaran di halaman event.
+                Data event di halaman ini sudah membaca tabel events yang sama
+                dengan dashboard admin.
               </p>
             </div>
 
@@ -165,13 +240,26 @@ export default function EventsPage() {
             </div>
           </div>
 
-          <div className="mt-9 grid grid-cols-1 gap-6 lg:grid-cols-3">
-            {filteredEvents.map((event) => (
-              <EventCard key={event.id} event={event} />
-            ))}
-          </div>
+          {loading ? (
+            <div className="mt-9 flex min-h-[320px] flex-col items-center justify-center rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+              <Loader2 className="h-10 w-10 animate-spin text-purple-700" />
+              <p className="mt-4 text-lg font-black text-slate-950">
+                Memuat event...
+              </p>
+            </div>
+          ) : errorMessage ? (
+            <div className="mt-9 rounded-3xl border border-red-200 bg-red-50 p-8 text-sm font-bold text-red-700">
+              {errorMessage}
+            </div>
+          ) : (
+            <div className="mt-9 grid grid-cols-1 gap-6 lg:grid-cols-3">
+              {filteredEvents.map((event) => (
+                <EventCard key={String(event.id)} event={event} />
+              ))}
+            </div>
+          )}
 
-          {filteredEvents.length === 0 && (
+          {!loading && !errorMessage && filteredEvents.length === 0 && (
             <div className="mt-9 rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
               <p className="text-lg font-black text-slate-950">
                 Event tidak ditemukan
@@ -192,7 +280,7 @@ function StatCard({
   value,
   label,
 }: {
-  icon: React.ElementType;
+  icon: ElementType;
   value: string;
   label: string;
 }) {
@@ -210,53 +298,71 @@ function StatCard({
 }
 
 function EventCard({ event }: { event: EventItem }) {
+  const status = normalizeStatus(event.status);
   const statusClass =
-    event.status === "Buka"
+    status === "Buka"
       ? "bg-green-50 text-green-700 ring-green-100"
-      : event.status === "Segera"
+      : status === "Segera"
         ? "bg-amber-50 text-amber-700 ring-amber-100"
         : "bg-slate-100 text-slate-600 ring-slate-200";
 
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
       <div className="relative h-48 overflow-hidden bg-gradient-to-br from-purple-100 via-white to-slate-100">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(126,34,206,0.18)_1px,transparent_0)] [background-size:20px_20px]" />
-        <div className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-purple-200/70" />
+        {event.image_url ? (
+          <img
+            src={event.image_url}
+            alt={event.title || "Event AMOST"}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <>
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(126,34,206,0.18)_1px,transparent_0)] [background-size:20px_20px]" />
+            <div className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-purple-200/70" />
+          </>
+        )}
+
         <div className="absolute bottom-6 left-6 rounded-2xl bg-white/90 px-4 py-2 text-sm font-black text-purple-700 shadow-sm backdrop-blur">
-          {event.category}
+          {event.category || "Event"}
         </div>
         <div
           className={`absolute right-5 top-5 rounded-full px-3 py-1 text-xs font-black ring-1 ${statusClass}`}
         >
-          {event.status}
+          {status}
         </div>
       </div>
 
       <div className="flex flex-1 flex-col p-6">
         <h3 className="text-2xl font-black leading-tight text-slate-950">
-          {event.title}
+          {event.title || `Event #${event.id}`}
         </h3>
 
         <p className="mt-3 text-sm leading-7 text-slate-600">
-          {event.description}
+          {event.description || "Event olahraga outdoor AMOST."}
         </p>
 
         <div className="mt-5 space-y-3 text-sm font-semibold text-slate-600">
-          <InfoRow icon={CalendarDays} text={event.date} />
-          <InfoRow icon={MapPin} text={event.location} />
-          <InfoRow icon={Users} text={event.participants} />
-          <InfoRow icon={Gift} text={event.doorprize} />
+          <InfoRow icon={CalendarDays} text={formatDate(event.event_date)} />
+          <InfoRow icon={MapPin} text={event.location || "Lokasi menyusul"} />
+          <InfoRow
+            icon={Users}
+            text={`${Number(event.participant_count || 0)} peserta`}
+          />
+          <InfoRow
+            icon={Gift}
+            text={`${Number(event.doorprize_count || 0)} doorprize`}
+          />
         </div>
 
         <div className="mt-6 grid grid-cols-2 gap-3 pt-2">
           <Link
-            href={`/events/${event.id}`}
+            href={getEventHref(event)}
             className="inline-flex h-12 items-center justify-center rounded-xl border border-purple-200 text-sm font-black text-purple-700 transition hover:bg-purple-50"
           >
             Detail
           </Link>
           <Link
-            href="/register"
+            href={getEventHref(event)}
             className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-purple-700 text-sm font-black text-white transition hover:bg-purple-800"
           >
             Daftar
@@ -272,7 +378,7 @@ function InfoRow({
   icon: Icon,
   text,
 }: {
-  icon: React.ElementType;
+  icon: ElementType;
   text: string;
 }) {
   return (
