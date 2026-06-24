@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ElementType } from "react";
 import { useRouter } from "next/navigation";
+import CommunityFeedPanel from "../components/CommunityFeedPanel";
 import {
   Activity,
   Bell,
@@ -545,13 +546,7 @@ export default function HomePage() {
 
         <section className="grid min-h-[calc(100vh-88px)] grid-cols-1 gap-5 p-4 xl:grid-cols-[minmax(0,1fr)_340px]">
           <section className="space-y-5">
-            {activeTab === "feed" ? (
-              <FeedContent
-                user={user}
-                posts={feedPosts}
-                activeEvent={activeEvent}
-              />
-            ) : null}
+            {activeTab === "feed" ? <CommunityFeedPanel /> : null}
 
             {activeTab === "biodata" ? (
               <BiodataContent
