@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ElementType } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Bike,
@@ -9,7 +9,6 @@ import {
   Heart,
   Loader2,
   MessageCircle,
-  MoreHorizontal,
   RefreshCw,
   Send,
   ShieldCheck,
@@ -20,12 +19,11 @@ import {
 type CommunityPost = {
   id: number | string;
   user_id: number | string;
-  post_type: "post" | "activity" | "event" | "result" | "doorprize" | "official" | string;
+  post_type: string;
   content: string;
   event_id?: number | string | null;
   visibility?: string | null;
   created_at?: string | null;
-  updated_at?: string | null;
   author_name?: string | null;
   author_email?: string | null;
   role_label?: string | null;
@@ -36,18 +34,11 @@ type CommunityPost = {
 
 function getInitials(name: string | null | undefined) {
   const clean = String(name || "AMOST User").trim();
+  const words = clean.split(" ").map((item) => item.trim()).filter(Boolean);
 
-  if (!clean) return "A";
+  if (words.length === 0) return "A";
 
-  const words = clean
-    .split(" ")
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-  return words
-    .slice(0, 2)
-    .map((word) => word[0]?.toUpperCase())
-    .join("");
+  return words.slice(0, 2).map((word) => word[0]?.toUpperCase()).join("");
 }
 
 function formatRelativeTime(value: string | null | undefined) {
@@ -57,8 +48,7 @@ function formatRelativeTime(value: string | null | undefined) {
 
   if (Number.isNaN(date.getTime())) return "Baru saja";
 
-  const diffMs = Date.now() - date.getTime();
-  const diffMinutes = Math.floor(diffMs / 60000);
+  const diffMinutes = Math.floor((Date.now() - date.getTime()) / 60000);
   const diffHours = Math.floor(diffMinutes / 60);
   const diffDays = Math.floor(diffHours / 24);
 
@@ -74,7 +64,7 @@ function formatRelativeTime(value: string | null | undefined) {
   });
 }
 
-function getPostIcon(type: string): ElementType {
+function getPostIcon(type: string) {
   const clean = String(type || "post").toLowerCase();
 
   if (clean === "activity") return Bike;
@@ -86,7 +76,7 @@ function getPostIcon(type: string): ElementType {
   return UserRound;
 }
 
-function getPostTypeLabel(type: string) {
+function getTypeLabel(type: string) {
   const clean = String(type || "post").toLowerCase();
 
   if (clean === "activity") return "Tracking";
@@ -101,33 +91,10 @@ function getPostTypeLabel(type: string) {
 function getAction(post: CommunityPost) {
   const type = String(post.post_type || "post").toLowerCase();
 
-  if (type === "activity") {
-    return {
-      href: "/account/tracking",
-      label: "Buka Tracking",
-    };
-  }
-
-  if (type === "event" && post.event_id) {
-    return {
-      href: `/my-events/${post.event_id}`,
-      label: "Detail Event",
-    };
-  }
-
-  if (type === "result" && post.event_id) {
-    return {
-      href: `/events/${post.event_id}/results`,
-      label: "Lihat Results",
-    };
-  }
-
-  if (type === "doorprize" && post.event_id) {
-    return {
-      href: `/events/${post.event_id}/doorprize`,
-      label: "Lihat Doorprize",
-    };
-  }
+  if (type === "activity") return { href: "/account/tracking", label: "Buka Tracking" };
+  if (type === "event" && post.event_id) return { href: `/my-events/${post.event_id}`, label: "Detail Event" };
+  if (type === "result" && post.event_id) return { href: `/events/${post.event_id}/results`, label: "Lihat Results" };
+  if (type === "doorprize" && post.event_id) return { href: `/events/${post.event_id}/doorprize`, label: "Lihat Doorprize" };
 
   return null;
 }
@@ -135,11 +102,12 @@ function getAction(post: CommunityPost) {
 export default function CommunityFeedPanel() {
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [loading, setLoading] = useState(true);
-  const [posting, setPosting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [posting, setPosting] = useState(false);
   const [content, setContent] = useState("");
   const [activeFilter, setActiveFilter] = useState("all");
   const [errorMessage, setErrorMessage] = useState("");
+  const [lastActionMessage, setLastActionMessage] = useState("");
 
   async function loadPosts(silent = false) {
     if (silent) {
@@ -151,7 +119,7 @@ export default function CommunityFeedPanel() {
     setErrorMessage("");
 
     try {
-      const response = await fetch("/api/community/posts?limit=30", {
+      const response = await fetch(`/api/community/posts?limit=30&_ts=${Date.now()}`, {
         method: "GET",
         cache: "no-store",
         credentials: "include",
@@ -192,6 +160,7 @@ export default function CommunityFeedPanel() {
 
     setPosting(true);
     setErrorMessage("");
+    setLastActionMessage("");
 
     try {
       const response = await fetch("/api/community/posts", {
@@ -215,6 +184,7 @@ export default function CommunityFeedPanel() {
       }
 
       setContent("");
+      setLastActionMessage("Postingan berhasil disimpan ke database.");
       await loadPosts(true);
     } catch (error) {
       console.error(error);
@@ -226,6 +196,9 @@ export default function CommunityFeedPanel() {
 
   async function toggleLike(post: CommunityPost) {
     const postId = post.id;
+
+    setErrorMessage("");
+    setLastActionMessage("");
 
     setPosts((currentPosts) =>
       currentPosts.map((item) => {
@@ -270,6 +243,12 @@ export default function CommunityFeedPanel() {
           };
         }),
       );
+
+      setLastActionMessage(
+        data?.liked
+          ? `Like tersimpan. Total like: ${Number(data?.likeCount || 0)}`
+          : `Like dibatalkan. Total like: ${Number(data?.likeCount || 0)}`,
+      );
     } catch (error) {
       console.error(error);
       await loadPosts(true);
@@ -298,7 +277,11 @@ export default function CommunityFeedPanel() {
 
   return (
     <section className="space-y-5">
-      <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="rounded-[1.5rem] border border-purple-200 bg-white p-5 shadow-sm">
+        <div className="mb-4 rounded-2xl bg-purple-50 px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-purple-700">
+          Database Feed Aktif · community_posts
+        </div>
+
         <div className="flex items-start gap-4">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-purple-700 text-sm font-black text-white">
             A
@@ -327,7 +310,7 @@ export default function CommunityFeedPanel() {
                 className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-purple-700 px-5 text-sm font-black text-white hover:bg-purple-800 disabled:cursor-not-allowed disabled:bg-slate-300"
               >
                 {posting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send size={17} />}
-                Post
+                Post ke Database
               </button>
             </div>
           </div>
@@ -336,31 +319,11 @@ export default function CommunityFeedPanel() {
 
       <section className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">
-          <FeedFilter
-            active={activeFilter === "all"}
-            label="Semua"
-            onClick={() => setActiveFilter("all")}
-          />
-          <FeedFilter
-            active={activeFilter === "tracking"}
-            label="Tracking"
-            onClick={() => setActiveFilter("tracking")}
-          />
-          <FeedFilter
-            active={activeFilter === "events"}
-            label="Events"
-            onClick={() => setActiveFilter("events")}
-          />
-          <FeedFilter
-            active={activeFilter === "results"}
-            label="Results"
-            onClick={() => setActiveFilter("results")}
-          />
-          <FeedFilter
-            active={activeFilter === "doorprize"}
-            label="Doorprize"
-            onClick={() => setActiveFilter("doorprize")}
-          />
+          <FeedFilter active={activeFilter === "all"} label="Semua" onClick={() => setActiveFilter("all")} />
+          <FeedFilter active={activeFilter === "tracking"} label="Tracking" onClick={() => setActiveFilter("tracking")} />
+          <FeedFilter active={activeFilter === "events"} label="Events" onClick={() => setActiveFilter("events")} />
+          <FeedFilter active={activeFilter === "results"} label="Results" onClick={() => setActiveFilter("results")} />
+          <FeedFilter active={activeFilter === "doorprize"} label="Doorprize" onClick={() => setActiveFilter("doorprize")} />
         </div>
 
         <button
@@ -374,6 +337,12 @@ export default function CommunityFeedPanel() {
         </button>
       </section>
 
+      {lastActionMessage ? (
+        <section className="rounded-2xl border border-green-200 bg-green-50 p-4 text-sm font-bold text-green-700">
+          {lastActionMessage}
+        </section>
+      ) : null}
+
       {errorMessage ? (
         <section className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">
           {errorMessage}
@@ -383,27 +352,19 @@ export default function CommunityFeedPanel() {
       {loading ? (
         <section className="rounded-[1.5rem] border border-slate-200 bg-white p-8 text-center shadow-sm">
           <Loader2 className="mx-auto h-10 w-10 animate-spin text-purple-700" />
-          <p className="mt-4 text-lg font-black text-slate-950">
-            Memuat timeline...
-          </p>
+          <p className="mt-4 text-lg font-black text-slate-950">Memuat timeline...</p>
         </section>
       ) : filteredPosts.length === 0 ? (
         <section className="rounded-[1.5rem] border border-slate-200 bg-white p-8 text-center shadow-sm">
           <UserRound className="mx-auto h-12 w-12 text-slate-300" />
-          <h2 className="mt-4 text-2xl font-black text-slate-950">
-            Belum Ada Postingan
-          </h2>
+          <h2 className="mt-4 text-2xl font-black text-slate-950">Belum Ada Postingan</h2>
           <p className="mt-2 text-sm text-slate-500">
             Jadilah yang pertama membagikan update di AMOST Community Feed.
           </p>
         </section>
       ) : (
         filteredPosts.map((post) => (
-          <CommunityPostCard
-            key={String(post.id)}
-            post={post}
-            onLike={() => toggleLike(post)}
-          />
+          <CommunityPostCard key={String(post.id)} post={post} onLike={() => toggleLike(post)} />
         ))
       )}
     </section>
@@ -470,14 +431,6 @@ function CommunityPostCard({
                 {post.role_label || "Umum"} • {formatRelativeTime(post.created_at)}
               </p>
             </div>
-
-            <button
-              type="button"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-slate-50"
-              title="Menu"
-            >
-              <MoreHorizontal size={20} />
-            </button>
           </div>
 
           <div className="mt-4 rounded-[1.25rem] border border-slate-100 bg-slate-50 p-5">
@@ -486,7 +439,7 @@ function CommunityPostCard({
             </div>
 
             <p className="mt-4 text-xs font-black uppercase tracking-wide text-purple-700">
-              {getPostTypeLabel(post.post_type)}
+              {getTypeLabel(post.post_type)}
             </p>
 
             <p className="mt-2 whitespace-pre-wrap text-base font-semibold leading-7 text-slate-700">
@@ -510,6 +463,7 @@ function CommunityPostCard({
               className={`inline-flex items-center gap-2 hover:text-purple-700 ${
                 post.viewer_liked ? "text-purple-700" : ""
               }`}
+              title="Like dari database"
             >
               <Heart size={18} className={post.viewer_liked ? "fill-current" : ""} />
               {Number(post.like_count || 0)}
@@ -525,7 +479,7 @@ function CommunityPostCard({
             </button>
 
             <span className="text-slate-400">
-              {String(post.visibility || "public").toUpperCase()}
+              ID #{String(post.id)} · {String(post.visibility || "public").toUpperCase()}
             </span>
           </div>
         </div>
