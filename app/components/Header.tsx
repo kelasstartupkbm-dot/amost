@@ -90,7 +90,11 @@ export default function Header() {
       setAccountOpen(false);
       setOpen(false);
 
-      if (pathname?.startsWith("/account")) {
+      if (
+        pathname?.startsWith("/account") ||
+        pathname?.startsWith("/admin") ||
+        pathname?.startsWith("/official")
+      ) {
         router.replace("/login");
       } else {
         router.refresh();
@@ -105,10 +109,30 @@ export default function Header() {
 
   const displayName = getDisplayName(user);
 
+  const hideHeaderRoutes = [
+    "/account",
+    "/admin",
+    "/official",
+    "/login",
+    "/register",
+  ];
+
+  const shouldHideHeader = hideHeaderRoutes.some((route) => {
+    return pathname === route || pathname?.startsWith(`${route}/`);
+  });
+
+  if (shouldHideHeader) {
+    return null;
+  }
+
   return (
     <header className="fixed left-0 top-0 z-[9999] w-full border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur-xl">
       <div className="mx-auto flex h-[78px] max-w-[1440px] items-center justify-between px-4 sm:px-6 lg:h-[96px] lg:px-[88px]">
-        <Link href="/" className="flex items-center" onClick={() => setOpen(false)}>
+        <Link
+          href="/"
+          className="flex items-center"
+          onClick={() => setOpen(false)}
+        >
           <img
             src="/amost_logo_wide_.png"
             alt="AMOST"
@@ -120,7 +144,11 @@ export default function Header() {
           {navItems.map((item) => (
             <Link
               key={item.label}
-              className={isActiveNav(pathname, item.href) ? "font-bold text-purple-700" : ""}
+              className={
+                isActiveNav(pathname, item.href)
+                  ? "font-bold text-purple-700"
+                  : ""
+              }
               href={item.href}
             >
               {item.label}
@@ -165,6 +193,7 @@ export default function Header() {
                   <p className="truncate text-sm font-black text-slate-950">
                     {displayName}
                   </p>
+
                   {user.email ? (
                     <p className="mt-1 truncate text-xs font-semibold text-slate-500">
                       {user.email}
@@ -228,7 +257,9 @@ export default function Header() {
                 key={item.label}
                 href={item.href}
                 onClick={() => setOpen(false)}
-                className={isActiveNav(pathname, item.href) ? "text-purple-700" : ""}
+                className={
+                  isActiveNav(pathname, item.href) ? "text-purple-700" : ""
+                }
               >
                 {item.label}
               </Link>
@@ -246,7 +277,9 @@ export default function Header() {
                   className="flex h-11 items-center justify-center gap-2 rounded-md bg-purple-50 text-[14px] font-black text-purple-700"
                 >
                   <User size={18} />
-                  <span className="max-w-[220px] truncate">{displayName}</span>
+                  <span className="max-w-[220px] truncate">
+                    {displayName}
+                  </span>
                 </Link>
 
                 <button
