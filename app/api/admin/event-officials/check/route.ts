@@ -1,53 +1,100 @@
 import { NextRequest, NextResponse } from "next/server";
+import { dbQuery } from "../../../../lib/amostDb";
 import {
   getCurrentAmostUser,
   isGlobalAdminUser,
   jsonError,
 } from "../../../../lib/amostServerAuth";
-import {
-  canManageEvent,
-  isActiveEventOfficial,
-  toPositiveBigInt,
-} from "../../../../lib/eventOfficialAccess";
 
 export const dynamic = "force-dynamic";
+
+function toPositiveId(value: unknown) {
+  const clean = String(value || "").trim();
+
+  if (!/^\d+$/.test(clean)) {
+    return null;
+  }
+
+  return clean;
+}
 
 export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentAmostUser(request);
+
     if (!user) {
-      return jsonError("Sesi login tidak valid. Silakan login ulang.", 401, "UNAUTHORIZED");
+      return jsonError("Sesi login tidak valid. Silakan login ulang.", 401, {
+        code: "UNAUTHORIZED",
+      });
     }
 
-    const { searchParams } = new URL(request.url);
-    const eventId = toPositiveBigInt(searchParams.get("eventId"));
+    const eventId = toPositiveId(
+      request.nextUrl.searchParams.get("eventId") ||
+        request.nextUrl.searchParams.get("event_id")
+    );
+
+    if (isGlobalAdminUser(user)) {
+      return NextResponse.json({
+        ok: true,
+        allowed: true,
+        access: true,
+        role: user.roleName,
+        user,
+        reason: "GLOBAL_ADMIN",
+      });
+    }
 
     if (!eventId) {
-      return jsonError("eventId wajib diisi.", 400, "EVENT_ID_REQUIRED");
+      return jsonError("Event ID wajib diisi.", 400, {
+        code: "EVENT_ID_REQUIRED",
+      });
     }
 
-    const globalAdmin = isGlobalAdminUser(user);
-    const officialEvent = await isActiveEventOfficial(user.id, eventId);
-    const allowed = await canManageEvent(user, eventId);
+    const result = await dbQuery(
+      `
+        SELECT
+          id,
+          event_id,
+          user_id,
+          permission_level,
+          status,
+          notes
+        FROM event_officials
+        WHERE event_id = $1
+          AND user_id = $2
+          AND status = 'active'
+        LIMIT 1
+      `,
+      [eventId, user.id]
+    );
+
+    const official = result.rows[0];
+
+    if (!official) {
+      return NextResponse.json({
+        ok: true,
+        allowed: false,
+        access: false,
+        user,
+        official: null,
+        reason: "NOT_EVENT_OFFICIAL",
+      });
+    }
 
     return NextResponse.json({
       ok: true,
-      data: {
-        event_id: eventId,
-        user: {
-          id: user.id,
-          fullName: user.fullName,
-          email: user.email,
-          role: user.role,
-          roleLabel: user.roleLabel,
-        },
-        is_global_admin: globalAdmin,
-        is_official_event: officialEvent,
-        can_manage_event: allowed,
-      },
+      allowed: true,
+      access: true,
+      user,
+      official,
+      permissionLevel: official.permission_level,
+      reason: "EVENT_OFFICIAL",
     });
-  } catch (error) {
-    console.error("GET /api/admin/event-officials/check error", error);
-    return jsonError("Gagal mengecek akses event.", 500, "SERVER_ERROR");
+  } catch (error: any) {
+    console.error("GET /api/admin/event-officials/check failed:", error);
+
+    return jsonError(error?.message || "Gagal mengecek akses Official Event.", 500, {
+      code: "SERVER_ERROR",
+    });
   }
 }
