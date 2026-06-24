@@ -18,6 +18,7 @@ import {
   Home,
   Layers,
   Loader2,
+  Menu,
   MapPin,
   Maximize2,
   Navigation,
@@ -30,6 +31,7 @@ import {
   UserRound,
   UsersRound,
   Wifi,
+  X,
 } from "lucide-react";
 
 type CurrentUser = {
@@ -146,6 +148,7 @@ export default function AccountTrackingPage() {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   const activeEvent = useMemo(() => {
@@ -236,17 +239,33 @@ export default function AccountTrackingPage() {
   return (
     <main className="min-h-screen bg-[#f7f8fb] text-slate-950">
       <TrackingSidebar activeEventId={activeEvent?.id} />
+      <TrackingMobileSidebar
+        open={mobileSidebarOpen}
+        activeEventId={activeEvent?.id}
+        onClose={() => setMobileSidebarOpen(false)}
+      />
 
       <section className="min-h-screen lg:pl-[260px]">
         <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-xl">
           <div className="flex min-h-[88px] flex-col gap-4 px-4 py-4 md:flex-row md:items-center md:justify-between md:px-6">
-            <div>
-              <h1 className="text-2xl font-black text-slate-950">
-                Tracking Dashboard
-              </h1>
-              <p className="mt-1 text-sm font-semibold text-slate-500">
-                Halo, {getDisplayName(user)}
-              </p>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setMobileSidebarOpen(true)}
+                className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 lg:hidden"
+                aria-label="Buka menu tracking"
+              >
+                <Menu size={22} />
+              </button>
+
+              <div>
+                <h1 className="text-2xl font-black text-slate-950">
+                  Tracking Dashboard
+                </h1>
+                <p className="mt-1 text-sm font-semibold text-slate-500">
+                  Halo, {getDisplayName(user)}
+                </p>
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
@@ -345,6 +364,101 @@ export default function AccountTrackingPage() {
         </section>
       </section>
     </main>
+  );
+}
+
+function TrackingMobileSidebar({
+  open,
+  activeEventId,
+  onClose,
+}: {
+  open: boolean;
+  activeEventId?: number | string;
+  onClose: () => void;
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[90] lg:hidden">
+      <button
+        type="button"
+        aria-label="Tutup menu"
+        className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      <aside className="relative flex h-full w-[84vw] max-w-[320px] flex-col border-r border-slate-200 bg-white shadow-2xl">
+        <div className="flex h-[88px] items-center justify-between border-b border-slate-100 px-6">
+          <Link href="/" onClick={onClose}>
+            <img
+              src="/amost_logo_wide_.png"
+              alt="AMOST"
+              className="h-[58px] w-auto object-contain"
+            />
+          </Link>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 text-slate-700"
+          >
+            <X size={22} />
+          </button>
+        </div>
+
+        <nav className="flex-1 space-y-2 overflow-y-auto px-5 py-5">
+          <MobileTrackingLink href="/account" icon={Home} label="Dashboard" onClick={onClose} />
+          <MobileTrackingLink href="/account/tracking" icon={Navigation} label="Tracking" active onClick={onClose} />
+          <MobileTrackingLink href="/account#history" icon={History} label="My Activities" onClick={onClose} />
+          <MobileTrackingLink href="/events" icon={CalendarDays} label="My Events" onClick={onClose} />
+          <MobileTrackingLink href="/account#results" icon={Ticket} label="My Tickets" onClick={onClose} />
+          <MobileTrackingLink href="/account#results" icon={Trophy} label="Achievement" onClick={onClose} />
+          <MobileTrackingLink href="/account#results" icon={BarChart3} label="Statistics" onClick={onClose} />
+          <MobileTrackingLink href="/account" icon={Bell} label="Notification" onClick={onClose} />
+          <MobileTrackingLink href="/account" icon={UserRound} label="Profile" onClick={onClose} />
+          <MobileTrackingLink href="/account" icon={Settings} label="Settings" onClick={onClose} />
+        </nav>
+
+        <div className="border-t border-slate-200 p-5">
+          <Link
+            href={activeEventId ? `/event/${activeEventId}/view` : "/events"}
+            onClick={onClose}
+            className="flex h-12 items-center justify-center rounded-2xl bg-purple-700 text-sm font-black text-white"
+          >
+            Live View Event
+          </Link>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function MobileTrackingLink({
+  href,
+  icon: Icon,
+  label,
+  active,
+  onClick,
+}: {
+  href: string;
+  icon: ElementType;
+  label: string;
+  active?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      className={`flex h-12 items-center gap-3 rounded-2xl px-4 text-sm font-black transition ${
+        active
+          ? "bg-purple-50 text-purple-700"
+          : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"
+      }`}
+    >
+      <Icon size={20} />
+      {label}
+    </Link>
   );
 }
 
