@@ -19,6 +19,7 @@ import {
   Home,
   ImageIcon,
   LogOut,
+  Menu,
   MapPin,
   Medal,
   MessageCircle,
@@ -34,6 +35,7 @@ import {
   UserRound,
   UsersRound,
   Wifi,
+  X,
 } from "lucide-react";
 
 type CurrentUser = {
@@ -317,6 +319,7 @@ export default function AccountPage() {
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<AccountTab>("feed");
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   const hasOfficialAccess = officialAccess.length > 0;
   const displayName = getDisplayName(user);
@@ -512,6 +515,15 @@ export default function AccountPage() {
         onTabChange={setActiveTab}
       />
 
+      <AccountMobileSidebar
+        open={mobileSidebarOpen}
+        activeTab={activeTab}
+        activeEventId={activeEvent?.id}
+        hasOfficialAccess={hasOfficialAccess}
+        onClose={() => setMobileSidebarOpen(false)}
+        onTabChange={setActiveTab}
+      />
+
       <section className="min-h-screen lg:pl-[260px]">
         <AccountTopbar
           title={
@@ -531,6 +543,7 @@ export default function AccountPage() {
           logoutLoading={logoutLoading}
           onRefresh={() => loadAccount(true)}
           onLogout={handleLogout}
+          onOpenMobileSidebar={() => setMobileSidebarOpen(true)}
         />
 
         <section className="grid min-h-[calc(100vh-88px)] grid-cols-1 gap-5 p-4 xl:grid-cols-[minmax(0,1fr)_340px]">
@@ -595,6 +608,161 @@ export default function AccountPage() {
         </section>
       </section>
     </main>
+  );
+}
+
+function AccountMobileSidebar({
+  open,
+  activeTab,
+  activeEventId,
+  hasOfficialAccess,
+  onClose,
+  onTabChange,
+}: {
+  open: boolean;
+  activeTab: AccountTab;
+  activeEventId?: number | string;
+  hasOfficialAccess: boolean;
+  onClose: () => void;
+  onTabChange: (tab: AccountTab) => void;
+}) {
+  if (!open) return null;
+
+  function switchTab(tab: AccountTab) {
+    onTabChange(tab);
+    onClose();
+  }
+
+  return (
+    <div className="fixed inset-0 z-[90] lg:hidden">
+      <button
+        type="button"
+        aria-label="Tutup menu"
+        className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      <aside className="relative flex h-full w-[84vw] max-w-[320px] flex-col border-r border-slate-200 bg-white shadow-2xl">
+        <div className="flex h-[88px] items-center justify-between border-b border-slate-100 px-6">
+          <Link href="/" onClick={onClose}>
+            <img
+              src="/amost_logo_wide_.png"
+              alt="AMOST"
+              className="h-[58px] w-auto object-contain"
+            />
+          </Link>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 text-slate-700"
+          >
+            <X size={22} />
+          </button>
+        </div>
+
+        <nav className="flex-1 space-y-2 overflow-y-auto px-5 py-5">
+          <MobileNavButton
+            icon={Home}
+            label="Dashboard"
+            active={activeTab === "feed"}
+            onClick={() => switchTab("feed")}
+          />
+          <MobileNavLink href="/account/tracking" icon={Navigation} label="Tracking" onClick={onClose} />
+          <MobileNavButton
+            icon={History}
+            label="My Activities"
+            active={activeTab === "history"}
+            onClick={() => switchTab("history")}
+          />
+          <MobileNavLink href="/events" icon={CalendarDays} label="My Events" onClick={onClose} />
+          <MobileNavLink href="/events" icon={Ticket} label="My Tickets" onClick={onClose} />
+          <MobileNavButton
+            icon={Medal}
+            label="Achievement"
+            active={activeTab === "results"}
+            onClick={() => switchTab("results")}
+          />
+          <MobileNavButton
+            icon={Activity}
+            label="Statistics"
+            active={activeTab === "results"}
+            onClick={() => switchTab("results")}
+          />
+          <MobileNavLink href="/account" icon={Bell} label="Notification" onClick={onClose} />
+          <MobileNavButton
+            icon={UserRound}
+            label="Profile"
+            active={activeTab === "biodata"}
+            onClick={() => switchTab("biodata")}
+          />
+          <MobileNavLink href="/account" icon={Settings} label="Settings" onClick={onClose} />
+          {hasOfficialAccess ? (
+            <MobileNavLink href="/official" icon={ShieldCheck} label="Panel Official" onClick={onClose} />
+          ) : null}
+        </nav>
+
+        <div className="border-t border-slate-200 p-5">
+          <Link
+            href={activeEventId ? `/event/${activeEventId}/view` : "/events"}
+            onClick={onClose}
+            className="flex h-12 items-center justify-center rounded-2xl bg-purple-700 text-sm font-black text-white"
+          >
+            Live View Event
+          </Link>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function MobileNavButton({
+  icon: Icon,
+  label,
+  active,
+  onClick,
+}: {
+  icon: ElementType;
+  label: string;
+  active?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex h-12 w-full items-center gap-3 rounded-2xl px-4 text-left text-sm font-black transition ${
+        active
+          ? "bg-purple-50 text-purple-700"
+          : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"
+      }`}
+    >
+      <Icon size={20} />
+      {label}
+    </button>
+  );
+}
+
+function MobileNavLink({
+  href,
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  href: string;
+  icon: ElementType;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      className="flex h-12 items-center gap-3 rounded-2xl px-4 text-sm font-black text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+    >
+      <Icon size={20} />
+      {label}
+    </Link>
   );
 }
 
@@ -761,6 +929,7 @@ function AccountTopbar({
   logoutLoading,
   onRefresh,
   onLogout,
+  onOpenMobileSidebar,
 }: {
   title: string;
   subtitle: string;
@@ -771,13 +940,25 @@ function AccountTopbar({
   logoutLoading: boolean;
   onRefresh: () => void;
   onLogout: () => void;
+  onOpenMobileSidebar: () => void;
 }) {
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-xl">
       <div className="flex min-h-[88px] flex-col gap-4 px-4 py-4 md:flex-row md:items-center md:justify-between md:px-6">
-        <div>
-          <h1 className="text-2xl font-black text-slate-950">{title}</h1>
-          <p className="mt-1 text-sm font-semibold text-slate-500">{subtitle}</p>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onOpenMobileSidebar}
+            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 lg:hidden"
+            aria-label="Buka menu account"
+          >
+            <Menu size={22} />
+          </button>
+
+          <div>
+            <h1 className="text-2xl font-black text-slate-950">{title}</h1>
+            <p className="mt-1 text-sm font-semibold text-slate-500">{subtitle}</p>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
