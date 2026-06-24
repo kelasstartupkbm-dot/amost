@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { dbQuery } from "../../../lib/amostDb";
-import { getCurrentAmostUser } from "../../../lib/amostServerAuth";
+import { dbQuery } from "../../../../lib/amostDb";
+import { getCurrentAmostUser } from "../../../../lib/amostServerAuth";
 
 export const dynamic = "force-dynamic";
+
+function toPositiveBigInt(value: unknown) {
+  const clean = String(value || "").trim();
+  return /^\d+$/.test(clean) ? clean : null;
+}
 
 function hasColumn(columns: string[], columnName: string) {
   return columns.includes(columnName);
@@ -10,26 +15,6 @@ function hasColumn(columns: string[], columnName: string) {
 
 function pickColumn(columns: string[], candidates: string[]) {
   return candidates.find((column) => hasColumn(columns, column)) || null;
-}
-
-function textColumn(
-  columns: string[],
-  candidates: string[],
-  fallbackSql: string,
-  alias: string
-) {
-  const found = pickColumn(columns, candidates);
-  return found ? `e.${found}::text AS ${alias}` : `${fallbackSql} AS ${alias}`;
-}
-
-function numberColumn(
-  columns: string[],
-  candidates: string[],
-  fallbackSql: string,
-  alias: string
-) {
-  const found = pickColumn(columns, candidates);
-  return found ? `COALESCE(e.${found}, 0) AS ${alias}` : `${fallbackSql} AS ${alias}`;
 }
 
 async function getColumns(tableName: string) {
@@ -47,151 +32,200 @@ async function getColumns(tableName: string) {
   return result.rows.map((row: any) => String(row.column_name));
 }
 
-async function hasTable(tableName: string) {
+async function ensureEventRegistrationsTable() {
+  await dbQuery(
+    `
+      CREATE TABLE IF NOT EXISTS event_registrations (
+        id BIGSERIAL PRIMARY KEY,
+        event_id BIGINT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+        user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        participant_number VARCHAR(50),
+        status VARCHAR(30) NOT NULL DEFAULT 'registered',
+        notes TEXT,
+        created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+        UNIQUE(event_id, user_id)
+      )
+    `
+  );
+}
+
+async function eventExists(eventId: string) {
   const result = await dbQuery(
     `
-      SELECT 1
-      FROM information_schema.tables
-      WHERE table_schema = 'public'
-        AND table_name = $1
+      SELECT id
+      FROM events
+      WHERE id = $1
       LIMIT 1
     `,
-    [tableName]
+    [eventId]
   );
 
   return result.rows.length > 0;
 }
 
-function isNumeric(value: string) {
-  return /^\d+$/.test(value);
+async function getExistingRegistration(eventId: string, userId: number) {
+  const result = await dbQuery(
+    `
+      SELECT *
+      FROM event_registrations
+      WHERE event_id = $1
+        AND user_id = $2
+      LIMIT 1
+    `,
+    [eventId, userId]
+  );
+
+  return result.rows[0] || null;
 }
 
-export async function GET(request: NextRequest, context: any) {
+async function createParticipantNumber(eventId: string) {
+  const result = await dbQuery(
+    `
+      SELECT COUNT(*)::int AS total
+      FROM event_registrations
+      WHERE event_id = $1
+    `,
+    [eventId]
+  );
+
+  const total = Number(result.rows[0]?.total || 0) + 1;
+  return `A-${String(1000 + total).padStart(4, "0")}`;
+}
+
+export async function POST(request: NextRequest, context: any) {
   try {
     const params = await context.params;
-    const rawId = String(params?.id || "").trim();
+    const eventId = toPositiveBigInt(params?.id);
 
-    if (!rawId) {
+    if (!eventId) {
       return NextResponse.json(
         { ok: false, message: "ID event tidak valid." },
         { status: 400 }
       );
     }
 
-    const eventColumns = await getColumns("events");
+    const user = await getCurrentAmostUser(request);
 
-    if (eventColumns.length === 0) {
+    if (!user) {
       return NextResponse.json(
-        { ok: false, message: "Tabel events belum ditemukan." },
-        { status: 404 }
+        {
+          ok: false,
+          message: "Silakan login untuk daftar event.",
+          code: "UNAUTHORIZED",
+        },
+        { status: 401 }
       );
     }
 
-    const titleSql = textColumn(
-      eventColumns,
-      ["title", "event_title", "event_name", "name"],
-      "'Event #' || e.id::text",
-      "title"
-    );
-    const slugColumn = pickColumn(eventColumns, ["slug"]);
-    const slugSql = slugColumn ? `e.${slugColumn}::text AS slug` : `e.id::text AS slug`;
-    const categorySql = textColumn(eventColumns, ["category", "sport_type", "type"], "'Event'", "category");
-    const statusSql = textColumn(eventColumns, ["status", "event_status"], "'published'", "status");
-    const locationSql = textColumn(eventColumns, ["location", "venue", "place", "city"], "'Lokasi menyusul'", "location");
-    const descriptionSql = textColumn(eventColumns, ["description", "summary", "content", "notes"], "'Event olahraga outdoor AMOST.'", "description");
-    const routeDistanceSql = numberColumn(eventColumns, ["distance_km", "route_distance_km", "distance"], "0", "distance_km");
-    const quotaSql = numberColumn(eventColumns, ["quota", "total_quota", "max_participants"], "0", "quota");
-    const doorprizeSql = numberColumn(eventColumns, ["doorprize_count", "doorprize_total", "doorprize"], "0", "doorprize_count");
-    const feeSql = numberColumn(eventColumns, ["registration_fee", "fee", "price", "ticket_price"], "0", "registration_fee");
-    const dateColumn = pickColumn(eventColumns, ["event_date", "start_date", "date", "start_time", "created_at"]);
-    const dateSql = dateColumn ? `e.${dateColumn} AS event_date` : `NULL::timestamp AS event_date`;
-    const imageSql = textColumn(eventColumns, ["image_url", "banner_url", "poster_url", "cover_image"], "NULL::text", "image_url");
-    const routeFileSql = textColumn(eventColumns, ["gpx_filename", "route_file", "route_name"], "NULL::text", "route_file");
+    const exists = await eventExists(eventId);
 
-    const hasRegistrations = await hasTable("event_registrations");
-    const participantCountSql = hasRegistrations
-      ? `(
-          SELECT COUNT(*)::int
-          FROM event_registrations er
-          WHERE er.event_id = e.id
-        ) AS participant_count`
-      : `0 AS participant_count`;
-
-    const whereSql = isNumeric(rawId)
-      ? "e.id = $1"
-      : slugColumn
-        ? `e.${slugColumn} = $1`
-        : "e.id::text = $1";
-
-    const result = await dbQuery(
-      `
-        SELECT
-          e.id,
-          ${titleSql},
-          ${slugSql},
-          ${categorySql},
-          ${statusSql},
-          ${locationSql},
-          ${descriptionSql},
-          ${dateSql},
-          ${routeDistanceSql},
-          ${quotaSql},
-          ${doorprizeSql},
-          ${feeSql},
-          ${imageSql},
-          ${routeFileSql},
-          ${participantCountSql}
-        FROM events e
-        WHERE ${whereSql}
-        LIMIT 1
-      `,
-      [rawId]
-    );
-
-    const event = result.rows[0] || null;
-
-    if (!event) {
+    if (!exists) {
       return NextResponse.json(
         { ok: false, message: "Event tidak ditemukan." },
         { status: 404 }
       );
     }
 
-    const user = await getCurrentAmostUser(request).catch(() => null);
-    let registration = null;
+    await ensureEventRegistrationsTable();
 
-    if (user && hasRegistrations) {
-      const registrationResult = await dbQuery(
-        `
-          SELECT *
-          FROM event_registrations
-          WHERE event_id = $1
-            AND user_id = $2
-          ORDER BY id DESC
-          LIMIT 1
-        `,
-        [event.id, user.id]
-      );
+    const existing = await getExistingRegistration(eventId, user.id);
 
-      registration = registrationResult.rows[0] || null;
+    if (existing) {
+      return NextResponse.json({
+        ok: true,
+        alreadyRegistered: true,
+        registration: existing,
+        message: "Kamu sudah terdaftar pada event ini.",
+      });
     }
+
+    const columns = await getColumns("event_registrations");
+    const participantNumber = await createParticipantNumber(eventId);
+
+    const insertColumns: string[] = [];
+    const values: any[] = [];
+    const placeholders: string[] = [];
+
+    function addValue(columnName: string, value: any) {
+      if (!hasColumn(columns, columnName)) return;
+      insertColumns.push(columnName);
+      values.push(value);
+      placeholders.push(`$${values.length}`);
+    }
+
+    addValue("event_id", eventId);
+    addValue("user_id", user.id);
+
+    const numberColumn = pickColumn(columns, [
+      "participant_number",
+      "registration_number",
+      "bib_number",
+      "bib",
+      "number",
+      "nomor_peserta",
+    ]);
+
+    if (numberColumn) {
+      addValue(numberColumn, participantNumber);
+    }
+
+    const statusColumn = pickColumn(columns, [
+      "status",
+      "registration_status",
+      "join_status",
+    ]);
+
+    if (statusColumn) {
+      addValue(statusColumn, "registered");
+    }
+
+    addValue("notes", "Daftar melalui halaman public event AMOST.");
+
+    if (hasColumn(columns, "created_at")) {
+      insertColumns.push("created_at");
+      placeholders.push("NOW()");
+    }
+
+    if (hasColumn(columns, "updated_at")) {
+      insertColumns.push("updated_at");
+      placeholders.push("NOW()");
+    }
+
+    const result = await dbQuery(
+      `
+        INSERT INTO event_registrations (${insertColumns.join(", ")})
+        VALUES (${placeholders.join(", ")})
+        RETURNING *
+      `,
+      values
+    );
 
     return NextResponse.json({
       ok: true,
-      event,
-      data: event,
-      user,
-      registration,
-      isRegistered: Boolean(registration),
+      alreadyRegistered: false,
+      registration: result.rows[0],
+      participantNumber,
+      message: "Berhasil daftar event.",
     });
   } catch (error: any) {
-    console.error("GET /api/events/[id] failed:", error);
+    console.error("POST /api/events/[id]/join failed:", error);
+
+    const message = String(error?.message || "Pendaftaran event gagal.");
+
+    if (message.includes("duplicate") || message.includes("unique")) {
+      return NextResponse.json({
+        ok: true,
+        alreadyRegistered: true,
+        message: "Kamu sudah terdaftar pada event ini.",
+      });
+    }
 
     return NextResponse.json(
       {
         ok: false,
-        message: error?.message || "Detail event belum bisa dimuat.",
-        error: error?.message || "Detail event belum bisa dimuat.",
+        message,
+        error: message,
       },
       { status: 500 }
     );
