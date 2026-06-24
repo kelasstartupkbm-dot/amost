@@ -38,6 +38,7 @@ function formatPermission(value: string | null | undefined) {
   if (permission === "result") return "Result Officer";
   if (permission === "doorprize") return "Doorprize Officer";
   if (permission === "viewer") return "Viewer";
+
   return "Operator Event";
 }
 
@@ -71,8 +72,8 @@ export default function OfficialPanelPage() {
       const rows = Array.isArray(data?.data)
         ? data.data
         : Array.isArray(data?.items)
-        ? data.items
-        : [];
+          ? data.items
+          : [];
 
       setItems(rows);
     } catch (error) {
@@ -89,11 +90,15 @@ export default function OfficialPanelPage() {
   }, []);
 
   const stats = useMemo(() => {
+    const active = items.filter((item) => item.status === "active").length;
+    const doorprize = items.filter(
+      (item) => item.permission_level === "doorprize"
+    ).length;
+
     return {
       total: items.length,
-      active: items.filter((item) => item.status === "active").length,
-      doorprize: items.filter((item) => item.permission_level === "doorprize")
-        .length,
+      active,
+      doorprize,
     };
   }, [items]);
 
@@ -134,7 +139,7 @@ export default function OfficialPanelPage() {
           <div className="flex flex-wrap items-center gap-3">
             <Link
               href="/account"
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50"
+              className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50"
             >
               Akun Saya
             </Link>
@@ -168,26 +173,9 @@ export default function OfficialPanelPage() {
             </div>
 
             <div className="grid grid-cols-3 gap-3">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center">
-                <p className="text-2xl font-black text-slate-950">
-                  {stats.total}
-                </p>
-                <p className="text-xs font-bold text-slate-500">Event</p>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center">
-                <p className="text-2xl font-black text-slate-950">
-                  {stats.active}
-                </p>
-                <p className="text-xs font-bold text-slate-500">Aktif</p>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center">
-                <p className="text-2xl font-black text-slate-950">
-                  {stats.doorprize}
-                </p>
-                <p className="text-xs font-bold text-slate-500">Doorprize</p>
-              </div>
+              <StatBox label="Event" value={stats.total} />
+              <StatBox label="Aktif" value={stats.active} />
+              <StatBox label="Doorprize" value={stats.doorprize} />
             </div>
           </div>
         </section>
@@ -246,45 +234,25 @@ export default function OfficialPanelPage() {
                   </p>
 
                   <div className="mt-5 grid grid-cols-2 gap-3">
-                    <div className="rounded-xl bg-slate-50 p-3">
-                      <p className="text-xs font-black uppercase text-slate-500">
-                        Akses
-                      </p>
-                      <p className="mt-1 text-sm font-black text-green-700">
-                        {formatPermission(item.permission_level)}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl bg-slate-50 p-3">
-                      <p className="text-xs font-black uppercase text-slate-500">
-                        Kategori
-                      </p>
-                      <p className="mt-1 text-sm font-black text-slate-950">
-                        {item.category || "Event"}
-                      </p>
-                    </div>
+                    <InfoBox
+                      label="Akses"
+                      value={formatPermission(item.permission_level)}
+                      green
+                    />
+                    <InfoBox label="Kategori" value={item.category || "Event"} />
                   </div>
 
                   <div className="mt-4 grid grid-cols-2 gap-3">
-                    <div className="rounded-xl bg-slate-50 p-3">
-                      <p className="text-xs font-black uppercase text-slate-500">
-                        Kuota
-                      </p>
-                      <p className="mt-1 flex items-center gap-2 text-sm font-black text-slate-950">
-                        <Ticket size={15} />
-                        {item.quota || 0}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl bg-slate-50 p-3">
-                      <p className="text-xs font-black uppercase text-slate-500">
-                        Status Event
-                      </p>
-                      <p className="mt-1 flex items-center gap-2 text-sm font-black text-slate-950">
-                        <CalendarDays size={15} />
-                        {item.event_status || "-"}
-                      </p>
-                    </div>
+                    <InfoBox
+                      label="Kuota"
+                      value={String(item.quota || 0)}
+                      icon={<Ticket size={15} />}
+                    />
+                    <InfoBox
+                      label="Status Event"
+                      value={item.event_status || "-"}
+                      icon={<CalendarDays size={15} />}
+                    />
                   </div>
 
                   {item.notes && (
@@ -306,12 +274,10 @@ export default function OfficialPanelPage() {
                       Lihat Event
                     </Link>
 
-<Link
-  href={`/official/events/${item.event_id}`}
-  className="flex h-10 flex-1 items-center justify-center rounded-xl bg-green-700 text-sm font-black text-white hover:bg-green-800"
->
-  Kelola
-</Link>
+                    <Link
+                      href={`/official/events/${item.event_id}`}
+                      className="flex h-10 flex-1 items-center justify-center rounded-xl bg-green-700 text-sm font-black text-white hover:bg-green-800"
+                    >
                       Kelola
                     </Link>
                   </div>
@@ -322,5 +288,40 @@ export default function OfficialPanelPage() {
         </section>
       </section>
     </main>
+  );
+}
+
+function StatBox({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center">
+      <p className="text-2xl font-black text-slate-950">{value}</p>
+      <p className="text-xs font-bold text-slate-500">{label}</p>
+    </div>
+  );
+}
+
+function InfoBox({
+  label,
+  value,
+  green,
+  icon,
+}: {
+  label: string;
+  value: string;
+  green?: boolean;
+  icon?: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-xl bg-slate-50 p-3">
+      <p className="text-xs font-black uppercase text-slate-500">{label}</p>
+      <p
+        className={`mt-1 flex items-center gap-2 text-sm font-black ${
+          green ? "text-green-700" : "text-slate-950"
+        }`}
+      >
+        {icon}
+        {value}
+      </p>
+    </div>
   );
 }
