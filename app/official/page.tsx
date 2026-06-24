@@ -266,18 +266,21 @@ export default function OfficialPanelPage() {
                     </div>
                   )}
 
-                  <div className="mt-5 flex gap-3">
-                    <Link
-                      href="/events"
-                      className="flex h-10 flex-1 items-center justify-center rounded-xl border border-slate-200 text-sm font-black text-slate-700 hover:bg-slate-50"
-                    >
-                      Lihat Event
-                    </Link>
+<div className="mt-5 flex gap-3">
+  <Link
+    href={`/official/events/${item.event_id}`}
+    className="flex h-10 flex-1 items-center justify-center rounded-xl border border-slate-200 text-sm font-black text-slate-700 hover:bg-slate-50"
+  >
+    Lihat Detail
+  </Link>
 
-                    <Link
-                      href={`/official/events/${item.event_id}`}
-                      className="flex h-10 flex-1 items-center justify-center rounded-xl bg-green-700 text-sm font-black text-white hover:bg-green-800"
-                    >
+  <Link
+    href={`/official/events/${item.event_id}`}
+    className="flex h-10 flex-1 items-center justify-center rounded-xl bg-green-700 text-sm font-black text-white hover:bg-green-800"
+  >
+    Kelola
+  </Link>
+</div>
                       Kelola
                     </Link>
                   </div>
