@@ -14,10 +14,20 @@ import {
   RefreshCw,
   Send,
   ShieldCheck,
+  Trash2,
   Trophy,
   UserRound,
   X,
 } from "lucide-react";
+
+type CurrentUser = {
+  id?: number | string | null;
+  user_id?: number | string | null;
+  userId?: number | string | null;
+  role?: string | null;
+  role_id?: number | string | null;
+  roleId?: number | string | null;
+};
 
 type CommunityPost = {
   id: number | string;
@@ -41,6 +51,16 @@ type CommunityPost = {
   location_text?: string | null;
   location_lat?: number | string | null;
   location_lng?: number | string | null;
+};
+
+type CommunityComment = {
+  id: number | string;
+  post_id: number | string;
+  user_id: number | string;
+  comment_text: string;
+  created_at?: string | null;
+  author_name?: string | null;
+  author_email?: string | null;
 };
 
 type ComposerMode = "post" | "photo" | "activity" | "location";
@@ -75,6 +95,31 @@ function formatRelativeTime(value: string | null | undefined) {
     month: "short",
     year: "numeric",
   });
+}
+
+function normalizeRole(value: unknown) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+}
+
+function getCurrentUserId(user: CurrentUser | null) {
+  return Number(user?.id || user?.user_id || user?.userId || 0);
+}
+
+function isGlobalAdmin(user: CurrentUser | null) {
+  const role = normalizeRole(user?.role);
+  const roleId = Number(user?.role_id || user?.roleId || 0);
+
+  return role === "super_admin" || role === "staff_amost" || roleId === 1 || roleId === 2;
+}
+
+function canDeletePost(user: CurrentUser | null, post: CommunityPost) {
+  const userId = getCurrentUserId(user);
+  const ownerId = Number(post.user_id || 0);
+
+  return Boolean(userId && (userId === ownerId || isGlobalAdmin(user)));
 }
 
 function getPostIcon(type: string) {
@@ -158,7 +203,13 @@ async function resizeImageToDataUrl(file: File) {
 export default function CommunityFeedPanel() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [posts, setPosts] = useState<CommunityPost[]>([]);
+  const [commentsByPostId, setCommentsByPostId] = useState<Record<string, CommunityComment[]>>({});
+  const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
+  const [openCommentsPostId, setOpenCommentsPostId] = useState<string | null>(null);
+  const [loadingCommentsPostId, setLoadingCommentsPostId] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [posting, setPosting] = useState(false);
@@ -177,6 +228,24 @@ export default function CommunityFeedPanel() {
   const [locationLat, setLocationLat] = useState("");
   const [locationLng, setLocationLng] = useState("");
   const [geoLoading, setGeoLoading] = useState(false);
+
+  async function loadCurrentUser() {
+    try {
+      const response = await fetch("/api/auth/me", {
+        method: "GET",
+        cache: "no-store",
+        credentials: "include",
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (response.ok && data?.ok && data?.user) {
+        setCurrentUser(data.user);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
 
   async function loadPosts(silent = false) {
     if (silent) {
@@ -216,6 +285,105 @@ export default function CommunityFeedPanel() {
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  }
+
+  async function loadComments(postId: number | string) {
+    const key = String(postId);
+
+    setLoadingCommentsPostId(key);
+    setErrorMessage("");
+
+    try {
+      const response = await fetch(`/api/community/posts/${postId}/comments?_ts=${Date.now()}`, {
+        method: "GET",
+        cache: "no-store",
+        credentials: "include",
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || data?.ok === false) {
+        setErrorMessage(data?.message || data?.error || "Komentar belum bisa dimuat.");
+        return;
+      }
+
+      const rows = Array.isArray(data?.data)
+        ? data.data
+        : Array.isArray(data?.items)
+          ? data.items
+          : [];
+
+      setCommentsByPostId((current) => ({
+        ...current,
+        [key]: rows,
+      }));
+    } catch (error) {
+      console.error(error);
+      setErrorMessage("Koneksi komentar bermasalah.");
+    } finally {
+      setLoadingCommentsPostId(null);
+    }
+  }
+
+  async function toggleComments(postId: number | string) {
+    const key = String(postId);
+
+    if (openCommentsPostId === key) {
+      setOpenCommentsPostId(null);
+      return;
+    }
+
+    setOpenCommentsPostId(key);
+
+    if (!commentsByPostId[key]) {
+      await loadComments(postId);
+    }
+  }
+
+  async function submitComment(postId: number | string) {
+    const key = String(postId);
+    const commentText = String(commentInputs[key] || "").trim();
+
+    if (!commentText) {
+      setErrorMessage("Komentar tidak boleh kosong.");
+      return;
+    }
+
+    setErrorMessage("");
+    setLastActionMessage("");
+
+    try {
+      const response = await fetch(`/api/community/posts/${postId}/comments`, {
+        method: "POST",
+        cache: "no-store",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          commentText,
+        }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || data?.ok === false) {
+        setErrorMessage(data?.message || data?.error || "Komentar belum bisa dikirim.");
+        return;
+      }
+
+      setCommentInputs((current) => ({
+        ...current,
+        [key]: "",
+      }));
+
+      await loadComments(postId);
+      await loadPosts(true);
+      setLastActionMessage("Komentar berhasil dikirim.");
+    } catch (error) {
+      console.error(error);
+      setErrorMessage("Koneksi komentar bermasalah.");
     }
   }
 
@@ -303,6 +471,36 @@ export default function CommunityFeedPanel() {
       setErrorMessage("Koneksi ke server bermasalah.");
     } finally {
       setPosting(false);
+    }
+  }
+
+  async function deletePost(post: CommunityPost) {
+    const confirmed = window.confirm("Hapus postingan ini?");
+
+    if (!confirmed) return;
+
+    setErrorMessage("");
+    setLastActionMessage("");
+
+    try {
+      const response = await fetch(`/api/community/posts/${post.id}`, {
+        method: "DELETE",
+        cache: "no-store",
+        credentials: "include",
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || data?.ok === false) {
+        setErrorMessage(data?.message || data?.error || "Postingan belum bisa dihapus.");
+        return;
+      }
+
+      setPosts((current) => current.filter((item) => String(item.id) !== String(post.id)));
+      setLastActionMessage("Postingan berhasil dihapus.");
+    } catch (error) {
+      console.error(error);
+      setErrorMessage("Koneksi hapus postingan bermasalah.");
     }
   }
 
@@ -428,6 +626,7 @@ export default function CommunityFeedPanel() {
   }
 
   useEffect(() => {
+    loadCurrentUser();
     loadPosts();
   }, []);
 
@@ -450,7 +649,7 @@ export default function CommunityFeedPanel() {
     <section className="space-y-5">
       <section className="rounded-[1.5rem] border border-purple-200 bg-white p-5 shadow-sm">
         <div className="mb-4 rounded-2xl bg-purple-50 px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-purple-700">
-          Database Feed Aktif · Foto · Aktivitas · Lokasi
+          Database Feed Aktif · Foto · Aktivitas · Lokasi · Komentar
         </div>
 
         <div className="flex items-start gap-4">
@@ -488,7 +687,7 @@ export default function CommunityFeedPanel() {
                 <img
                   src={imageDataUrl}
                   alt="Preview foto"
-                  className="max-h-[360px] w-full object-cover"
+                  className="max-h-[280px] w-full object-cover md:max-h-[360px]"
                 />
               </div>
             ) : null}
@@ -661,9 +860,32 @@ export default function CommunityFeedPanel() {
           </p>
         </section>
       ) : (
-        filteredPosts.map((post) => (
-          <CommunityPostCard key={String(post.id)} post={post} onLike={() => toggleLike(post)} />
-        ))
+        filteredPosts.map((post) => {
+          const postId = String(post.id);
+          const comments = commentsByPostId[postId] || [];
+
+          return (
+            <CommunityPostCard
+              key={postId}
+              post={post}
+              canDelete={canDeletePost(currentUser, post)}
+              commentsOpen={openCommentsPostId === postId}
+              comments={comments}
+              commentsLoading={loadingCommentsPostId === postId}
+              commentInput={commentInputs[postId] || ""}
+              onCommentInputChange={(value) =>
+                setCommentInputs((current) => ({
+                  ...current,
+                  [postId]: value,
+                }))
+              }
+              onLike={() => toggleLike(post)}
+              onToggleComments={() => toggleComments(post.id)}
+              onSubmitComment={() => submitComment(post.id)}
+              onDelete={() => deletePost(post)}
+            />
+          );
+        })
       )}
     </section>
   );
@@ -722,10 +944,28 @@ function FeedFilter({
 
 function CommunityPostCard({
   post,
+  canDelete,
+  commentsOpen,
+  comments,
+  commentsLoading,
+  commentInput,
+  onCommentInputChange,
   onLike,
+  onToggleComments,
+  onSubmitComment,
+  onDelete,
 }: {
   post: CommunityPost;
+  canDelete: boolean;
+  commentsOpen: boolean;
+  comments: CommunityComment[];
+  commentsLoading: boolean;
+  commentInput: string;
+  onCommentInputChange: (value: string) => void;
   onLike: () => void;
+  onToggleComments: () => void;
+  onSubmitComment: () => void;
+  onDelete: () => void;
 }) {
   const Icon = getPostIcon(post.post_type);
   const initials = getInitials(post.author_name || post.author_email);
@@ -739,13 +979,27 @@ function CommunityPostCard({
         </div>
 
         <div className="min-w-0 flex-1">
-          <div>
-            <p className="font-black text-slate-950">
-              {post.author_name || post.author_email || "AMOST User"}
-            </p>
-            <p className="mt-1 text-xs font-bold text-slate-500">
-              {post.role_label || "Umum"} • {formatRelativeTime(post.created_at)}
-            </p>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="font-black text-slate-950">
+                {post.author_name || post.author_email || "AMOST User"}
+              </p>
+              <p className="mt-1 text-xs font-bold text-slate-500">
+                {post.role_label || "Umum"} • {formatRelativeTime(post.created_at)}
+              </p>
+            </div>
+
+            {canDelete ? (
+              <button
+                type="button"
+                onClick={onDelete}
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-red-50 px-3 text-xs font-black text-red-600 hover:bg-red-100"
+                title="Hapus postingan"
+              >
+                <Trash2 size={15} />
+                Hapus
+              </button>
+            ) : null}
           </div>
 
           <div className="mt-4 overflow-hidden rounded-[1.25rem] border border-slate-100 bg-slate-50">
@@ -800,7 +1054,7 @@ function CommunityPostCard({
               <img
                 src={post.image_data_url}
                 alt={post.image_name || "Foto postingan"}
-                className="max-h-[460px] w-full object-cover"
+                className="max-h-[320px] w-full object-cover md:max-h-[380px]"
               />
             ) : null}
           </div>
@@ -820,8 +1074,10 @@ function CommunityPostCard({
 
             <button
               type="button"
-              className="inline-flex items-center gap-2 hover:text-purple-700"
-              title="Komentar akan dibuka pada tahap berikutnya"
+              onClick={onToggleComments}
+              className={`inline-flex items-center gap-2 hover:text-purple-700 ${
+                commentsOpen ? "text-purple-700" : ""
+              }`}
             >
               <MessageCircle size={18} />
               {Number(post.comment_count || 0)}
@@ -831,6 +1087,55 @@ function CommunityPostCard({
               ID #{String(post.id)} · {String(post.visibility || "public").toUpperCase()}
             </span>
           </div>
+
+          {commentsOpen ? (
+            <section className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+              <div className="space-y-3">
+                {commentsLoading ? (
+                  <div className="flex items-center gap-2 text-sm font-bold text-slate-500">
+                    <Loader2 className="h-4 w-4 animate-spin text-purple-700" />
+                    Memuat komentar...
+                  </div>
+                ) : comments.length === 0 ? (
+                  <p className="text-sm font-bold text-slate-500">
+                    Belum ada komentar. Jadilah yang pertama.
+                  </p>
+                ) : (
+                  comments.map((comment) => (
+                    <div key={String(comment.id)} className="rounded-xl bg-white p-3 ring-1 ring-slate-100">
+                      <p className="text-sm font-black text-slate-950">
+                        {comment.author_name || comment.author_email || "AMOST User"}
+                      </p>
+                      <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
+                        {comment.comment_text}
+                      </p>
+                      <p className="mt-1 text-xs font-bold text-slate-400">
+                        {formatRelativeTime(comment.created_at)}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="mt-4 flex gap-2">
+                <input
+                  value={commentInput}
+                  onChange={(event) => onCommentInputChange(event.target.value)}
+                  className="h-11 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none focus:border-purple-300"
+                  placeholder="Tulis komentar..."
+                  maxLength={800}
+                />
+                <button
+                  type="button"
+                  onClick={onSubmitComment}
+                  disabled={!commentInput.trim()}
+                  className="inline-flex h-11 items-center justify-center rounded-xl bg-purple-700 px-4 text-sm font-black text-white hover:bg-purple-800 disabled:bg-slate-300"
+                >
+                  Kirim
+                </button>
+              </div>
+            </section>
+          ) : null}
         </div>
       </div>
     </article>
