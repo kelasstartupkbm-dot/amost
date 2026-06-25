@@ -19,6 +19,32 @@ import {
   UsersRound,
 } from "lucide-react";
 
+const EVENTS_REQUEST_TIMEOUT_MS = 5000;
+
+async function fetchEventsJson(
+  url: string,
+  init: RequestInit = {},
+  timeoutMs = EVENTS_REQUEST_TIMEOUT_MS,
+) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      ...init,
+      cache: "no-store",
+      credentials: "include",
+      signal: controller.signal,
+    });
+
+    const data = await response.json().catch(() => null);
+
+    return { response, data };
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
 type EventItem = {
   id: number | string;
   title?: string | null;
@@ -99,13 +125,11 @@ export default function AccountMyEventsPage() {
     setErrorMessage("");
 
     try {
-      const response = await fetch("/api/events", {
-        method: "GET",
-        cache: "no-store",
-        credentials: "include",
-      });
-
-      const data = await response.json().catch(() => null);
+      const { response, data } = await fetchEventsJson(
+        "/api/events",
+        { method: "GET" },
+        5000,
+      );
 
       if (!response.ok || data?.ok === false) {
         setEvents([]);
@@ -125,7 +149,7 @@ export default function AccountMyEventsPage() {
     } catch (error) {
       console.error(error);
       setEvents([]);
-      setErrorMessage("Koneksi ke server bermasalah.");
+      setErrorMessage("Server event terlalu lama merespons. Coba klik Refresh.");
     } finally {
       setLoading(false);
       setRefreshing(false);

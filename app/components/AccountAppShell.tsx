@@ -148,6 +148,32 @@ function getTopAction(user: CurrentUser | null, officialCount: number): TopActio
   return null;
 }
 
+const SHELL_REQUEST_TIMEOUT_MS = 5000;
+
+async function fetchShellJson(
+  url: string,
+  init: RequestInit = {},
+  timeoutMs = SHELL_REQUEST_TIMEOUT_MS,
+) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      ...init,
+      cache: "no-store",
+      credentials: "include",
+      signal: controller.signal,
+    });
+
+    const data = await response.json().catch(() => null);
+
+    return { response, data };
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
 export default function AccountAppShellPage({
   active,
   title,
@@ -175,13 +201,11 @@ export default function AccountAppShellPage({
 
   async function loadOfficialAccess() {
     try {
-      const response = await fetch("/api/account/event-officials", {
-        method: "GET",
-        cache: "no-store",
-        credentials: "include",
-      });
-
-      const data = await response.json().catch(() => null);
+      const { response, data } = await fetchShellJson(
+        "/api/account/event-officials",
+        { method: "GET" },
+        4000,
+      );
 
       if (!response.ok || data?.ok === false) {
         setOfficialCount(0);
@@ -207,13 +231,11 @@ export default function AccountAppShellPage({
     }
 
     try {
-      const response = await fetch("/api/auth/me", {
-        method: "GET",
-        cache: "no-store",
-        credentials: "include",
-      });
-
-      const data = await response.json().catch(() => null);
+      const { response, data } = await fetchShellJson(
+        "/api/auth/me",
+        { method: "GET" },
+        5000,
+      );
 
       if (response.status === 401 || !data?.ok || !data?.user) {
         const nextPath =
@@ -226,12 +248,16 @@ export default function AccountAppShellPage({
       setUser(data.user);
 
       if (!isSuperAdmin(data.user) && !isStaffAmost(data.user)) {
-        loadOfficialAccess();
+        void loadOfficialAccess();
       } else {
         setOfficialCount(0);
       }
     } catch (error) {
       console.error(error);
+      /*
+        Jangan tahan render shell terlalu lama.
+        Kalau auth/me timeout, user bisa refresh manual dari topbar.
+      */
     } finally {
       setAuthChecked(true);
       setRefreshing(false);
@@ -395,7 +421,7 @@ function AppSidebar({ active }: { active: AppMenuKey }) {
       <div className="border-t border-slate-200 p-5">
         <Link
           href="/events"
-          prefetch
+          prefetch={false}
           className="flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50"
         >
           <HelpCircle size={19} />
@@ -420,7 +446,7 @@ function SidebarLink({
   return (
     <Link
       href={href}
-      prefetch
+      prefetch={false}
       className={`flex h-12 items-center gap-3 rounded-2xl px-4 text-sm font-black transition ${
         active
           ? "bg-purple-50 text-purple-700"
@@ -579,7 +605,7 @@ function QuickAccess({
   return (
     <Link
       href={href}
-      prefetch
+      prefetch={false}
       className="flex min-h-[82px] flex-col items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-3 py-4 text-center text-xs font-black text-slate-950 hover:bg-purple-700 hover:text-white"
     >
       <Icon size={23} />

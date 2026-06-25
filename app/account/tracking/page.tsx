@@ -64,6 +64,32 @@ type EventItem = {
   status?: string | null;
 };
 
+const TRACKING_REQUEST_TIMEOUT_MS = 4500;
+
+async function fetchTrackingJson(
+  url: string,
+  init: RequestInit = {},
+  timeoutMs = TRACKING_REQUEST_TIMEOUT_MS,
+) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      ...init,
+      cache: "no-store",
+      credentials: "include",
+      signal: controller.signal,
+    });
+
+    const data = await response.json().catch(() => null);
+
+    return { response, data };
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
 const MOCK_PARTICIPANTS = [
   {
     name: "Budi Santoso",
@@ -168,40 +194,26 @@ function isActiveEvent(event: EventItem) {
 export default function AccountTrackingMockupPage() {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [events, setEvents] = useState<EventItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   async function loadData() {
-    setLoading(true);
-
     try {
-      const [userResponse, eventsResponse] = await Promise.all([
-        fetch("/api/auth/me", {
-          method: "GET",
-          cache: "no-store",
-          credentials: "include",
-        }).catch(() => null),
-        fetch("/api/events", {
-          method: "GET",
-          cache: "no-store",
-          credentials: "include",
-        }).catch(() => null),
+      const [userResult, eventsResult] = await Promise.all([
+        fetchTrackingJson("/api/auth/me", { method: "GET" }, 4000).catch(() => null),
+        fetchTrackingJson("/api/events", { method: "GET" }, 4500).catch(() => null),
       ]);
 
-      if (userResponse) {
-        const userData = await userResponse.json().catch(() => null);
-        if (userResponse.ok && userData?.user) {
-          setUser(userData.user);
-        }
+      if (userResult?.response.ok && userResult.data?.user) {
+        setUser(userResult.data.user);
       }
 
-      if (eventsResponse) {
-        const eventsData = await eventsResponse.json().catch(() => null);
-        const rows = Array.isArray(eventsData?.events)
-          ? eventsData.events
-          : Array.isArray(eventsData?.data)
-            ? eventsData.data
-            : Array.isArray(eventsData?.items)
-              ? eventsData.items
+      if (eventsResult?.response.ok && eventsResult.data?.ok !== false) {
+        const rows = Array.isArray(eventsResult.data?.events)
+          ? eventsResult.data.events
+          : Array.isArray(eventsResult.data?.data)
+            ? eventsResult.data.data
+            : Array.isArray(eventsResult.data?.items)
+              ? eventsResult.data.items
               : [];
 
         setEvents(rows);
@@ -268,7 +280,7 @@ export default function AccountTrackingMockupPage() {
           <SidebarLink href="/home" icon={Home} label="Dashboard" />
           <SidebarLink href="/account/tracking" icon={Navigation} label="Tracking" active />
           <SidebarLink href="/account/activities" icon={Activity} label="My Activities" />
-          <SidebarLink href="/events" icon={CalendarDays} label="My Events" />
+          <SidebarLink href="/account/events" icon={CalendarDays} label="My Events" />
           <SidebarLink href="/account/tickets" icon={Ticket} label="My Tickets" />
           <SidebarLink href="/account/achievement" icon={Trophy} label="Achievement" />
           <SidebarLink href="/account/statistics" icon={LineChart} label="Statistics" />
