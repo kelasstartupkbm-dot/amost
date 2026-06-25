@@ -328,7 +328,7 @@ export default function AccountAppShellPage({
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <QuickAccess href="/home" icon={Home} label="Home" />
                 <QuickAccess href="/account/tracking" icon={Navigation} label="Tracking" />
-                <QuickAccess href="/my-events" icon={CalendarDays} label="Events" />
+                <QuickAccess href="/account/events" icon={CalendarDays} label="Events" />
                 <QuickAccess href="/account" icon={UserRound} label="Profile" />
               </div>
             </section>
@@ -355,14 +355,14 @@ function AppSidebar({ active }: { active: AppMenuKey }) {
       <nav className="flex-1 space-y-2 px-5 py-5">
         <SidebarLink href="/home" icon={Home} label="Dashboard" active={active === "home"} />
         <SidebarLink href="/account/tracking" icon={Navigation} label="Tracking" active={active === "tracking"} />
-        <SidebarLink href="/my-activities" icon={History} label="My Activities" active={active === "activities"} />
-        <SidebarLink href="/my-events" icon={CalendarDays} label="My Events" active={active === "events"} />
-        <SidebarLink href="/my-tickets" icon={Ticket} label="My Tickets" active={active === "tickets"} />
-        <SidebarLink href="/achievement" icon={Medal} label="Achievement" active={active === "achievement"} />
-        <SidebarLink href="/statistics" icon={Activity} label="Statistics" active={active === "statistics"} />
-        <SidebarLink href="/notification" icon={Bell} label="Notification" active={active === "notification"} />
+        <SidebarLink href="/account/activities" icon={History} label="My Activities" active={active === "activities"} />
+        <SidebarLink href="/account/events" icon={CalendarDays} label="My Events" active={active === "events"} />
+        <SidebarLink href="/account/tickets" icon={Ticket} label="My Tickets" active={active === "tickets"} />
+        <SidebarLink href="/account/achievement" icon={Medal} label="Achievement" active={active === "achievement"} />
+        <SidebarLink href="/account/statistics" icon={Activity} label="Statistics" active={active === "statistics"} />
+        <SidebarLink href="/account/notification" icon={Bell} label="Notification" active={active === "notification"} />
         <SidebarLink href="/account" icon={UserRound} label="Profile" active={active === "profile"} />
-        <SidebarLink href="/settings" icon={Settings} label="Settings" active={active === "settings"} />
+        <SidebarLink href="/account/settings" icon={Settings} label="Settings" active={active === "settings"} />
       </nav>
 
       <div className="m-5 rounded-3xl border border-purple-100 bg-purple-50 p-5">
