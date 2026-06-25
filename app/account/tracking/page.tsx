@@ -195,6 +195,9 @@ export default function AccountTrackingMockupPage() {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [rightPanelMinimized, setRightPanelMinimized] = useState(false);
+  const [eventCardMinimized, setEventCardMinimized] = useState(false);
+  const [participantsMinimized, setParticipantsMinimized] = useState(false);
 
   async function loadData() {
     try {
@@ -392,31 +395,55 @@ export default function AccountTrackingMockupPage() {
             <div className="absolute inset-0 opacity-25 [background-image:repeating-radial-gradient(ellipse_at_center,rgba(15,23,42,0.18)_0_1px,transparent_1px_18px)]" />
           </div>
 
-          <div className="absolute left-5 top-5 z-10 w-[300px] rounded-[1rem] border border-slate-200 bg-white/95 p-5 shadow-lg backdrop-blur">
-            <p className="text-xs font-black uppercase tracking-wide text-slate-400">
-              Event Aktif
-            </p>
-            <div className="mt-4 flex items-start gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 text-purple-700">
-                <Bike size={26} />
-              </div>
-              <div>
-                <h2 className="text-lg font-black text-slate-950">
-                  {eventTitle}
-                </h2>
-                <p className="mt-2 text-sm font-semibold text-slate-500">
-                  {formatDate(activeEvent?.event_date)} • {activeEvent?.location || "Banyumas, Jateng"}
-                </p>
-              </div>
-            </div>
-
-            <Link
-              href={`/events/${eventId}`}
-              className="mt-4 inline-flex items-center gap-2 text-sm font-black text-purple-700 hover:text-purple-900"
+          {eventCardMinimized ? (
+            <button
+              type="button"
+              onClick={() => setEventCardMinimized(false)}
+              className="absolute left-5 top-5 z-20 flex h-14 items-center gap-3 rounded-2xl border border-slate-200 bg-white/95 px-4 text-sm font-black text-slate-950 shadow-lg backdrop-blur hover:bg-white"
+              aria-label="Tampilkan Event Aktif"
             >
-              Lihat Detail Event <ChevronRight size={17} />
-            </Link>
-          </div>
+              <Bike size={22} className="text-purple-700" />
+              Event Aktif
+              <Plus size={17} className="text-purple-700" />
+            </button>
+          ) : (
+            <div className="absolute left-5 top-5 z-10 w-[300px] rounded-[1rem] border border-slate-200 bg-white/95 p-5 shadow-lg backdrop-blur">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+                  Event Aktif
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setEventCardMinimized(true)}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-purple-50 hover:text-purple-700"
+                  aria-label="Minimize Event Aktif"
+                >
+                  <Minus size={16} />
+                </button>
+              </div>
+
+              <div className="mt-4 flex items-start gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 text-purple-700">
+                  <Bike size={26} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-black text-slate-950">
+                    {eventTitle}
+                  </h2>
+                  <p className="mt-2 text-sm font-semibold text-slate-500">
+                    {formatDate(activeEvent?.event_date)} • {activeEvent?.location || "Banyumas, Jateng"}
+                  </p>
+                </div>
+              </div>
+
+              <Link
+                href={`/events/${eventId}`}
+                className="mt-4 inline-flex items-center gap-2 text-sm font-black text-purple-700 hover:text-purple-900"
+              >
+                Lihat Detail Event <ChevronRight size={17} />
+              </Link>
+            </div>
+          )}
 
           <div className="absolute left-5 top-[210px] z-10 flex flex-col gap-3">
             <MapControl icon={Plus} />
@@ -483,45 +510,66 @@ export default function AccountTrackingMockupPage() {
             </div>
           </div>
 
-          <div className="absolute bottom-6 left-5 z-10 w-[270px] overflow-hidden rounded-[1rem] border border-slate-200 bg-white/95 shadow-lg backdrop-blur">
-            <div className="border-b border-slate-100 px-5 py-4">
-              <h3 className="text-sm font-black text-slate-950">
-                Peserta di Sekitarmu (5)
-              </h3>
-            </div>
-            <div className="divide-y divide-slate-100">
-              {MOCK_PARTICIPANTS.map((participant) => (
-                <div
-                  key={participant.name}
-                  className={`flex items-start gap-3 px-5 py-3 ${
-                    participant.active ? "bg-purple-50" : "bg-white"
-                  }`}
-                >
-                  <Bike
-                    size={18}
-                    className={participant.active ? "text-purple-700" : "text-slate-600"}
-                  />
-                  <div className="min-w-0">
-                    <p className="text-sm font-black text-slate-950">
-                      {participant.name}{" "}
-                      {participant.label ? (
-                        <span className="text-purple-700">({participant.label})</span>
-                      ) : null}
-                    </p>
-                    <p className="mt-1 text-xs font-semibold text-slate-500">
-                      {participant.speed} • {participant.distance} {participant.extra}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <Link
-              href={`/account/events/${eventId}/view`}
-              className="flex items-center gap-2 px-5 py-4 text-sm font-black text-purple-700 hover:bg-purple-50"
+          {participantsMinimized ? (
+            <button
+              type="button"
+              onClick={() => setParticipantsMinimized(false)}
+              className="absolute bottom-6 left-5 z-20 flex h-14 items-center gap-3 rounded-2xl border border-slate-200 bg-white/95 px-4 text-sm font-black text-slate-950 shadow-lg backdrop-blur hover:bg-white"
+              aria-label="Tampilkan Peserta di Sekitarmu"
             >
-              Lihat Semua Peserta <ChevronRight size={17} />
-            </Link>
-          </div>
+              <UsersRound size={22} className="text-purple-700" />
+              Peserta
+              <Plus size={17} className="text-purple-700" />
+            </button>
+          ) : (
+            <div className="absolute bottom-6 left-5 z-10 w-[270px] overflow-hidden rounded-[1rem] border border-slate-200 bg-white/95 shadow-lg backdrop-blur">
+              <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+                <h3 className="text-sm font-black text-slate-950">
+                  Peserta di Sekitarmu (5)
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setParticipantsMinimized(true)}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-purple-50 hover:text-purple-700"
+                  aria-label="Minimize Peserta di Sekitarmu"
+                >
+                  <Minus size={16} />
+                </button>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {MOCK_PARTICIPANTS.map((participant) => (
+                  <div
+                    key={participant.name}
+                    className={`flex items-start gap-3 px-5 py-3 ${
+                      participant.active ? "bg-purple-50" : "bg-white"
+                    }`}
+                  >
+                    <Bike
+                      size={18}
+                      className={participant.active ? "text-purple-700" : "text-slate-600"}
+                    />
+                    <div className="min-w-0">
+                      <p className="text-sm font-black text-slate-950">
+                        {participant.name}{" "}
+                        {participant.label ? (
+                          <span className="text-purple-700">({participant.label})</span>
+                        ) : null}
+                      </p>
+                      <p className="mt-1 text-xs font-semibold text-slate-500">
+                        {participant.speed} • {participant.distance} {participant.extra}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <Link
+                href={`/account/events/${eventId}/view`}
+                className="flex items-center gap-2 px-5 py-4 text-sm font-black text-purple-700 hover:bg-purple-50"
+              >
+                Lihat Semua Peserta <ChevronRight size={17} />
+              </Link>
+            </div>
+          )}
 
           <div className="absolute bottom-6 left-1/2 z-30 w-[490px] max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-[1rem] border border-slate-200 bg-white/95 p-4 shadow-xl backdrop-blur">
             <div className="grid grid-cols-[76px_1fr_76px] items-center gap-3">
@@ -541,12 +589,35 @@ export default function AccountTrackingMockupPage() {
             </div>
           </div>
 
-          <section className="absolute bottom-0 right-0 top-0 z-10 hidden w-[360px] max-w-[360px] overflow-y-auto border-l border-slate-200 bg-white/80 p-5 backdrop-blur-xl xl:block">
-            <StatsCard />
-            <ProgressCard participantCount={participantCount} quota={quota} />
-            <ElevationCard />
-            <TrackActions />
-          </section>
+          {rightPanelMinimized ? (
+            <button
+              type="button"
+              onClick={() => setRightPanelMinimized(false)}
+              className="absolute right-5 top-5 z-30 hidden h-14 items-center gap-3 rounded-2xl border border-slate-200 bg-white/95 px-4 text-sm font-black text-slate-950 shadow-lg backdrop-blur hover:bg-white xl:flex"
+              aria-label="Tampilkan sidebar kanan"
+            >
+              <ChevronLeft size={19} className="text-purple-700" />
+              Statistik
+            </button>
+          ) : (
+            <section className="absolute bottom-0 right-0 top-0 z-10 hidden w-[360px] max-w-[360px] overflow-y-auto border-l border-slate-200 bg-white/80 p-5 backdrop-blur-xl xl:block">
+              <div className="mb-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setRightPanelMinimized(true)}
+                  className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-600 shadow-sm hover:bg-purple-50 hover:text-purple-700"
+                  aria-label="Minimize sidebar kanan"
+                >
+                  Minimize
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+              <StatsCard />
+              <ProgressCard participantCount={participantCount} quota={quota} />
+              <ElevationCard />
+              <TrackActions />
+            </section>
+          )}
         </section>
       </section>
     </main>
