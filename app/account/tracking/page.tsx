@@ -1,51 +1,145 @@
 "use client";
 
-import AccountAppShell from "../../components/AccountAppShell";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
+  Bell,
   Bike,
   CalendarDays,
+  Camera,
+  Check,
+  ChevronDown,
+  ChevronLeft,
   ChevronRight,
-  Clock3,
+  CircleHelp,
+  ClipboardList,
+  Download,
+  FileText,
+  Flag,
+  Gauge,
   Gift,
-  History,
-  Loader2,
+  Home,
+  Layers,
+  LineChart,
+  Map,
   MapPin,
+  MessageCircle,
+  Minus,
   Navigation,
-  RefreshCw,
-  Route,
-  Smartphone,
+  Pause,
+  Plus,
+  Search,
+  Settings,
+  Share2,
+  ShieldCheck,
+  Square,
+  Ticket,
   Trophy,
+  UserRound,
   UsersRound,
+  Wifi,
 } from "lucide-react";
+
+type CurrentUser = {
+  id?: number | string;
+  fullName?: string | null;
+  name?: string | null;
+  username?: string | null;
+  email?: string | null;
+  role?: string | null;
+  role_label?: string | null;
+};
 
 type EventItem = {
   id: number | string;
   title?: string | null;
   event_title?: string | null;
   name?: string | null;
-  category?: string | null;
   event_date?: string | null;
   location?: string | null;
   participant_count?: number | string | null;
   quota?: number | string | null;
   doorprize_count?: number | string | null;
   status?: string | null;
-  distance_km?: number | string | null;
-  description?: string | null;
 };
+
+const MOCK_PARTICIPANTS = [
+  {
+    name: "Budi Santoso",
+    label: "You",
+    speed: "25.3 km/h",
+    distance: "12.45 km",
+    extra: "",
+    active: true,
+  },
+  {
+    name: "Rian Maulana",
+    label: "",
+    speed: "24.8 km/h",
+    distance: "12.30 km",
+    extra: "+150 m",
+    active: false,
+  },
+  {
+    name: "Dedi Kurniawan",
+    label: "",
+    speed: "23.7 km/h",
+    distance: "12.10 km",
+    extra: "+280 m",
+    active: false,
+  },
+  {
+    name: "Fajar Ramadhan",
+    label: "",
+    speed: "22.1 km/h",
+    distance: "11.80 km",
+    extra: "+560 m",
+    active: false,
+  },
+  {
+    name: "Agung Setiawan",
+    label: "",
+    speed: "21.0 km/h",
+    distance: "11.20 km",
+    extra: "+850 m",
+    active: false,
+  },
+];
+
+function getDisplayName(user: CurrentUser | null) {
+  const value = String(
+    user?.fullName ||
+      user?.name ||
+      user?.username ||
+      user?.email?.split("@")[0] ||
+      "Pengguna",
+  ).trim();
+
+  return value || "Pengguna";
+}
+
+function getInitials(name: string) {
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length === 0) return "A";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+
+  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+}
 
 function getEventTitle(event: EventItem | null | undefined) {
   return (
     String(event?.title || event?.event_title || event?.name || "").trim() ||
-    "Event AMOST"
+    "Gowes Banyumas Challenge"
   );
 }
 
 function formatDate(value: string | null | undefined) {
-  if (!value) return "Tanggal menyusul";
+  if (!value) return "18 Mei 2024";
 
   const date = new Date(value);
 
@@ -58,476 +152,657 @@ function formatDate(value: string | null | undefined) {
   });
 }
 
-function formatDistance(value: number | string | null | undefined) {
-  const numberValue = Number(value || 0);
-
-  if (!Number.isFinite(numberValue) || numberValue <= 0) return "-";
-
-  return `${numberValue.toFixed(2)} KM`;
-}
-
-function normalizeStatus(value: unknown) {
-  return String(value || "")
-    .trim()
-    .toLowerCase();
-}
-
 function isActiveEvent(event: EventItem) {
-  const status = normalizeStatus(event.status);
+  const status = String(event.status || "").toLowerCase();
 
   return (
     status === "active" ||
     status === "published" ||
     status === "live" ||
     status === "upcoming" ||
-    status === "aktif"
+    status === "aktif" ||
+    !status
   );
 }
 
-function getStatusLabel(value: unknown) {
-  const status = normalizeStatus(value);
-
-  if (status === "published") return "Aktif";
-  if (status === "active") return "Aktif";
-  if (status === "live") return "Live";
-  if (status === "upcoming") return "Upcoming";
-  if (status === "draft") return "Draft";
-  if (status === "finished" || status === "done" || status === "selesai") return "Selesai";
-
-  return status ? status.toUpperCase() : "Aktif";
-}
-
-export default function TrackingDashboardCleanPage() {
+export default function AccountTrackingMockupPage() {
+  const [user, setUser] = useState<CurrentUser | null>(null);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
 
-  const activeEvents = useMemo(() => {
-    return events.filter(isActiveEvent);
-  }, [events]);
-
-  const primaryEvent = activeEvents[0] || events[0] || null;
-
-  const trackingStats = useMemo(() => {
-    const totalEvents = events.length;
-    const activeCount = activeEvents.length;
-    const participantTotal = events.reduce((sum, item) => {
-      const value = Number(item.participant_count || 0);
-      return Number.isFinite(value) ? sum + value : sum;
-    }, 0);
-    const totalDistance = events.reduce((sum, item) => {
-      const value = Number(item.distance_km || 0);
-      return Number.isFinite(value) ? sum + value : sum;
-    }, 0);
-
-    return {
-      totalEvents,
-      activeCount,
-      participantTotal,
-      totalDistance,
-    };
-  }, [events, activeEvents]);
-
-  const loadEvents = async (silent = false) => {
-    if (silent) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-
-    setErrorMessage("");
+  async function loadData() {
+    setLoading(true);
 
     try {
-      const response = await fetch("/api/events", {
-        method: "GET",
-        cache: "no-store",
-        credentials: "include",
-      });
+      const [userResponse, eventsResponse] = await Promise.all([
+        fetch("/api/auth/me", {
+          method: "GET",
+          cache: "no-store",
+          credentials: "include",
+        }).catch(() => null),
+        fetch("/api/events", {
+          method: "GET",
+          cache: "no-store",
+          credentials: "include",
+        }).catch(() => null),
+      ]);
 
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok || data?.ok === false) {
-        setEvents([]);
-        setErrorMessage(data?.message || data?.error || "Data event belum bisa dimuat.");
-        return;
+      if (userResponse) {
+        const userData = await userResponse.json().catch(() => null);
+        if (userResponse.ok && userData?.user) {
+          setUser(userData.user);
+        }
       }
 
-      const rows = Array.isArray(data?.data)
-        ? data.data
-        : Array.isArray(data?.items)
-          ? data.items
-          : Array.isArray(data?.events)
-            ? data.events
-            : [];
+      if (eventsResponse) {
+        const eventsData = await eventsResponse.json().catch(() => null);
+        const rows = Array.isArray(eventsData?.events)
+          ? eventsData.events
+          : Array.isArray(eventsData?.data)
+            ? eventsData.data
+            : Array.isArray(eventsData?.items)
+              ? eventsData.items
+              : [];
 
-      setEvents(rows);
+        setEvents(rows);
+      }
     } catch (error) {
       console.error(error);
-      setEvents([]);
-      setErrorMessage("Koneksi ke server bermasalah.");
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
-  };
+  }
 
   useEffect(() => {
-    loadEvents();
+    loadData();
   }, []);
 
-  const rightPanel = (
-    <section className="space-y-4">
-      <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="text-lg font-black text-slate-950">Event Aktif</h3>
-          <CalendarDays className="text-purple-700" size={22} />
+  const activeEvent = useMemo(() => {
+    return events.find(isActiveEvent) || events[0] || null;
+  }, [events]);
+
+  const displayName = getDisplayName(user);
+  const initials = getInitials(displayName);
+  const eventTitle = getEventTitle(activeEvent);
+  const participantCount = Number(activeEvent?.participant_count || 5);
+  const quota = Number(activeEvent?.quota || 20);
+  const eventId = activeEvent?.id || 3;
+
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+        <div className="w-full max-w-md rounded-[2rem] border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <img
+            src="/amost_logo_wide_.png"
+            alt="AMOST"
+            className="mx-auto h-20 w-auto object-contain"
+          />
+          <p className="mt-6 text-xl font-black text-slate-950">
+            Memuat Tracking Live...
+          </p>
+          <p className="mt-2 text-sm font-semibold text-slate-500">
+            Menyiapkan layout tracking AMOST.
+          </p>
+          <div className="mx-auto mt-6 h-3 w-full max-w-xs overflow-hidden rounded-full bg-slate-100">
+            <div className="h-full w-2/3 animate-pulse rounded-full bg-gradient-to-r from-purple-500 via-purple-700 to-fuchsia-500" />
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="min-h-screen overflow-hidden bg-[#f7f8fb] text-slate-950">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-[260px] border-r border-slate-200 bg-white/95 shadow-[0_0_40px_rgba(15,23,42,0.04)] backdrop-blur-xl lg:block">
+        <div className="flex h-[92px] items-center px-8">
+          <Link href="/home" className="inline-flex items-center">
+            <img
+              src="/amost_logo_wide_.png"
+              alt="AMOST"
+              className="h-[66px] w-auto object-contain"
+            />
+          </Link>
         </div>
 
-        {primaryEvent ? (
-          <div className="mt-4">
-            <h4 className="text-2xl font-black text-slate-950">
-              {getEventTitle(primaryEvent)}
-            </h4>
-            <p className="mt-2 text-sm font-semibold text-slate-500">
-              {formatDate(primaryEvent.event_date)} · {primaryEvent.location || "Lokasi menyusul"}
+        <nav className="space-y-1 px-5 py-5">
+          <SidebarLink href="/home" icon={Home} label="Dashboard" />
+          <SidebarLink href="/account/tracking" icon={Navigation} label="Tracking" active />
+          <SidebarLink href="/account/activities" icon={Activity} label="My Activities" />
+          <SidebarLink href="/events" icon={CalendarDays} label="My Events" />
+          <SidebarLink href="/account/tickets" icon={Ticket} label="My Tickets" />
+          <SidebarLink href="/account/achievement" icon={Trophy} label="Achievement" />
+          <SidebarLink href="/account/statistics" icon={LineChart} label="Statistics" />
+          <SidebarLink href="/account/notification" icon={Bell} label="Notification" badge="3" />
+          <SidebarLink href="/account" icon={UserRound} label="Profile" />
+          <SidebarLink href="/account/settings" icon={Settings} label="Settings" />
+        </nav>
+
+        <div className="absolute bottom-5 left-5 right-5">
+          <div className="overflow-hidden rounded-[1.25rem] border border-purple-100 bg-gradient-to-br from-white to-purple-50 p-4 shadow-sm">
+            <p className="text-base font-black text-purple-700">
+              Tracking lebih seru
+            </p>
+            <p className="mt-2 text-xs font-semibold leading-5 text-slate-600">
+              di aplikasi AMOST
             </p>
 
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <InfoBox label="Peserta" value={String(primaryEvent.participant_count || 0)} />
-              <InfoBox label="Kuota" value={String(primaryEvent.quota || "-")} />
-            </div>
+            <ul className="mt-4 space-y-2 text-xs font-semibold text-slate-600">
+              <li className="flex items-center gap-2">
+                <Check size={14} className="text-green-600" /> Live Tracking Real-time
+              </li>
+              <li className="flex items-center gap-2">
+                <Check size={14} className="text-green-600" /> Lebih Akurat
+              </li>
+              <li className="flex items-center gap-2">
+                <Check size={14} className="text-green-600" /> Hemat Baterai
+              </li>
+              <li className="flex items-center gap-2">
+                <Check size={14} className="text-green-600" /> Fitur Lengkap
+              </li>
+            </ul>
 
             <Link
-              href={`/account/events/${primaryEvent.id}/view`}
-              className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-purple-700 px-4 text-sm font-black text-white hover:bg-purple-800"
+              href="/download"
+              className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-xl bg-purple-700 text-sm font-black text-white hover:bg-purple-800"
             >
-              <Navigation size={18} />
-              Live View Event
+              Download App
             </Link>
+          </div>
 
+          <div className="mt-4 border-t border-slate-200 pt-4">
+            <p className="mb-3 text-sm font-black text-slate-950">Need Help?</p>
             <Link
-              href={`/events/${primaryEvent.id}`}
-              className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50"
+              href="/contact"
+              className="flex items-center gap-3 text-sm font-semibold text-slate-600 hover:text-purple-700"
             >
-              Detail Event
+              <CircleHelp size={18} />
+              Pusat Bantuan
             </Link>
           </div>
-        ) : (
-          <div className="mt-4 rounded-2xl bg-slate-50 p-5 text-sm font-bold text-slate-500">
-            Belum ada event aktif.
-          </div>
-        )}
-      </section>
-
-      <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
-        <h3 className="text-lg font-black text-slate-950">Quick Access</h3>
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <QuickAccess href="/home" icon={Activity} label="Home" />
-          <QuickAccess href="/events" icon={CalendarDays} label="Events" />
-          {primaryEvent ? (
-            <>
-              <QuickAccess href={`/account/events/${primaryEvent.id}/results`} icon={Trophy} label="Results" />
-              <QuickAccess href={`/account/events/${primaryEvent.id}/doorprize`} icon={Gift} label="Doorprize" />
-            </>
-          ) : (
-            <>
-              <QuickAccess href="/account/results" icon={Trophy} label="Results" />
-              <QuickAccess href="/events" icon={Gift} label="Doorprize" />
-            </>
-          )}
         </div>
-      </section>
-    </section>
-  );
+      </aside>
 
-  return (
-    <AccountAppShell
-      active="tracking"
-      title="Tracking Dashboard"
-      eyebrow="AMOST TRACKING"
-      description="Dashboard tracking pribadi. Live View event penuh dibuka dari tombol Live View Event."
-      icon={Navigation}
-      rightPanel={rightPanel}
-    >
-      <section className="space-y-5">
-        <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-4 rounded-2xl bg-green-50 px-4 py-3 text-xs font-black uppercase tracking-[0.18em] text-green-700">
-            Tracking Dashboard Clean · Bukan Live View Event
-          </div>
-
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
-            <div>
-              <p className="text-sm font-black uppercase tracking-[0.28em] text-purple-700">
-                Tracking Pribadi
-              </p>
-              <h2 className="mt-3 text-4xl font-black leading-tight text-slate-950">
-                Dashboard ringkas untuk aktivitas dan event kamu.
-              </h2>
-              <p className="mt-4 max-w-3xl text-base leading-7 text-slate-500">
-                Halaman ini tidak lagi menampilkan map event besar agar tidak membingungkan.
-                Map penuh hanya ada di halaman Live View Event.
-              </p>
-
-              <div className="mt-6 flex flex-wrap gap-3">
-                {primaryEvent ? (
-                  <Link
-                    href={`/account/events/${primaryEvent.id}/view`}
-                    className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-purple-700 px-5 text-sm font-black text-white hover:bg-purple-800"
-                  >
-                    <Navigation size={18} />
-                    Buka Live View Event
-                  </Link>
-                ) : null}
-
-                <Link
-                  href="/events"
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-black text-slate-700 hover:bg-slate-50"
-                >
-                  <CalendarDays size={18} />
-                  Jelajahi Event
-                </Link>
+      <section className="min-h-screen lg:pl-[260px]">
+        <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/92 backdrop-blur-xl">
+          <div className="flex min-h-[92px] items-center justify-between gap-4 px-5 lg:px-8">
+            <div className="flex items-center gap-4">
+              <Link
+                href="/home"
+                className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-slate-100"
+                aria-label="Kembali"
+              >
+                <ChevronLeft size={24} />
+              </Link>
+              <div>
+                <h1 className="text-2xl font-black tracking-tight text-slate-950">
+                  Tracking Live
+                </h1>
               </div>
             </div>
 
-            <div className="rounded-[2rem] border border-purple-100 bg-gradient-to-br from-purple-50 to-white p-6">
-              <Smartphone className="h-10 w-10 text-purple-700" />
-              <h3 className="mt-5 text-2xl font-black text-slate-950">
-                Start/Stop Tracking
-              </h3>
-              <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-                Recording tetap dilakukan dari aplikasi Android AMOST. Website menampilkan
-                ringkasan, live view event, results, dan doorprize.
-              </p>
+            <div className="hidden items-stretch divide-x divide-slate-200 rounded-none md:flex">
+              <TopMetric icon={Wifi} title="GPS Signal" value="Akurat (± 3 m)" dot />
+              <TopMetric icon={CloudIcon} title="26°C" value="Cerah" />
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button className="hidden h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 md:flex">
+                <Search size={22} />
+              </button>
+
+              <button className="relative h-12 w-12 rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50">
+                <Bell className="mx-auto" size={21} />
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-purple-700 px-1 text-[11px] font-black text-white">
+                  3
+                </span>
+              </button>
+
+              <div className="hidden items-center gap-3 md:flex">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-200 text-sm font-black text-slate-500">
+                  {initials}
+                </div>
+                <div className="min-w-[130px]">
+                  <p className="text-sm font-black leading-tight text-slate-950">
+                    Halo, {displayName}
+                  </p>
+                  <div className="mt-1 flex items-center gap-1 text-xs font-semibold text-slate-500">
+                    Pengguna <ChevronDown size={14} />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        </section>
+        </header>
 
-        <section className="grid grid-cols-1 gap-4 md:grid-cols-4">
-          <StatCard icon={CalendarDays} label="Event" value={String(trackingStats.totalEvents)} />
-          <StatCard icon={Activity} label="Aktif" value={String(trackingStats.activeCount)} />
-          <StatCard icon={UsersRound} label="Peserta" value={String(trackingStats.participantTotal)} />
-          <StatCard icon={Route} label="Rute" value={formatDistance(trackingStats.totalDistance)} />
-        </section>
+        <section className="relative h-[calc(100vh-92px)] min-h-[780px] overflow-hidden">
+          <div className="absolute inset-0 bg-[#eef2f0]">
+            <div className="absolute inset-0 opacity-[0.72] [background-image:radial-gradient(circle_at_20%_20%,rgba(148,163,184,0.28)_0,transparent_30%),radial-gradient(circle_at_70%_10%,rgba(34,197,94,0.18)_0,transparent_28%),linear-gradient(to_right,rgba(15,23,42,0.06)_1px,transparent_1px),linear-gradient(to_bottom,rgba(15,23,42,0.05)_1px,transparent_1px)] [background-size:100%_100%,100%_100%,56px_56px,56px_56px]" />
+            <div className="absolute inset-0 opacity-25 [background-image:repeating-radial-gradient(ellipse_at_center,rgba(15,23,42,0.18)_0_1px,transparent_1px_18px)]" />
+          </div>
 
-        {loading ? (
-          <section className="flex min-h-[280px] flex-col items-center justify-center rounded-[2rem] border border-slate-200 bg-white text-center shadow-sm">
-            <Loader2 className="h-12 w-12 animate-spin text-purple-700" />
-            <p className="mt-4 text-xl font-black text-slate-950">Memuat dashboard tracking...</p>
-          </section>
-        ) : errorMessage ? (
-          <section className="rounded-[2rem] border border-red-200 bg-red-50 p-6 text-sm font-black text-red-700">
-            {errorMessage}
-          </section>
-        ) : (
-          <section className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_0.82fr]">
-            <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-2xl font-black text-slate-950">Event Tracking</h3>
-                  <p className="mt-1 text-sm font-semibold text-slate-500">
-                    Pilih event untuk membuka Live View, Results, atau Doorprize.
-                  </p>
-                </div>
+          <div className="absolute left-5 top-5 z-10 w-[300px] rounded-[1rem] border border-slate-200 bg-white/95 p-5 shadow-lg backdrop-blur">
+            <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+              Event Aktif
+            </p>
+            <div className="mt-4 flex items-start gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 text-purple-700">
+                <Bike size={26} />
+              </div>
+              <div>
+                <h2 className="text-lg font-black text-slate-950">
+                  {eventTitle}
+                </h2>
+                <p className="mt-2 text-sm font-semibold text-slate-500">
+                  {formatDate(activeEvent?.event_date)} • {activeEvent?.location || "Banyumas, Jateng"}
+                </p>
+              </div>
+            </div>
 
-                <button
-                  type="button"
-                  onClick={() => loadEvents(true)}
-                  disabled={refreshing}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:opacity-70"
+            <Link
+              href={`/events/${eventId}`}
+              className="mt-4 inline-flex items-center gap-2 text-sm font-black text-purple-700 hover:text-purple-900"
+            >
+              Lihat Detail Event <ChevronRight size={17} />
+            </Link>
+          </div>
+
+          <div className="absolute left-5 top-[210px] z-10 flex flex-col gap-3">
+            <MapControl icon={Plus} />
+            <MapControl icon={Minus} />
+          </div>
+
+          <div className="absolute left-5 top-[328px] z-10 flex flex-col gap-3">
+            <MapControl icon={MapPin} />
+            <MapControl icon={Layers} />
+          </div>
+
+          <div className="absolute right-[390px] top-5 z-10 hidden lg:block">
+            <button className="inline-flex h-14 items-center gap-3 rounded-xl border border-slate-200 bg-white/95 px-5 text-sm font-black text-slate-950 shadow-sm backdrop-blur hover:bg-white">
+              <Map size={22} />
+              Satelit
+            </button>
+          </div>
+
+          <svg
+            className="absolute inset-0 h-full w-full"
+            viewBox="0 0 1200 780"
+            preserveAspectRatio="none"
+          >
+            <path
+              d="M280 590 C350 560 420 590 470 515 C520 438 562 500 620 418 C670 345 710 390 755 300 C790 230 835 250 815 165 C800 112 845 104 872 60"
+              fill="none"
+              stroke="rgba(126,34,206,0.25)"
+              strokeWidth="18"
+              strokeLinecap="round"
+            />
+            <path
+              d="M280 590 C350 560 420 590 470 515 C520 438 562 500 620 418 C670 345 710 390 755 300 C790 230 835 250 815 165 C800 112 845 104 872 60"
+              fill="none"
+              stroke="rgba(126,34,206,0.95)"
+              strokeWidth="8"
+              strokeLinecap="round"
+            />
+          </svg>
+
+          <Checkpoint label="1" left="42%" top="51%" />
+          <Checkpoint label="2" left="48%" top="46%" />
+          <Checkpoint label="3" left="56%" top="34%" />
+          <Checkpoint label="4" left="53%" top="18%" />
+
+          <div className="absolute left-[55.8%] top-[3.5%] z-10">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full border-4 border-purple-700 bg-white text-purple-700 shadow-lg">
+              <Flag size={24} />
+            </div>
+            <span className="absolute left-1/2 top-full h-8 w-1 -translate-x-1/2 bg-purple-700" />
+          </div>
+
+          <div className="absolute left-[37.8%] top-[59%] z-10">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full border-4 border-green-500 bg-white text-green-600 shadow-lg">
+              <Navigation size={22} />
+            </div>
+          </div>
+
+          <div className="absolute left-[54%] top-[34%] z-20">
+            <div className="relative">
+              <div className="absolute -inset-8 rounded-full bg-blue-500/20" />
+              <div className="relative flex h-18 w-18 items-center justify-center rounded-full bg-blue-600 p-5 text-white shadow-xl">
+                <Navigation size={34} />
+              </div>
+            </div>
+          </div>
+
+          <div className="absolute bottom-8 left-5 z-10 w-[270px] overflow-hidden rounded-[1rem] border border-slate-200 bg-white/95 shadow-lg backdrop-blur">
+            <div className="border-b border-slate-100 px-5 py-4">
+              <h3 className="text-sm font-black text-slate-950">
+                Peserta di Sekitarmu (5)
+              </h3>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {MOCK_PARTICIPANTS.map((participant) => (
+                <div
+                  key={participant.name}
+                  className={`flex items-start gap-3 px-5 py-3 ${
+                    participant.active ? "bg-purple-50" : "bg-white"
+                  }`}
                 >
-                  <RefreshCw size={17} className={refreshing ? "animate-spin" : ""} />
-                  Refresh
+                  <Bike
+                    size={18}
+                    className={participant.active ? "text-purple-700" : "text-slate-600"}
+                  />
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-slate-950">
+                      {participant.name}{" "}
+                      {participant.label ? (
+                        <span className="text-purple-700">({participant.label})</span>
+                      ) : null}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">
+                      {participant.speed} • {participant.distance} {participant.extra}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <Link
+              href={`/account/events/${eventId}/view`}
+              className="flex items-center gap-2 px-5 py-4 text-sm font-black text-purple-700 hover:bg-purple-50"
+            >
+              Lihat Semua Peserta <ChevronRight size={17} />
+            </Link>
+          </div>
+
+          <div className="absolute bottom-8 left-1/2 z-10 w-[490px] max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-[1rem] border border-slate-200 bg-white/95 p-5 shadow-xl backdrop-blur">
+            <div className="grid grid-cols-[88px_1fr_88px] items-center gap-4">
+              <TrackingButton icon={Pause} label="Pause" />
+              <div className="text-center">
+                <p className="text-xs font-black text-slate-600">
+                  Tracking Berlangsung
+                </p>
+                <p className="mt-1 text-3xl font-black tabular-nums text-slate-950">
+                  01:25:36
+                </p>
+                <button className="mt-3 inline-flex h-9 items-center justify-center gap-2 rounded-full bg-purple-50 px-6 text-xs font-semibold text-slate-600">
+                  Geser ke kanan untuk selesai <ChevronRight size={15} className="text-purple-700" />
                 </button>
               </div>
-
-              <div className="mt-5 space-y-3">
-                {activeEvents.length === 0 ? (
-                  <div className="rounded-2xl bg-slate-50 p-6 text-center text-sm font-bold text-slate-500">
-                    Belum ada event aktif.
-                  </div>
-                ) : (
-                  activeEvents.slice(0, 6).map((event) => (
-                    <EventTrackingCard key={String(event.id)} event={event} />
-                  ))
-                )}
-              </div>
-            </section>
-
-            <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-              <h3 className="text-2xl font-black text-slate-950">Alur Peserta</h3>
-              <p className="mt-1 text-sm font-semibold text-slate-500">
-                Alur ini yang akan kita kunci agar tidak pusing saat pindah halaman.
-              </p>
-
-              <div className="mt-6 space-y-3">
-                <FlowStep number="1" title="Join Event" description="Peserta daftar dari halaman detail event." />
-                <FlowStep number="2" title="Live View" description="Pantau event dari /account/events/[id]/view." />
-                <FlowStep number="3" title="Results" description="Hasil event dilihat dari /account/events/[id]/results." />
-                <FlowStep number="4" title="Doorprize" description="Undian dilihat dari /account/events/[id]/doorprize." />
-                <FlowStep number="5" title="Timeline" description="Aktivitas otomatis muncul di /home." />
-              </div>
-            </section>
-          </section>
-        )}
-
-        <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex items-start gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-purple-50 text-purple-700">
-              <Bike size={28} />
-            </div>
-            <div>
-              <h3 className="text-xl font-black text-slate-950">
-                Catatan desain
-              </h3>
-              <p className="mt-2 text-sm font-semibold leading-7 text-slate-500">
-                Halaman Tracking Dashboard ini sengaja dibuat ringkas. Tujuannya agar tidak
-                terasa sama dengan Live View Event. Map event besar hanya dipakai pada halaman
-                event tertentu.
-              </p>
+              <TrackingButton icon={Flag} label="Finish" />
             </div>
           </div>
+
+          <section className="absolute bottom-0 right-0 top-0 z-10 hidden w-[360px] overflow-y-auto border-l border-slate-200 bg-white/80 p-5 backdrop-blur-xl xl:block">
+            <StatsCard />
+            <ProgressCard participantCount={participantCount} quota={quota} />
+            <ElevationCard />
+            <TrackActions />
+          </section>
         </section>
       </section>
-    </AccountAppShell>
+    </main>
   );
 }
 
-function InfoBox({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-2xl bg-slate-50 p-4">
-      <p className="text-xs font-black uppercase text-slate-400">{label}</p>
-      <p className="mt-1 text-2xl font-black text-slate-950">{value}</p>
-    </div>
-  );
-}
-
-function QuickAccess({
+function SidebarLink({
   href,
   icon: Icon,
   label,
+  active,
+  badge,
 }: {
   href: string;
   icon: any;
   label: string;
+  active?: boolean;
+  badge?: string;
 }) {
   return (
     <Link
       href={href}
-      className="flex h-20 flex-col items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 text-xs font-black text-slate-700 hover:bg-purple-50 hover:text-purple-700"
+      className={`flex h-12 items-center justify-between rounded-2xl px-4 text-sm font-semibold transition ${
+        active
+          ? "bg-purple-50 text-purple-700"
+          : "text-slate-700 hover:bg-slate-50 hover:text-slate-950"
+      }`}
     >
-      <Icon size={22} />
-      {label}
-    </Link>
-  );
-}
-
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: any;
-  label: string;
-  value: string;
-}) {
-  return (
-    <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 text-purple-700">
-        <Icon size={24} />
-      </div>
-      <p className="mt-5 text-xs font-black uppercase tracking-wide text-slate-400">
+      <span className="flex items-center gap-4">
+        <Icon size={20} />
         {label}
-      </p>
-      <p className="mt-2 text-2xl font-black text-slate-950">{value}</p>
-    </section>
-  );
-}
-
-function EventTrackingCard({ event }: { event: EventItem }) {
-  const participantCount = Number(event.participant_count || 0);
-  const quota = Number(event.quota || 0);
-  const percent = quota > 0 ? Math.min(100, Math.round((participantCount / quota) * 100)) : 0;
-
-  return (
-    <article className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-black uppercase text-green-700">
-              {getStatusLabel(event.status)}
-            </span>
-            <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-black uppercase text-purple-700">
-              {participantCount}/{quota || "-"} Peserta
-            </span>
-          </div>
-
-          <h4 className="mt-3 text-xl font-black text-slate-950">
-            {getEventTitle(event)}
-          </h4>
-          <p className="mt-1 text-sm font-semibold text-slate-500">
-            {formatDate(event.event_date)} · {event.location || "Lokasi menyusul"}
-          </p>
-
-          <div className="mt-4 h-2 overflow-hidden rounded-full bg-white">
-            <div className="h-full rounded-full bg-purple-700" style={{ width: `${percent}%` }} />
-          </div>
-        </div>
-
-        <div className="grid shrink-0 grid-cols-3 gap-2">
-          <MiniAction href={`/account/events/${event.id}/view`} icon={Navigation} label="Live" />
-          <MiniAction href={`/account/events/${event.id}/results`} icon={Trophy} label="Results" />
-          <MiniAction href={`/account/events/${event.id}/doorprize`} icon={Gift} label="Doorprize" />
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function MiniAction({
-  href,
-  icon: Icon,
-  label,
-}: {
-  href: string;
-  icon: any;
-  label: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="flex h-16 min-w-[84px] flex-col items-center justify-center gap-1 rounded-2xl border border-slate-200 bg-white text-[11px] font-black text-slate-700 hover:bg-purple-50 hover:text-purple-700"
-    >
-      <Icon size={18} />
-      {label}
+      </span>
+      {badge ? (
+        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-purple-700 px-1 text-[11px] font-black text-white">
+          {badge}
+        </span>
+      ) : null}
     </Link>
   );
 }
 
-function FlowStep({
-  number,
+function TopMetric({
+  icon: Icon,
   title,
-  description,
+  value,
+  dot,
 }: {
-  number: string;
+  icon: any;
   title: string;
-  description: string;
+  value: string;
+  dot?: boolean;
 }) {
   return (
-    <div className="flex gap-3 rounded-2xl bg-slate-50 p-4">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-purple-700 text-sm font-black text-white">
-        {number}
+    <div className="flex h-14 min-w-[170px] items-center gap-3 px-6">
+      <div
+        className={`flex h-10 w-10 items-center justify-center rounded-xl ${
+          dot ? "bg-green-50 text-green-600" : "bg-slate-50 text-slate-600"
+        }`}
+      >
+        {dot ? <span className="h-3 w-3 rounded-full bg-green-500" /> : <Icon size={21} />}
       </div>
       <div>
-        <h4 className="font-black text-slate-950">{title}</h4>
-        <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{description}</p>
+        <p className="text-sm font-black leading-tight text-slate-950">{title}</p>
+        <p className="mt-1 text-xs font-semibold text-slate-500">{value}</p>
       </div>
     </div>
+  );
+}
+
+function CloudIcon({ size = 20 }: { size?: number }) {
+  return <span style={{ fontSize: size }}>☼</span>;
+}
+
+function MapControl({ icon: Icon }: { icon: any }) {
+  return (
+    <button className="flex h-12 w-12 items-center justify-center rounded-lg border border-slate-200 bg-white/95 text-slate-950 shadow-sm backdrop-blur hover:bg-white">
+      <Icon size={20} />
+    </button>
+  );
+}
+
+function Checkpoint({
+  label,
+  left,
+  top,
+}: {
+  label: string;
+  left: string;
+  top: string;
+}) {
+  return (
+    <div
+      className="absolute z-10 flex h-11 w-11 items-center justify-center rounded-full border-2 border-purple-700 bg-white text-lg font-black text-purple-700 shadow"
+      style={{ left, top }}
+    >
+      {label}
+    </div>
+  );
+}
+
+function TrackingButton({
+  icon: Icon,
+  label,
+}: {
+  icon: any;
+  label: string;
+}) {
+  return (
+    <button className="flex flex-col items-center justify-center gap-2">
+      <span className="flex h-16 w-16 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-950 shadow-sm">
+        <Icon size={24} />
+      </span>
+      <span className="text-xs font-semibold text-slate-600">{label}</span>
+    </button>
+  );
+}
+
+function StatsCard() {
+  return (
+    <div className="rounded-[1rem] border border-slate-200 bg-white/95 p-4 shadow-sm">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-black text-slate-950">Statistik Real-time</h3>
+        <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
+          ● Live
+        </span>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 overflow-hidden rounded-xl border border-slate-200">
+        <StatItem label="Jarak" value="12.45" unit="km" />
+        <StatItem label="Durasi" value="01:25:36" unit="jam" />
+        <StatItem label="Kecepatan" value="25.3" unit="km/h" />
+        <StatItem label="Pace" value="02:22" unit="min/km" />
+        <StatItem label="Elevasi" value="245" unit="m" />
+        <StatItem label="Kalori" value="652" unit="kcal" />
+      </div>
+    </div>
+  );
+}
+
+function StatItem({
+  label,
+  value,
+  unit,
+}: {
+  label: string;
+  value: string;
+  unit: string;
+}) {
+  return (
+    <div className="border-b border-r border-slate-100 p-5">
+      <p className="text-xs font-semibold text-slate-500">{label}</p>
+      <p className="mt-2 text-2xl font-black text-slate-950">{value}</p>
+      <p className="mt-1 text-xs font-semibold text-slate-500">{unit}</p>
+    </div>
+  );
+}
+
+function ProgressCard({
+  participantCount,
+  quota,
+}: {
+  participantCount: number;
+  quota: number;
+}) {
+  return (
+    <div className="mt-4 rounded-[1rem] border border-slate-200 bg-white/95 p-4 shadow-sm">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-black text-slate-950">Progress Rute</h3>
+        <p className="text-sm font-semibold text-slate-500">
+          12.45 km / 42.00 km
+        </p>
+      </div>
+      <div className="mt-4 flex items-center gap-4">
+        <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-200">
+          <div className="h-full w-[29%] rounded-full bg-purple-700" />
+        </div>
+        <span className="text-sm font-black text-slate-950">29%</span>
+      </div>
+
+      <div className="mt-6 flex items-center justify-between">
+        <h4 className="text-sm font-black text-slate-950">Check Point</h4>
+        <p className="text-sm font-semibold text-slate-500">2 / 6</p>
+      </div>
+
+      <div className="mt-4 flex items-center justify-between">
+        {[1, 2, 3, 4, 5, 6].map((point) => (
+          <div key={point} className="flex items-center">
+            <span
+              className={`flex h-8 w-8 items-center justify-center rounded-full border text-xs font-black ${
+                point <= 2
+                  ? "border-purple-700 bg-purple-700 text-white"
+                  : "border-slate-300 bg-white text-slate-500"
+              }`}
+            >
+              {point}
+            </span>
+            {point < 6 ? <span className="h-px w-7 bg-slate-300" /> : null}
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-5 rounded-xl bg-slate-50 p-3 text-xs font-semibold text-slate-500">
+        Peserta: {participantCount}/{quota}
+      </div>
+    </div>
+  );
+}
+
+function ElevationCard() {
+  return (
+    <div className="mt-4 rounded-[1rem] border border-slate-200 bg-white/95 p-4 shadow-sm">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-black text-slate-950">Grafik Elevasi</h3>
+        <p className="text-sm font-black text-purple-700">245 m</p>
+      </div>
+
+      <div className="relative mt-4 h-150 rounded-xl bg-white">
+        <svg viewBox="0 0 320 150" className="h-[150px] w-full">
+          <defs>
+            <linearGradient id="elevationFill" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor="rgba(126,34,206,0.28)" />
+              <stop offset="100%" stopColor="rgba(126,34,206,0.04)" />
+            </linearGradient>
+          </defs>
+          <path
+            d="M0 115 L18 86 L32 58 L50 70 L68 105 L86 112 L104 110 L122 98 L140 104 L158 80 L176 84 L194 65 L212 72 L230 56 L248 52 L266 38 L284 66 L302 86 L320 118 L320 150 L0 150 Z"
+            fill="url(#elevationFill)"
+          />
+          <path
+            d="M0 115 L18 86 L32 58 L50 70 L68 105 L86 112 L104 110 L122 98 L140 104 L158 80 L176 84 L194 65 L212 72 L230 56 L248 52 L266 38 L284 66 L302 86 L320 118"
+            fill="none"
+            stroke="#7e22ce"
+            strokeWidth="3"
+          />
+          <circle cx="104" cy="110" r="6" fill="white" stroke="#7e22ce" strokeWidth="3" />
+          <text x="0" y="145" fontSize="11" fill="#475569">0 km</text>
+          <text x="138" y="145" fontSize="11" fill="#475569">20 km</text>
+          <text x="285" y="145" fontSize="11" fill="#475569">42 km</text>
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+function TrackActions() {
+  return (
+    <div className="mt-4 rounded-[1rem] border border-slate-200 bg-white/95 p-4 shadow-sm">
+      <h3 className="text-sm font-black text-slate-950">Pintasan</h3>
+      <div className="mt-4 grid grid-cols-3 gap-3">
+        <ActionButton icon={Camera} label="Foto" />
+        <ActionButton icon={ClipboardList} label="Catatan" />
+        <ActionButton icon={Share2} label="Bagikan Lokasi" />
+      </div>
+    </div>
+  );
+}
+
+function ActionButton({
+  icon: Icon,
+  label,
+}: {
+  icon: any;
+  label: string;
+}) {
+  return (
+    <button className="flex h-14 flex-col items-center justify-center gap-1 rounded-xl border border-slate-200 bg-white text-xs font-black text-slate-700 hover:bg-purple-50 hover:text-purple-700">
+      <Icon size={18} />
+      {label}
+    </button>
   );
 }
