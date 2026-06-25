@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
 
 function toPositiveBigInt(value: unknown) {
   const clean = String(value || "").trim();
+
   return /^\d+$/.test(clean) ? clean : null;
 }
 
@@ -16,6 +17,25 @@ function hasColumn(columns: string[], columnName: string) {
 
 function pickColumn(columns: string[], candidates: string[]) {
   return candidates.find((column) => hasColumn(columns, column)) || null;
+}
+
+function getUserId(user: any) {
+  return Number(user?.id || user?.user_id || user?.userId || 0);
+}
+
+function appendInsertValue(
+  columns: string[],
+  insertColumns: string[],
+  values: any[],
+  placeholders: string[],
+  columnName: string,
+  value: any,
+) {
+  if (!hasColumn(columns, columnName)) return;
+
+  insertColumns.push(columnName);
+  values.push(value);
+  placeholders.push(`$${values.length}`);
 }
 
 async function getColumns(tableName: string) {
@@ -91,11 +111,107 @@ async function createParticipantNumber(eventId: string) {
   );
 
   const total = Number(result.rows[0]?.total || 0) + 1;
+
   return `A-${String(1000 + total).padStart(4, "0")}`;
 }
 
-function getUserId(user: any) {
-  return Number(user?.id || user?.user_id || user?.userId || 0);
+function addOptionalTimestampColumns(
+  columns: string[],
+  insertColumns: string[],
+  placeholders: string[],
+) {
+  if (hasColumn(columns, "created_at")) {
+    insertColumns.push("created_at");
+    placeholders.push("NOW()");
+  }
+
+  if (hasColumn(columns, "updated_at")) {
+    insertColumns.push("updated_at");
+    placeholders.push("NOW()");
+  }
+}
+
+function buildRegistrationInsertPayload(input: {
+  columns: string[];
+  eventId: string;
+  userId: number;
+  participantNumber: string;
+}) {
+  const insertColumns: string[] = [];
+  const values: any[] = [];
+  const placeholders: string[] = [];
+
+  appendInsertValue(
+    input.columns,
+    insertColumns,
+    values,
+    placeholders,
+    "event_id",
+    input.eventId,
+  );
+
+  appendInsertValue(
+    input.columns,
+    insertColumns,
+    values,
+    placeholders,
+    "user_id",
+    input.userId,
+  );
+
+  const numberColumn = pickColumn(input.columns, [
+    "participant_number",
+    "registration_number",
+    "bib_number",
+    "bib",
+    "number",
+    "nomor_peserta",
+  ]);
+
+  if (numberColumn) {
+    appendInsertValue(
+      input.columns,
+      insertColumns,
+      values,
+      placeholders,
+      numberColumn,
+      input.participantNumber,
+    );
+  }
+
+  const statusColumn = pickColumn(input.columns, [
+    "status",
+    "registration_status",
+    "join_status",
+  ]);
+
+  if (statusColumn) {
+    appendInsertValue(
+      input.columns,
+      insertColumns,
+      values,
+      placeholders,
+      statusColumn,
+      "registered",
+    );
+  }
+
+  appendInsertValue(
+    input.columns,
+    insertColumns,
+    values,
+    placeholders,
+    "notes",
+    "Daftar melalui halaman public event AMOST.",
+  );
+
+  addOptionalTimestampColumns(input.columns, insertColumns, placeholders);
+
+  return {
+    insertColumns,
+    values,
+    placeholders,
+  };
 }
 
 export async function POST(request: NextRequest, context: any) {
@@ -149,62 +265,20 @@ export async function POST(request: NextRequest, context: any) {
     const columns = await getColumns("event_registrations");
     const participantNumber = await createParticipantNumber(eventId);
 
-    const insertColumns: string[] = [];
-    const values: any[] = [];
-    const placeholders: string[] = [];
-
-    function addValue(columnName: string, value: any) {
-      if (!hasColumn(columns, columnName)) return;
-      insertColumns.push(columnName);
-      values.push(value);
-      placeholders.push(`$${values.length}`);
-    }
-
-    addValue("event_id", eventId);
-    addValue("user_id", userId);
-
-    const numberColumn = pickColumn(columns, [
-      "participant_number",
-      "registration_number",
-      "bib_number",
-      "bib",
-      "number",
-      "nomor_peserta",
-    ]);
-
-    if (numberColumn) {
-      addValue(numberColumn, participantNumber);
-    }
-
-    const statusColumn = pickColumn(columns, [
-      "status",
-      "registration_status",
-      "join_status",
-    ]);
-
-    if (statusColumn) {
-      addValue(statusColumn, "registered");
-    }
-
-    addValue("notes", "Daftar melalui halaman public event AMOST.");
-
-    if (hasColumn(columns, "created_at")) {
-      insertColumns.push("created_at");
-      placeholders.push("NOW()");
-    }
-
-    if (hasColumn(columns, "updated_at")) {
-      insertColumns.push("updated_at");
-      placeholders.push("NOW()");
-    }
+    const payload = buildRegistrationInsertPayload({
+      columns,
+      eventId,
+      userId,
+      participantNumber,
+    });
 
     const result = await dbQuery(
       `
-        INSERT INTO event_registrations (${insertColumns.join(", ")})
-        VALUES (${placeholders.join(", ")})
+        INSERT INTO event_registrations (${payload.insertColumns.join(", ")})
+        VALUES (${payload.placeholders.join(", ")})
         RETURNING *
       `,
-      values,
+      payload.values,
     );
 
     let feedPost: any = null;
