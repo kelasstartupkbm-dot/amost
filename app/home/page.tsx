@@ -342,6 +342,43 @@ function buildFeedPosts(
   return posts;
 }
 
+const REQUEST_TIMEOUT_MS = 8000;
+
+async function fetchJsonWithTimeout(
+  url: string,
+  init: RequestInit = {},
+  timeoutMs = REQUEST_TIMEOUT_MS,
+) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      ...init,
+      cache: "no-store",
+      credentials: "include",
+      signal: controller.signal,
+    });
+
+    const data = await response.json().catch(() => null);
+
+    return {
+      response,
+      data,
+    };
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
+function getFetchErrorMessage(error: unknown) {
+  if (error instanceof DOMException && error.name === "AbortError") {
+    return "Server terlalu lama merespons. Silakan refresh halaman.";
+  }
+
+  return "Koneksi ke server bermasalah. Silakan refresh halaman.";
+}
+
 export default function HomePage() {
   const router = useRouter();
 
@@ -349,6 +386,7 @@ export default function HomePage() {
   const [officialAccess, setOfficialAccess] = useState<OfficialAccess[]>([]);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<AccountTab>("feed");
@@ -366,13 +404,12 @@ export default function HomePage() {
       setLoading(true);
     }
 
-    try {
-      const response = await fetch("/api/auth/me", {
-        method: "GET",
-        cache: "no-store",
-      });
+    setLoadError("");
 
-      const data = await response.json().catch(() => null);
+    try {
+      const { response, data } = await fetchJsonWithTimeout("/api/auth/me", {
+        method: "GET",
+      });
 
       if (!response.ok || !data?.ok || !data?.user) {
         router.replace("/login");
@@ -382,12 +419,14 @@ export default function HomePage() {
       setUser(data.user);
 
       try {
-        const officialResponse = await fetch("/api/account/event-officials", {
-          method: "GET",
-          cache: "no-store",
-        });
-
-        const officialData = await officialResponse.json().catch(() => null);
+        const { response: officialResponse, data: officialData } =
+          await fetchJsonWithTimeout(
+            "/api/account/event-officials",
+            {
+              method: "GET",
+            },
+            6000,
+          );
 
         if (officialResponse.ok && officialData?.ok) {
           const rows = Array.isArray(officialData.data)
@@ -406,12 +445,14 @@ export default function HomePage() {
       }
 
       try {
-        const eventsResponse = await fetch("/api/events", {
-          method: "GET",
-          cache: "no-store",
-        });
-
-        const eventsData = await eventsResponse.json().catch(() => null);
+        const { response: eventsResponse, data: eventsData } =
+          await fetchJsonWithTimeout(
+            "/api/events",
+            {
+              method: "GET",
+            },
+            6000,
+          );
 
         if (eventsResponse.ok && eventsData?.ok !== false) {
           const rows = Array.isArray(eventsData?.events)
@@ -432,7 +473,12 @@ export default function HomePage() {
       }
     } catch (error) {
       console.error(error);
-      router.replace("/login");
+
+      if (silent) {
+        setLoadError(getFetchErrorMessage(error));
+      } else {
+        setLoadError(getFetchErrorMessage(error));
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -504,6 +550,35 @@ export default function HomePage() {
           <p className="mt-2 text-sm text-slate-500">
             Mengambil timeline AMOST.
           </p>
+          <p className="mt-3 text-xs font-bold text-slate-400">
+            Maksimal menunggu {REQUEST_TIMEOUT_MS / 1000} detik.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  if (loadError && !user) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-50 p-4 text-slate-950">
+        <div className="w-full max-w-md rounded-3xl border border-red-200 bg-white p-8 text-center shadow-sm">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-red-600">
+            <RefreshCw size={28} />
+          </div>
+          <p className="text-lg font-black text-slate-950">
+            Home belum bisa dimuat.
+          </p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
+            {loadError}
+          </p>
+          <button
+            type="button"
+            onClick={() => loadAccount()}
+            className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-purple-700 px-5 text-sm font-black text-white hover:bg-purple-800"
+          >
+            <RefreshCw size={17} />
+            Muat Ulang
+          </button>
         </div>
       </main>
     );
@@ -545,6 +620,11 @@ export default function HomePage() {
         />
 
         <section className="grid min-h-[calc(100vh-88px)] grid-cols-1 gap-5 p-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+          {loadError ? (
+            <div className="xl:col-span-2 rounded-2xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm font-black text-yellow-800">
+              {loadError}
+            </div>
+          ) : null}
           <section className="space-y-5">
             {activeTab === "feed" ? <CommunityFeedPanel /> : null}
 
