@@ -264,7 +264,7 @@ export default function AccountTrackingMockupPage() {
   }
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#f7f8fb] text-slate-950">
+    <main className="min-h-screen overflow-x-hidden bg-[#f7f8fb] text-slate-950">
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-[260px] border-r border-slate-200 bg-white/95 shadow-[0_0_40px_rgba(15,23,42,0.04)] backdrop-blur-xl lg:block">
         <div className="flex h-[92px] items-center px-8">
           <Link href="/home" className="inline-flex items-center">
@@ -334,9 +334,9 @@ export default function AccountTrackingMockupPage() {
         </div>
       </aside>
 
-      <section className="min-h-screen lg:pl-[260px]">
+      <section className="min-h-screen lg:ml-[260px]">
         <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/92 backdrop-blur-xl">
-          <div className="flex min-h-[92px] items-center justify-between gap-4 px-5 lg:px-8">
+          <div className="flex min-h-[92px] min-w-0 items-center justify-between gap-4 px-5 lg:px-8">
             <div className="flex items-center gap-4">
               <Link
                 href="/home"
@@ -386,7 +386,7 @@ export default function AccountTrackingMockupPage() {
           </div>
         </header>
 
-        <section className="relative h-[calc(100vh-92px)] min-h-[640px] overflow-hidden">
+        <section className="relative h-[calc(100vh-92px)] min-h-[640px] overflow-hidden overscroll-contain">
           <div className="absolute inset-0 bg-[#eef2f0]">
             <div className="absolute inset-0 opacity-[0.72] [background-image:radial-gradient(circle_at_20%_20%,rgba(148,163,184,0.28)_0,transparent_30%),radial-gradient(circle_at_70%_10%,rgba(34,197,94,0.18)_0,transparent_28%),linear-gradient(to_right,rgba(15,23,42,0.06)_1px,transparent_1px),linear-gradient(to_bottom,rgba(15,23,42,0.05)_1px,transparent_1px)] [background-size:100%_100%,100%_100%,56px_56px,56px_56px]" />
             <div className="absolute inset-0 opacity-25 [background-image:repeating-radial-gradient(ellipse_at_center,rgba(15,23,42,0.18)_0_1px,transparent_1px_18px)]" />
@@ -541,7 +541,7 @@ export default function AccountTrackingMockupPage() {
             </div>
           </div>
 
-          <section className="absolute bottom-0 right-0 top-0 z-10 hidden w-[360px] overflow-y-auto border-l border-slate-200 bg-white/80 p-5 backdrop-blur-xl xl:block">
+          <section className="absolute bottom-0 right-0 top-0 z-10 hidden w-[360px] max-w-[360px] overflow-y-auto border-l border-slate-200 bg-white/80 p-5 backdrop-blur-xl xl:block">
             <StatsCard />
             <ProgressCard participantCount={participantCount} quota={quota} />
             <ElevationCard />
