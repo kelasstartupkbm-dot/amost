@@ -17,6 +17,8 @@ import {
 type PublicEvent = {
   id: number | string;
   title?: string | null;
+  name?: string | null;
+  event_title?: string | null;
 };
 
 type DoorprizeWinner = {
@@ -49,7 +51,14 @@ function formatDate(value: string | null | undefined) {
   });
 }
 
-export default function EventDoorprizePage() {
+function getEventTitle(event: PublicEvent | null, eventId: string) {
+  return (
+    String(event?.title || event?.event_title || event?.name || "").trim() ||
+    `Event #${eventId}`
+  );
+}
+
+export default function EventDoorprizeLoggedInPage() {
   const params = useParams();
   const router = useRouter();
   const eventId = String(params?.id || "");
@@ -74,7 +83,6 @@ export default function EventDoorprizePage() {
     }
 
     setErrorMessage("");
-    setDrawMessage("");
 
     try {
       const response = await fetch(`/api/events/${eventId}/doorprize`, {
@@ -121,9 +129,7 @@ export default function EventDoorprizePage() {
   }
 
   async function drawDoorprize() {
-    const confirmed = window.confirm(
-      "Yakin ingin mengundi doorprize dari peserta eligible?",
-    );
+    const confirmed = window.confirm("Yakin ingin mengundi doorprize dari peserta eligible?");
 
     if (!confirmed) return;
 
@@ -170,10 +176,12 @@ export default function EventDoorprizePage() {
   }
 
   useEffect(() => {
-    loadData();
+    if (eventId) {
+      loadData();
+    }
   }, [eventId]);
 
-  const title = event?.title || `Event #${eventId}`;
+  const title = getEventTitle(event, eventId);
   const latestWinner = winners[0] || null;
 
   const rightPanel = (
@@ -185,8 +193,8 @@ export default function EventDoorprizePage() {
 
       <div className="mt-4 grid grid-cols-2 gap-3">
         <div className="rounded-2xl bg-slate-50 p-4">
-          <p className="text-xs font-black uppercase text-slate-400">Peserta</p>
-          <p className="mt-1 text-2xl font-black text-slate-950">{participantTotal}</p>
+          <p className="text-xs font-black uppercase text-slate-400">Eligible</p>
+          <p className="mt-1 text-2xl font-black text-slate-950">{eligibleTotal}</p>
         </div>
         <div className="rounded-2xl bg-slate-50 p-4">
           <p className="text-xs font-black uppercase text-slate-400">Pemenang</p>
@@ -214,6 +222,10 @@ export default function EventDoorprizePage() {
       rightPanel={rightPanel}
     >
       <section className="rounded-[2rem] border border-slate-900/10 bg-slate-950 p-5 text-white shadow-sm lg:p-8">
+        <div className="mb-4 rounded-2xl border border-green-400/20 bg-green-400/10 px-4 py-3 text-xs font-black uppercase tracking-[0.18em] text-green-300">
+          Account Layout Active · Doorprize
+        </div>
+
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Link
             href={`/events/${eventId}`}
@@ -253,17 +265,13 @@ export default function EventDoorprizePage() {
               <div className="rounded-3xl border border-white/10 bg-white/10 p-6">
                 <UsersRound className="h-9 w-9 text-green-400" />
                 <p className="mt-5 text-4xl font-black">{eligibleTotal}</p>
-                <p className="mt-1 text-sm font-bold text-slate-300">
-                  Eligible
-                </p>
+                <p className="mt-1 text-sm font-bold text-slate-300">Eligible</p>
               </div>
 
               <div className="rounded-3xl border border-white/10 bg-white/10 p-6">
                 <Trophy className="h-9 w-9 text-yellow-300" />
                 <p className="mt-5 text-4xl font-black">{winners.length}</p>
-                <p className="mt-1 text-sm font-bold text-slate-300">
-                  Pemenang
-                </p>
+                <p className="mt-1 text-sm font-bold text-slate-300">Pemenang</p>
               </div>
             </div>
           </div>
@@ -299,15 +307,12 @@ export default function EventDoorprizePage() {
                       {latestWinner.full_name || "Tanpa Nama"}
                     </p>
                     <p className="mt-2 text-base font-bold text-slate-300">
-                      {latestWinner.prize_name || "Doorprize"} •{" "}
-                      {formatDate(latestWinner.drawn_at)}
+                      {latestWinner.prize_name || "Doorprize"} • {formatDate(latestWinner.drawn_at)}
                     </p>
                   </div>
                 ) : (
                   <div className="mt-8 rounded-3xl border border-white/10 bg-white/5 p-8 text-center">
-                    <p className="text-2xl font-black text-white">
-                      Belum Ada Pemenang
-                    </p>
+                    <p className="text-2xl font-black text-white">Belum Ada Pemenang</p>
                     <p className="mt-2 text-sm text-slate-300">
                       Doorprize belum diundi untuk event ini.
                     </p>
@@ -320,9 +325,7 @@ export default function EventDoorprizePage() {
                   <p className="text-sm font-black uppercase tracking-wide text-green-300">
                     Panel Official
                   </p>
-                  <h3 className="mt-2 text-2xl font-black">
-                    Jalankan Undian
-                  </h3>
+                  <h3 className="mt-2 text-2xl font-black">Jalankan Undian</h3>
 
                   <label className="mt-5 block text-xs font-black uppercase text-slate-300">
                     Nama Hadiah
@@ -350,11 +353,7 @@ export default function EventDoorprizePage() {
                     onClick={drawDoorprize}
                     className="mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-green-500 px-4 text-base font-black text-slate-950 hover:bg-green-400 disabled:cursor-not-allowed disabled:bg-slate-600 disabled:text-slate-300"
                   >
-                    {drawLoading ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                    ) : (
-                      <Sparkles size={20} />
-                    )}
+                    {drawLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles size={20} />}
                     {drawLoading ? "Mengundi..." : "Undi Doorprize"}
                   </button>
 
@@ -367,9 +366,7 @@ export default function EventDoorprizePage() {
               ) : (
                 <div className="rounded-[2rem] border border-white/10 bg-white/5 p-6">
                   <Gift className="h-12 w-12 text-green-400" />
-                  <h3 className="mt-5 text-2xl font-black">
-                    Mode Peserta
-                  </h3>
+                  <h3 className="mt-5 text-2xl font-black">Mode Peserta</h3>
                   <p className="mt-2 text-sm leading-6 text-slate-300">
                     Kamu bisa melihat hasil doorprize. Undian dijalankan oleh Official Event.
                   </p>
@@ -378,9 +375,7 @@ export default function EventDoorprizePage() {
             </section>
 
             <section className="mt-6 rounded-[2rem] border border-white/10 bg-white/5 p-6">
-              <h3 className="text-2xl font-black text-white">
-                Riwayat Pemenang
-              </h3>
+              <h3 className="text-2xl font-black text-white">Riwayat Pemenang</h3>
 
               {winners.length === 0 ? (
                 <div className="mt-5 rounded-3xl border border-white/10 bg-white/5 p-8 text-center text-slate-300">
@@ -402,10 +397,7 @@ export default function EventDoorprizePage() {
 
                     <tbody>
                       {winners.map((winner) => (
-                        <tr
-                          key={String(winner.id)}
-                          className="rounded-2xl bg-white/10 text-sm"
-                        >
+                        <tr key={String(winner.id)} className="rounded-2xl bg-white/10 text-sm">
                           <td className="rounded-l-2xl px-4 py-4 font-black text-green-300">
                             {winner.participant_number || "-"}
                           </td>

@@ -1,8 +1,9 @@
 "use client";
 
+import AccountAppShell from "../../../components/AccountAppShell";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
   ArrowLeft,
@@ -16,6 +17,8 @@ import {
 type PublicEvent = {
   id: number | string;
   title?: string | null;
+  event_title?: string | null;
+  name?: string | null;
 };
 
 type EventResult = {
@@ -69,21 +72,8 @@ function formatDuration(value: number | string | null | undefined) {
   const minutes = Math.floor((seconds % 3600) / 60);
   const remainingSeconds = Math.floor(seconds % 60);
 
-  if (hours > 0) {
-    if (remainingSeconds > 0) {
-      return `${hours} jam ${minutes} menit ${remainingSeconds} detik`;
-    }
-
-    return `${hours} jam ${minutes} menit`;
-  }
-
-  if (minutes > 0) {
-    if (remainingSeconds > 0) {
-      return `${minutes} menit ${remainingSeconds} detik`;
-    }
-
-    return `${minutes} menit`;
-  }
+  if (hours > 0) return `${hours} jam ${minutes} menit`;
+  if (minutes > 0) return `${minutes} menit ${remainingSeconds > 0 ? `${remainingSeconds} detik` : ""}`.trim();
 
   return `${remainingSeconds} detik`;
 }
@@ -99,7 +89,14 @@ function getBadgeClass(status: string | null | undefined) {
   return "bg-purple-50 text-purple-700";
 }
 
-export default function PublicEventResultsPage() {
+function getEventTitle(event: PublicEvent | null, eventId: string) {
+  return (
+    String(event?.title || event?.event_title || event?.name || "").trim() ||
+    `Event #${eventId}`
+  );
+}
+
+export default function EventResultsLoggedInPage() {
   const params = useParams();
   const router = useRouter();
   const eventId = String(params?.id || "");
@@ -109,16 +106,24 @@ export default function PublicEventResultsPage() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
-  async function loadData() {
-    setLoading(true);
+  async function loadData(silent = false) {
+    if (!silent) {
+      setLoading(true);
+    }
+
     setErrorMessage("");
 
     try {
       const [eventResponse, resultsResponse] = await Promise.all([
-        fetch(`/api/events/${eventId}`, { method: "GET", cache: "no-store" }),
+        fetch(`/api/events/${eventId}`, {
+          method: "GET",
+          cache: "no-store",
+          credentials: "include",
+        }),
         fetch(`/api/events/${eventId}/results`, {
           method: "GET",
           cache: "no-store",
+          credentials: "include",
         }),
       ]);
 
@@ -130,17 +135,13 @@ export default function PublicEventResultsPage() {
       }
 
       if (resultsResponse.status === 401) {
-        router.push(`/login?next=/events/${eventId}/results`);
+        router.replace(`/login?next=/events/${eventId}/results`);
         return;
       }
 
       if (!resultsResponse.ok || resultsData?.ok === false) {
         setResults([]);
-        setErrorMessage(
-          resultsData?.message ||
-            resultsData?.error ||
-            "Results belum bisa dimuat."
-        );
+        setErrorMessage(resultsData?.message || resultsData?.error || "Results belum bisa dimuat.");
         return;
       }
 
@@ -161,83 +162,137 @@ export default function PublicEventResultsPage() {
   }
 
   useEffect(() => {
-    loadData();
+    if (eventId) {
+      loadData();
+    }
   }, [eventId]);
 
-  const title = event?.title || `Event #${eventId}`;
+  const title = getEventTitle(event, eventId);
+
+  const stats = useMemo(() => {
+    const finishCount = results.filter(
+      (item) => String(item.result_status || "").toUpperCase() === "FINISH",
+    ).length;
+
+    const totalDistance = results.reduce((sum, item) => {
+      const value = Number(item.distance || 0);
+      return Number.isFinite(value) ? sum + value : sum;
+    }, 0);
+
+    const avgSpeedRows = results
+      .map((item) => Number(item.avg_speed || 0))
+      .filter((value) => Number.isFinite(value) && value > 0);
+
+    const avgSpeed =
+      avgSpeedRows.length > 0
+        ? avgSpeedRows.reduce((sum, value) => sum + value, 0) / avgSpeedRows.length
+        : 0;
+
+    return {
+      total: results.length,
+      finishCount,
+      totalDistance,
+      avgSpeed,
+    };
+  }, [results]);
+
+  const rightPanel = (
+    <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-lg font-black text-slate-950">Results</h3>
+        <Trophy className="text-purple-700" size={22} />
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="rounded-2xl bg-slate-50 p-4">
+          <p className="text-xs font-black uppercase text-slate-400">Peserta</p>
+          <p className="mt-1 text-2xl font-black text-slate-950">{stats.total}</p>
+        </div>
+        <div className="rounded-2xl bg-slate-50 p-4">
+          <p className="text-xs font-black uppercase text-slate-400">Finish</p>
+          <p className="mt-1 text-2xl font-black text-slate-950">{stats.finishCount}</p>
+        </div>
+      </div>
+
+      <Link
+        href={`/events/${eventId}`}
+        className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm font-black text-slate-700 hover:bg-slate-50"
+      >
+        <ArrowLeft size={17} />
+        Detail Event
+      </Link>
+    </section>
+  );
 
   return (
-    <main className="min-h-[calc(100vh-92px)] bg-slate-50 text-slate-950">
+    <AccountAppShell
+      active="events"
+      title="Results Event"
+      eyebrow="AMOST RESULTS"
+      description={`Hasil peserta event ${title}.`}
+      icon={Trophy}
+      rightPanel={rightPanel}
+    >
+      <section className="space-y-5">
+        <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="mb-4 rounded-2xl bg-purple-50 px-4 py-3 text-xs font-black uppercase tracking-[0.18em] text-purple-700">
+            Account Layout Active · Results
+          </div>
 
-      <section className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-[88px]">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <Link
-            href={`/events/${eventId}`}
-            className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50"
-          >
-            <ArrowLeft size={18} />
-            Detail Event
-          </Link>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Link
+              href={`/events/${eventId}`}
+              className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50"
+            >
+              <ArrowLeft size={18} />
+              Detail Event
+            </Link>
 
-          <button
-            type="button"
-            onClick={loadData}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50"
-          >
-            <RefreshCw size={17} />
-            Refresh
-          </button>
-        </div>
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:p-8">
-          <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-100 text-purple-700">
-              <Trophy size={30} />
-            </div>
-
-            <div>
-              <p className="text-sm font-black uppercase tracking-wide text-purple-700">
-                Results
-              </p>
-              <h2 className="mt-1 text-3xl font-black text-slate-950">
-                Hasil Tracking Event
-              </h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Hanya peserta terdaftar, official, Staff AMOST, dan Super Admin yang bisa mengakses.
-              </p>
-            </div>
+            <button
+              type="button"
+              onClick={() => loadData(true)}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50"
+            >
+              <RefreshCw size={17} />
+              Refresh
+            </button>
           </div>
         </section>
 
-        <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <StatCard icon={Trophy} label="Total Result" value={String(stats.total)} />
+          <StatCard icon={Activity} label="Total Jarak" value={`${stats.totalDistance.toFixed(2)} KM`} />
+          <StatCard icon={Gauge} label="Rata-rata Speed" value={stats.avgSpeed > 0 ? `${stats.avgSpeed.toFixed(2)} km/jam` : "-"} />
+        </section>
+
+        <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
           {loading ? (
-            <div className="flex min-h-[260px] flex-col items-center justify-center text-center">
-              <Loader2 className="h-10 w-10 animate-spin text-purple-700" />
-              <p className="mt-4 text-lg font-black">Memuat results...</p>
+            <div className="flex min-h-[240px] flex-col items-center justify-center text-center">
+              <Loader2 className="h-12 w-12 animate-spin text-purple-700" />
+              <p className="mt-4 text-xl font-black text-slate-950">Memuat results...</p>
             </div>
           ) : errorMessage ? (
-            <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm font-bold text-red-700">
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm font-black text-red-700">
               {errorMessage}
             </div>
           ) : results.length === 0 ? (
-            <div className="flex min-h-[260px] flex-col items-center justify-center text-center">
-              <Activity className="h-12 w-12 text-slate-300" />
-              <h3 className="mt-4 text-2xl font-black text-slate-950">
-                Belum Ada Results
-              </h3>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center">
+              <Trophy className="mx-auto h-12 w-12 text-slate-300" />
+              <h2 className="mt-4 text-2xl font-black text-slate-950">Belum Ada Results</h2>
               <p className="mt-2 text-sm text-slate-500">
-                Belum ada hasil tracking untuk event ini.
+                Hasil event akan muncul setelah peserta menyelesaikan tracking.
               </p>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px] border-separate border-spacing-y-3 text-left">
+              <table className="w-full min-w-[920px] border-separate border-spacing-y-3 text-left">
                 <thead>
-                  <tr className="text-xs font-black uppercase tracking-wide text-slate-500">
+                  <tr className="text-xs font-black uppercase tracking-wide text-slate-400">
                     <th className="px-4 py-2">Nomor</th>
                     <th className="px-4 py-2">Peserta</th>
-                    <th className="px-4 py-2">Distance</th>
-                    <th className="px-4 py-2">Duration</th>
-                    <th className="px-4 py-2">Avg Speed</th>
+                    <th className="px-4 py-2">Jarak</th>
+                    <th className="px-4 py-2">Durasi</th>
+                    <th className="px-4 py-2">Speed</th>
                     <th className="px-4 py-2">Status</th>
                     <th className="px-4 py-2">Submit</th>
                   </tr>
@@ -246,7 +301,7 @@ export default function PublicEventResultsPage() {
                 <tbody>
                   {results.map((item) => (
                     <tr
-                      key={String(item.result_id)}
+                      key={String(item.result_id || `${item.user_id}-${item.event_id}`)}
                       className="rounded-2xl bg-slate-50 text-sm"
                     >
                       <td className="rounded-l-2xl px-4 py-4 font-black text-purple-700">
@@ -261,29 +316,19 @@ export default function PublicEventResultsPage() {
                         </p>
                       </td>
                       <td className="px-4 py-4 font-black text-slate-950">
-                        <span className="inline-flex items-center gap-2">
-                          <Activity size={15} />
-                          {formatDistance(item.distance)}
-                        </span>
+                        {formatDistance(item.distance)}
                       </td>
-                      <td className="px-4 py-4 font-black text-slate-950">
+                      <td className="px-4 py-4 font-semibold text-slate-600">
                         <span className="inline-flex items-center gap-2">
-                          <Timer size={15} />
+                          <Timer size={16} />
                           {formatDuration(item.duration)}
                         </span>
                       </td>
-                      <td className="px-4 py-4 font-black text-slate-950">
-                        <span className="inline-flex items-center gap-2">
-                          <Gauge size={15} />
-                          {formatSpeed(item.avg_speed)}
-                        </span>
+                      <td className="px-4 py-4 font-semibold text-slate-600">
+                        {formatSpeed(item.avg_speed)}
                       </td>
                       <td className="px-4 py-4">
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-black uppercase ${getBadgeClass(
-                            item.result_status
-                          )}`}
-                        >
+                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-black uppercase ${getBadgeClass(item.result_status)}`}>
                           {item.result_status || "REVIEW"}
                         </span>
                       </td>
@@ -298,6 +343,28 @@ export default function PublicEventResultsPage() {
           )}
         </section>
       </section>
-    </main>
+    </AccountAppShell>
+  );
+}
+
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: any;
+  label: string;
+  value: string;
+}) {
+  return (
+    <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 text-purple-700">
+        <Icon size={24} />
+      </div>
+      <p className="mt-5 text-xs font-black uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
+      <p className="mt-2 text-2xl font-black text-slate-950">{value}</p>
+    </section>
   );
 }
