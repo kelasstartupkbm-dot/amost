@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, type ElementType } from "react";
 import { useRouter } from "next/navigation";
 import CommunityFeedPanel from "../components/CommunityFeedPanel";
+import AmostLogoLoader from "../components/AmostLogoLoader";
 import {
   Activity,
   Bell,
@@ -539,22 +540,11 @@ export default function HomePage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-950">
-        <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-purple-100 text-purple-700">
-            <UserRound size={28} />
-          </div>
-          <p className="text-lg font-black text-slate-950">
-            Memuat account feed...
-          </p>
-          <p className="mt-2 text-sm text-slate-500">
-            Mengambil timeline AMOST.
-          </p>
-          <p className="mt-3 text-xs font-bold text-slate-400">
-            Maksimal menunggu {REQUEST_TIMEOUT_MS / 1000} detik.
-          </p>
-        </div>
-      </main>
+      <AmostLogoLoader
+        title="Memuat AMOST Feed..."
+        description="Mengambil timeline, event, dan data akun."
+        timeoutSeconds={REQUEST_TIMEOUT_MS / 1000}
+      />
     );
   }
 

@@ -1,10 +1,10 @@
-
 "use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ArrowLeft, Eye, EyeOff, Lock, Mail } from "lucide-react";
+import AmostLogoLoader from "../components/AmostLogoLoader";
 
 type LoginResponse = {
   ok?: boolean;
@@ -68,6 +68,16 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (loading) {
+    return (
+      <AmostLogoLoader
+        title="Memproses Login AMOST..."
+        description="Memverifikasi akun dan menyiapkan halaman Home."
+        showTimeout={false}
+      />
+    );
   }
 
   return (
