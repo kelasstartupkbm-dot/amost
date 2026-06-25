@@ -19,61 +19,9 @@ import {
 export default function PublicLandingPage() {
   return (
     <main className="min-h-screen bg-white text-slate-950">
-      <header className="sticky top-0 z-50 border-b border-slate-100 bg-white/90 backdrop-blur-xl">
-        <div className="mx-auto flex h-24 max-w-[1440px] items-center justify-between gap-6 px-5 lg:px-10">
-          <Link href="/" className="inline-flex items-center">
-            <img
-              src="/amost_logo_wide_.png"
-              alt="AMOST"
-              className="h-[68px] w-auto object-contain"
-            />
-          </Link>
-
-          <nav className="hidden items-center gap-9 text-sm font-black text-slate-700 lg:flex">
-            <Link href="/" className="text-purple-700">
-              Beranda
-            </Link>
-            <Link href="/events" className="hover:text-purple-700">
-              Events
-            </Link>
-            <a href="#cara-kerja" className="hover:text-purple-700">
-              Cara Kerja
-            </a>
-            <a href="#fitur" className="hover:text-purple-700">
-              Fitur
-            </a>
-            <a href="#komunitas" className="hover:text-purple-700">
-              Komunitas
-            </a>
-            <a href="#tentang" className="hover:text-purple-700">
-              Tentang
-            </a>
-            <a href="#kontak" className="hover:text-purple-700">
-              Kontak
-            </a>
-          </nav>
-
-          <div className="flex items-center gap-3">
-            <Link
-              href="/login"
-              className="hidden h-12 items-center justify-center rounded-xl border border-purple-100 bg-white px-5 text-sm font-black text-purple-700 transition hover:bg-purple-50 sm:inline-flex"
-            >
-              Login
-            </Link>
-            <Link
-              href="/home"
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-purple-700 px-5 text-sm font-black text-white shadow-lg shadow-purple-100 transition hover:bg-purple-800"
-            >
-              Akun Saya
-              <ArrowRight size={17} />
-            </Link>
-          </div>
-        </div>
-      </header>
-
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(126,34,206,0.14),transparent_30%),radial-gradient(circle_at_86%_12%,rgba(34,197,94,0.12),transparent_28%)]" />
-        <div className="mx-auto grid min-h-[calc(100vh-96px)] max-w-[1440px] grid-cols-1 items-center gap-10 px-5 py-14 lg:grid-cols-[1.05fr_0.95fr] lg:px-10 lg:py-20">
+        <div className="mx-auto grid min-h-[calc(100vh-120px)] max-w-[1440px] grid-cols-1 items-center gap-10 px-5 py-14 lg:grid-cols-[1.05fr_0.95fr] lg:px-10 lg:py-20">
           <div className="relative z-10">
             <div className="inline-flex items-center gap-2 rounded-full border border-purple-100 bg-white px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-purple-700 shadow-sm">
               <span className="h-2 w-2 rounded-full bg-green-500" />
