@@ -1,5 +1,6 @@
 "use client";
 
+import AccountAppShell from "../../../components/AccountAppShell";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -48,7 +49,7 @@ function formatDate(value: string | null | undefined) {
   });
 }
 
-export default function PublicEventDoorprizePage() {
+export default function EventDoorprizePage() {
   const params = useParams();
   const router = useRouter();
   const eventId = String(params?.id || "");
@@ -56,6 +57,7 @@ export default function PublicEventDoorprizePage() {
   const [event, setEvent] = useState<PublicEvent | null>(null);
   const [winners, setWinners] = useState<DoorprizeWinner[]>([]);
   const [eligibleTotal, setEligibleTotal] = useState(0);
+  const [participantTotal, setParticipantTotal] = useState(0);
   const [canDraw, setCanDraw] = useState(false);
 
   const [loading, setLoading] = useState(true);
@@ -66,52 +68,52 @@ export default function PublicEventDoorprizePage() {
   const [prizeName, setPrizeName] = useState("Doorprize");
   const [prizeNotes, setPrizeNotes] = useState("");
 
-  async function loadData() {
-    setLoading(true);
+  async function loadData(silent = false) {
+    if (!silent) {
+      setLoading(true);
+    }
+
     setErrorMessage("");
     setDrawMessage("");
 
     try {
-      const [eventResponse, doorprizeResponse] = await Promise.all([
-        fetch(`/api/events/${eventId}`, { method: "GET", cache: "no-store" }),
-        fetch(`/api/events/${eventId}/doorprize`, {
-          method: "GET",
-          cache: "no-store",
-        }),
-      ]);
+      const response = await fetch(`/api/events/${eventId}/doorprize`, {
+        method: "GET",
+        cache: "no-store",
+        credentials: "include",
+      });
 
-      const eventData = await eventResponse.json().catch(() => null);
-      const doorprizeData = await doorprizeResponse.json().catch(() => null);
+      const data = await response.json().catch(() => null);
 
-      if (eventResponse.ok && eventData?.ok !== false) {
-        setEvent(eventData.event || eventData.data || null);
-      }
-
-      if (doorprizeResponse.status === 401) {
-        router.push(`/login?next=/events/${eventId}/doorprize`);
+      if (response.status === 401) {
+        router.replace(`/login?next=/events/${eventId}/doorprize`);
         return;
       }
 
-      if (!doorprizeResponse.ok || doorprizeData?.ok === false) {
+      if (!response.ok || data?.ok === false) {
         setWinners([]);
         setCanDraw(false);
         setEligibleTotal(0);
+        setParticipantTotal(0);
         setErrorMessage(
-          doorprizeData?.message ||
-            doorprizeData?.error ||
-            "Doorprize belum bisa dimuat."
+          data?.message ||
+            data?.error ||
+            "Doorprize belum bisa dimuat.",
         );
         return;
       }
 
-      setWinners(Array.isArray(doorprizeData?.winners) ? doorprizeData.winners : []);
-      setCanDraw(Boolean(doorprizeData?.canDraw));
-      setEligibleTotal(Number(doorprizeData?.eligibleTotal || 0));
+      setEvent(data?.event || null);
+      setWinners(Array.isArray(data?.winners) ? data.winners : []);
+      setCanDraw(Boolean(data?.canDraw));
+      setEligibleTotal(Number(data?.eligibleTotal || 0));
+      setParticipantTotal(Number(data?.participantTotal || 0));
     } catch (error) {
       console.error(error);
       setWinners([]);
       setCanDraw(false);
       setEligibleTotal(0);
+      setParticipantTotal(0);
       setErrorMessage("Koneksi ke server bermasalah.");
     } finally {
       setLoading(false);
@@ -120,7 +122,7 @@ export default function PublicEventDoorprizePage() {
 
   async function drawDoorprize() {
     const confirmed = window.confirm(
-      "Yakin ingin mengundi doorprize dari peserta eligible?"
+      "Yakin ingin mengundi doorprize dari peserta eligible?",
     );
 
     if (!confirmed) return;
@@ -133,6 +135,7 @@ export default function PublicEventDoorprizePage() {
       const response = await fetch(`/api/official/events/${eventId}/doorprize`, {
         method: "POST",
         cache: "no-store",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
@@ -151,13 +154,13 @@ export default function PublicEventDoorprizePage() {
 
       if (data?.winner?.full_name) {
         setDrawMessage(
-          `Pemenang: ${data.winner.participant_number || "-"} - ${data.winner.full_name}`
+          `Pemenang: ${data.winner.participant_number || "-"} - ${data.winner.full_name}`,
         );
       } else {
         setDrawMessage(data?.message || "Doorprize berhasil diundi.");
       }
 
-      await loadData();
+      await loadData(true);
     } catch (error) {
       console.error(error);
       setErrorMessage("Koneksi ke server bermasalah.");
@@ -173,11 +176,45 @@ export default function PublicEventDoorprizePage() {
   const title = event?.title || `Event #${eventId}`;
   const latestWinner = winners[0] || null;
 
-  return (
-    <main className="min-h-[calc(100vh-92px)] bg-slate-950 text-white">
+  const rightPanel = (
+    <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-lg font-black text-slate-950">Doorprize</h3>
+        <Gift className="text-purple-700" size={22} />
+      </div>
 
-      <section className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-[88px]">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="rounded-2xl bg-slate-50 p-4">
+          <p className="text-xs font-black uppercase text-slate-400">Peserta</p>
+          <p className="mt-1 text-2xl font-black text-slate-950">{participantTotal}</p>
+        </div>
+        <div className="rounded-2xl bg-slate-50 p-4">
+          <p className="text-xs font-black uppercase text-slate-400">Pemenang</p>
+          <p className="mt-1 text-2xl font-black text-slate-950">{winners.length}</p>
+        </div>
+      </div>
+
+      <Link
+        href={`/events/${eventId}`}
+        className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm font-black text-slate-700 hover:bg-slate-50"
+      >
+        <ArrowLeft size={17} />
+        Detail Event
+      </Link>
+    </section>
+  );
+
+  return (
+    <AccountAppShell
+      active="events"
+      title="Doorprize Event"
+      eyebrow="AMOST DOORPRIZE"
+      description={`Halaman undian dan riwayat pemenang doorprize untuk ${title}.`}
+      icon={Gift}
+      rightPanel={rightPanel}
+    >
+      <section className="rounded-[2rem] border border-slate-900/10 bg-slate-950 p-5 text-white shadow-sm lg:p-8">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <Link
             href={`/events/${eventId}`}
             className="inline-flex h-11 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-black text-white hover:bg-white/10"
@@ -188,21 +225,22 @@ export default function PublicEventDoorprizePage() {
 
           <button
             type="button"
-            onClick={loadData}
+            onClick={() => loadData(true)}
             className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-black text-white hover:bg-white/10"
           >
             <RefreshCw size={17} />
             Refresh
           </button>
         </div>
-        <section className="rounded-[2rem] border border-white/10 bg-gradient-to-br from-green-500/20 via-slate-900 to-purple-600/20 p-6 shadow-2xl lg:p-10">
+
+        <section className="mt-6 rounded-[2rem] border border-white/10 bg-gradient-to-br from-green-500/20 via-slate-900 to-purple-600/20 p-6 shadow-2xl lg:p-10">
           <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-sm font-black uppercase tracking-[0.28em] text-green-400">
                 AMOST Doorprize
               </p>
 
-              <h2 className="mt-4 text-5xl font-black leading-tight text-white lg:text-7xl">
+              <h2 className="mt-4 text-4xl font-black leading-tight text-white lg:text-6xl">
                 Undian Doorprize
               </h2>
 
@@ -211,7 +249,7 @@ export default function PublicEventDoorprizePage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 lg:min-w-[380px]">
+            <div className="grid grid-cols-2 gap-4 lg:min-w-[360px]">
               <div className="rounded-3xl border border-white/10 bg-white/10 p-6">
                 <UsersRound className="h-9 w-9 text-green-400" />
                 <p className="mt-5 text-4xl font-black">{eligibleTotal}</p>
@@ -232,7 +270,7 @@ export default function PublicEventDoorprizePage() {
         </section>
 
         {loading ? (
-          <section className="mt-6 flex min-h-[360px] flex-col items-center justify-center rounded-[2rem] border border-white/10 bg-white/5 text-center">
+          <section className="mt-6 flex min-h-[300px] flex-col items-center justify-center rounded-[2rem] border border-white/10 bg-white/5 text-center">
             <Loader2 className="h-12 w-12 animate-spin text-green-400" />
             <p className="mt-4 text-xl font-black">Memuat doorprize...</p>
           </section>
@@ -401,6 +439,6 @@ export default function PublicEventDoorprizePage() {
           </>
         )}
       </section>
-    </main>
+    </AccountAppShell>
   );
 }
