@@ -1,131 +1,54 @@
 import { NextRequest, NextResponse } from "next/server";
 import { dbQuery } from "../../../../lib/amostDb";
-import { getCurrentAmostUser, jsonError } from "../../../../lib/amostServerAuth";
+import { getCurrentAmostUser } from "../../../../lib/amostServerAuth";
+import { createEventJoinFeedPost } from "../../../../lib/communityFeedAutoPost";
 
 export const dynamic = "force-dynamic";
 
-type ColumnInfo = {
-  column_name: string;
-  data_type: string;
-  is_nullable: string;
-  column_default: string | null;
-};
-
 function toPositiveBigInt(value: unknown) {
   const clean = String(value || "").trim();
-
-  if (!/^\d+$/.test(clean)) {
-    return null;
-  }
-
-  return clean;
+  return /^\d+$/.test(clean) ? clean : null;
 }
 
-function hasColumn(columns: ColumnInfo[], columnName: string) {
-  return columns.some((column) => column.column_name === columnName);
+function hasColumn(columns: string[], columnName: string) {
+  return columns.includes(columnName);
 }
 
-function findColumn(columns: ColumnInfo[], candidates: string[]) {
-  return (
-    candidates.find((candidate) =>
-      columns.some((column) => column.column_name === candidate)
-    ) || null
-  );
+function pickColumn(columns: string[], candidates: string[]) {
+  return candidates.find((column) => hasColumn(columns, column)) || null;
 }
 
-function getColumnType(columns: ColumnInfo[], columnName: string) {
-  return (
-    columns.find((column) => column.column_name === columnName)?.data_type || ""
-  ).toLowerCase();
-}
-
-function isNumericType(dataType: string) {
-  return [
-    "smallint",
-    "integer",
-    "bigint",
-    "numeric",
-    "real",
-    "double precision",
-  ].includes(dataType);
-}
-
-function createParticipantNumber(
-  columns: ColumnInfo[],
-  columnName: string,
-  eventId: string,
-  userId: number,
-  sequence: number
-) {
-  const dataType = getColumnType(columns, columnName);
-
-  if (isNumericType(dataType)) {
-    return sequence;
-  }
-
-  const padded = String(sequence).padStart(4, "0");
-  return `A-${padded}`;
-}
-
-function pushInsertValue(
-  insertColumns: string[],
-  placeholders: string[],
-  values: unknown[],
-  columnName: string,
-  value: unknown
-) {
-  insertColumns.push(columnName);
-  values.push(value);
-  placeholders.push(`$${values.length}`);
-}
-
-async function getTableColumns(tableName: string) {
+async function getColumns(tableName: string) {
   const result = await dbQuery(
     `
-      SELECT
-        column_name,
-        data_type,
-        is_nullable,
-        column_default
+      SELECT column_name
       FROM information_schema.columns
       WHERE table_schema = 'public'
         AND table_name = $1
       ORDER BY ordinal_position
     `,
-    [tableName]
+    [tableName],
   );
 
-  return result.rows.map((row: any) => ({
-    column_name: String(row.column_name),
-    data_type: String(row.data_type),
-    is_nullable: String(row.is_nullable),
-    column_default: row.column_default ? String(row.column_default) : null,
-  })) as ColumnInfo[];
+  return result.rows.map((row: any) => String(row.column_name));
 }
 
 async function ensureEventRegistrationsTable() {
-  const columns = await getTableColumns("event_registrations");
-
-  if (columns.length > 0) {
-    return columns;
-  }
-
   await dbQuery(
     `
       CREATE TABLE IF NOT EXISTS event_registrations (
         id BIGSERIAL PRIMARY KEY,
-        event_id BIGINT NOT NULL,
-        user_id BIGINT NOT NULL,
+        event_id BIGINT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+        user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         participant_number VARCHAR(50),
         status VARCHAR(30) NOT NULL DEFAULT 'registered',
+        notes TEXT,
         created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
         updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
-        CONSTRAINT event_registrations_unique_event_user UNIQUE (event_id, user_id)
+        UNIQUE(event_id, user_id)
       )
-    `
+    `,
   );
-
-  return getTableColumns("event_registrations");
 }
 
 async function eventExists(eventId: string) {
@@ -136,7 +59,7 @@ async function eventExists(eventId: string) {
       WHERE id = $1
       LIMIT 1
     `,
-    [eventId]
+    [eventId],
   );
 
   return result.rows.length > 0;
@@ -151,100 +74,96 @@ async function getExistingRegistration(eventId: string, userId: number) {
         AND user_id = $2
       LIMIT 1
     `,
-    [eventId, userId]
+    [eventId, userId],
   );
 
   return result.rows[0] || null;
 }
 
-async function getNextParticipantSequence(eventId: string) {
+async function createParticipantNumber(eventId: string) {
   const result = await dbQuery(
     `
       SELECT COUNT(*)::int AS total
       FROM event_registrations
       WHERE event_id = $1
     `,
-    [eventId]
+    [eventId],
   );
 
-  const total = Number(result.rows[0]?.total || 0);
-  return total + 1;
+  const total = Number(result.rows[0]?.total || 0) + 1;
+  return `A-${String(1000 + total).padStart(4, "0")}`;
+}
+
+function getUserId(user: any) {
+  return Number(user?.id || user?.user_id || user?.userId || 0);
 }
 
 export async function POST(request: NextRequest, context: any) {
   try {
-    const params = await context.params;
+    const params = await Promise.resolve(context.params);
     const eventId = toPositiveBigInt(params?.id);
 
     if (!eventId) {
-      return jsonError("ID event tidak valid.", 400, {
-        code: "INVALID_EVENT_ID",
-      });
+      return NextResponse.json(
+        { ok: false, message: "ID event tidak valid." },
+        { status: 400 },
+      );
     }
 
     const user = await getCurrentAmostUser(request);
+    const userId = getUserId(user);
 
-    if (!user) {
-      return jsonError("Silakan login terlebih dahulu.", 401, {
-        code: "UNAUTHORIZED",
-      });
+    if (!user || !userId) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "Silakan login untuk daftar event.",
+          code: "UNAUTHORIZED",
+        },
+        { status: 401 },
+      );
     }
 
     const exists = await eventExists(eventId);
 
     if (!exists) {
-      return jsonError("Event tidak ditemukan.", 404, {
-        code: "EVENT_NOT_FOUND",
-      });
-    }
-
-    const columns = await ensureEventRegistrationsTable();
-
-    if (!hasColumn(columns, "event_id") || !hasColumn(columns, "user_id")) {
-      return jsonError(
-        "Struktur tabel event_registrations belum valid. Kolom event_id dan user_id wajib ada.",
-        500,
-        {
-          code: "INVALID_REGISTRATION_TABLE",
-        }
+      return NextResponse.json(
+        { ok: false, message: "Event tidak ditemukan." },
+        { status: 404 },
       );
     }
 
-    const existing = await getExistingRegistration(eventId, Number(user.id));
+    await ensureEventRegistrationsTable();
+
+    const existing = await getExistingRegistration(eventId, userId);
 
     if (existing) {
       return NextResponse.json({
         ok: true,
         alreadyRegistered: true,
+        registration: existing,
         message: "Kamu sudah terdaftar pada event ini.",
-        data: existing,
       });
     }
 
+    const columns = await getColumns("event_registrations");
+    const participantNumber = await createParticipantNumber(eventId);
+
     const insertColumns: string[] = [];
+    const values: any[] = [];
     const placeholders: string[] = [];
-    const values: unknown[] = [];
 
-    pushInsertValue(insertColumns, placeholders, values, "event_id", eventId);
-    pushInsertValue(insertColumns, placeholders, values, "user_id", Number(user.id));
-
-    const statusColumn = findColumn(columns, [
-      "status",
-      "registration_status",
-      "join_status",
-    ]);
-
-    if (statusColumn) {
-      pushInsertValue(
-        insertColumns,
-        placeholders,
-        values,
-        statusColumn,
-        "registered"
-      );
+    function addValue(columnName: string, value: any) {
+      if (!hasColumn(columns, columnName)) return;
+      insertColumns.push(columnName);
+      values.push(value);
+      placeholders.push(`$${values.length}`);
     }
 
-    const participantNumberColumn = findColumn(columns, [
+    addValue("event_id", eventId);
+    addValue("user_id", userId);
+
+    const numberColumn = pickColumn(columns, [
       "participant_number",
       "registration_number",
       "bib_number",
@@ -253,24 +172,21 @@ export async function POST(request: NextRequest, context: any) {
       "nomor_peserta",
     ]);
 
-    if (participantNumberColumn) {
-      const sequence = await getNextParticipantSequence(eventId);
-      const participantNumber = createParticipantNumber(
-        columns,
-        participantNumberColumn,
-        eventId,
-        Number(user.id),
-        sequence
-      );
-
-      pushInsertValue(
-        insertColumns,
-        placeholders,
-        values,
-        participantNumberColumn,
-        participantNumber
-      );
+    if (numberColumn) {
+      addValue(numberColumn, participantNumber);
     }
+
+    const statusColumn = pickColumn(columns, [
+      "status",
+      "registration_status",
+      "join_status",
+    ]);
+
+    if (statusColumn) {
+      addValue(statusColumn, "registered");
+    }
+
+    addValue("notes", "Daftar melalui halaman public event AMOST.");
 
     if (hasColumn(columns, "created_at")) {
       insertColumns.push("created_at");
@@ -282,39 +198,44 @@ export async function POST(request: NextRequest, context: any) {
       placeholders.push("NOW()");
     }
 
-    if (hasColumn(columns, "registered_at")) {
-      insertColumns.push("registered_at");
-      placeholders.push("NOW()");
-    }
-
-    if (hasColumn(columns, "joined_at")) {
-      insertColumns.push("joined_at");
-      placeholders.push("NOW()");
-    }
-
-    const insertResult = await dbQuery(
+    const result = await dbQuery(
       `
-        INSERT INTO event_registrations (
-          ${insertColumns.join(", ")}
-        )
-        VALUES (
-          ${placeholders.join(", ")}
-        )
+        INSERT INTO event_registrations (${insertColumns.join(", ")})
+        VALUES (${placeholders.join(", ")})
         RETURNING *
       `,
-      values
+      values,
     );
+
+    let feedPost: any = null;
+
+    try {
+      feedPost = await createEventJoinFeedPost({
+        eventId,
+        userId,
+        participantNumber,
+      });
+    } catch (feedError) {
+      console.error("Auto community feed post after join failed:", feedError);
+      feedPost = {
+        ok: false,
+        skipped: true,
+        message: "Pendaftaran berhasil, tetapi auto-post timeline gagal.",
+      };
+    }
 
     return NextResponse.json({
       ok: true,
       alreadyRegistered: false,
+      registration: result.rows[0],
+      participantNumber,
+      feedPost,
       message: "Berhasil daftar event.",
-      data: insertResult.rows[0],
     });
   } catch (error: any) {
     console.error("POST /api/events/[id]/join failed:", error);
 
-    const message = String(error?.message || "");
+    const message = String(error?.message || "Pendaftaran event gagal.");
 
     if (message.includes("duplicate") || message.includes("unique")) {
       return NextResponse.json({
@@ -324,8 +245,13 @@ export async function POST(request: NextRequest, context: any) {
       });
     }
 
-    return jsonError(error?.message || "Gagal daftar event.", 500, {
-      code: "SERVER_ERROR",
-    });
+    return NextResponse.json(
+      {
+        ok: false,
+        message,
+        error: message,
+      },
+      { status: 500 },
+    );
   }
 }
