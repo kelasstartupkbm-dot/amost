@@ -50,18 +50,23 @@ async function getUserRow(userId: number | string) {
   return result.rows[0] || null;
 }
 
-async function communityPostExists(eventId: number | string, userId: number | string, marker: string) {
+async function communityPostExists(input: {
+  eventId: number | string;
+  userId: number | string;
+  postType: string;
+  marker: string;
+}) {
   const result = await dbQuery(
     `
     SELECT id
     FROM community_posts
     WHERE event_id = $1
       AND user_id = $2
-      AND post_type = 'event'
-      AND content ILIKE $3
+      AND post_type = $3
+      AND content ILIKE $4
     LIMIT 1
     `,
-    [eventId, userId, `%${marker}%`],
+    [input.eventId, input.userId, input.postType, `%${input.marker}%`],
   );
 
   return result.rows.length > 0;
@@ -127,7 +132,12 @@ export async function createEventJoinFeedPost(input: {
   }
 
   const marker = "bergabung di event";
-  const exists = await communityPostExists(eventId, userId, marker);
+  const exists = await communityPostExists({
+    eventId,
+    userId,
+    postType: "event",
+    marker,
+  });
 
   if (exists) {
     return {
@@ -163,6 +173,80 @@ export async function createEventJoinFeedPost(input: {
   return createCommunityPost({
     userId,
     postType: "event",
+    content,
+    eventId,
+  });
+}
+
+export async function createDoorprizeWinnerFeedPost(input: {
+  eventId: number | string;
+  winnerUserId: number | string;
+  drawnByUserId?: number | string | null;
+  participantNumber?: string | null;
+  prizeName?: string | null;
+}) {
+  const eventId = toNumber(input.eventId);
+  const winnerUserId = toNumber(input.winnerUserId);
+  const drawnByUserId = input.drawnByUserId ? toNumber(input.drawnByUserId) : null;
+
+  if (!eventId || !winnerUserId) {
+    return {
+      ok: false,
+      skipped: true,
+      message: "Doorprize feed skipped: invalid event/winner.",
+    };
+  }
+
+  const prizeName = String(input.prizeName || "Doorprize").trim() || "Doorprize";
+  const marker = "memenangkan doorprize";
+  const exists = await communityPostExists({
+    eventId,
+    userId: winnerUserId,
+    postType: "doorprize",
+    marker,
+  });
+
+  if (exists) {
+    return {
+      ok: true,
+      skipped: true,
+      message: "Doorprize feed already exists.",
+    };
+  }
+
+  const [eventRow, winnerRow, drawerRow] = await Promise.all([
+    getEventRow(eventId),
+    getUserRow(winnerUserId),
+    drawnByUserId ? getUserRow(drawnByUserId) : Promise.resolve(null),
+  ]);
+
+  const eventTitle = pickText(
+    eventRow,
+    ["title", "name", "event_title", "event_name"],
+    `Event #${eventId}`,
+  );
+
+  const winnerName = pickText(
+    winnerRow,
+    ["full_name", "fullName", "name", "username", "display_name", "email"],
+    `User #${winnerUserId}`,
+  );
+
+  const drawerName = pickText(
+    drawerRow,
+    ["full_name", "fullName", "name", "username", "display_name", "email"],
+    "AMOST Official",
+  );
+
+  const participantNumber = String(input.participantNumber || "").trim();
+
+  const numberText = participantNumber ? ` nomor peserta ${participantNumber}` : "";
+
+  const content = `Selamat ${winnerName}${numberText} memenangkan doorprize "${prizeName}" di event ${eventTitle}. Diundi oleh ${drawerName}.`;
+
+  return createCommunityPost({
+    userId: winnerUserId,
+    postType: "doorprize",
     content,
     eventId,
   });
