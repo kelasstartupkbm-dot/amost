@@ -539,17 +539,32 @@ export default function HomePage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-950">
-        <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-purple-100 text-purple-700">
-            <UserRound size={28} />
+      <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 text-slate-950">
+        <div className="w-full max-w-md rounded-[2rem] border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <div className="mx-auto flex justify-center">
+            <img
+              src="/amost_logo_wide_.png"
+              alt="AMOST"
+              className="h-20 w-auto object-contain"
+            />
           </div>
-          <p className="text-lg font-black text-slate-950">
-            Memuat account feed...
+
+          <p className="mt-6 text-xl font-black text-slate-950">
+            Memuat AMOST Feed...
           </p>
-          <p className="mt-2 text-sm text-slate-500">
-            Mengambil timeline AMOST.
+          <p className="mt-2 text-sm font-semibold text-slate-500">
+            Mengambil timeline, event, dan data akun.
           </p>
+
+          <div className="mx-auto mt-6 h-3 w-full max-w-xs overflow-hidden rounded-full bg-slate-100">
+            <div className="h-full w-2/3 rounded-full bg-gradient-to-r from-purple-500 via-purple-700 to-fuchsia-500 shadow-sm animate-pulse" />
+          </div>
+
+          <div className="mt-4 flex items-center justify-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-purple-700">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-purple-700" />
+            Loading
+          </div>
+
           <p className="mt-3 text-xs font-bold text-slate-400">
             Maksimal menunggu {REQUEST_TIMEOUT_MS / 1000} detik.
           </p>
