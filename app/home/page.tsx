@@ -805,15 +805,6 @@ function HomeTopbar({
           </div>
         </div>
 
-        <div className="mt-3 flex items-center gap-3 rounded-2xl border border-purple-100 bg-purple-50 px-4 py-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-purple-700 text-xs font-black text-white">
-            {initials}
-          </div>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-black leading-none text-slate-950">{displayName}</p>
-            <p className="mt-1 text-xs font-bold leading-none text-purple-700">{roleLabel}</p>
-          </div>
-        </div>
       </div>
 
       {/* Desktop topbar tetap seperti sebelumnya */}
