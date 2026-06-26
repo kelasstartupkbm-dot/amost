@@ -1,17 +1,36 @@
 "use client";
 
-import AccountAppShell from "../../../../components/AccountAppShell";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
+  Activity,
+  Bell,
   Box,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  CloudSun,
+  Gauge,
+  Gift,
+  Home,
   List,
   Loader2,
   LocateFixed,
+  LogOut,
   MapPin,
-  Satellite,
+  Maximize2,
+  Menu,
+  Navigation,
+  RefreshCw,
+  Search,
+  Settings,
+  Shield,
+  Signal,
+  Star,
+  Ticket,
   Trophy,
+  User,
   Wifi,
   WifiOff,
   Zap,
@@ -75,6 +94,23 @@ type RoutePoint = {
   lng: number;
 };
 
+type CurrentUser = {
+  name?: string | null;
+  email?: string | null;
+  role?: string | null;
+};
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return "Tanggal menyusul";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 function formatDateTime(value: string | null | undefined) {
   if (!value) return "-";
   const date = new Date(value);
@@ -115,6 +151,13 @@ function calculatePercent(value: number, total: number) {
   return Math.min(100, Math.max(0, Math.round((value / total) * 100)));
 }
 
+function initialsFrom(name?: string | null, email?: string | null) {
+  const source = String(name || email || "AMOST").trim();
+  const parts = source.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  return source.slice(0, 2).toUpperCase();
+}
+
 function buildBounds(points: Array<{ lat: number; lng: number }>) {
   const valid = points.filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng));
   if (valid.length === 0) return null;
@@ -144,10 +187,8 @@ function buildBounds(points: Array<{ lat: number; lng: number }>) {
 
 function projectPoint(point: { lat: number; lng: number }, bounds: ReturnType<typeof buildBounds>) {
   if (!bounds) return { x: 50, y: 50 };
-
   const lngRange = bounds.maxLng - bounds.minLng || 1;
   const latRange = bounds.maxLat - bounds.minLat || 1;
-
   const x = ((point.lng - bounds.minLng) / lngRange) * 100;
   const y = (1 - (point.lat - bounds.minLat) / latRange) * 100;
 
@@ -157,31 +198,7 @@ function projectPoint(point: { lat: number; lng: number }, bounds: ReturnType<ty
   };
 }
 
-type SidebarLayoutRef = {
-  heroCard: HTMLElement | null;
-  pageContainer: HTMLElement | null;
-  footer: HTMLElement | null;
-  leftAside: HTMLElement | null;
-  leftWrapper: HTMLElement | null;
-  rightSidebarRoot: HTMLElement | null;
-  rightSidebarContainer: HTMLElement | null;
-  rightSidebarGrid: HTMLElement | null;
-  heroCardDisplay: string;
-  pageContainerMinHeight: string;
-  pageContainerHeight: string;
-  pageContainerOverflow: string;
-  footerDisplay: string;
-  leftAsideDisplay: string;
-  leftAsideWidth: string;
-  leftWrapperGridTemplate: string;
-  leftWrapperDisplay: string;
-  rightSidebarDisplay: string;
-  rightSidebarWidth: string;
-  rightGridTemplate: string;
-  rightGridGap: string;
-};
-
-export default function AccountEventLiveViewPage() {
+export default function AccountEventLiveFullscreenPage() {
   const params = useParams();
   const router = useRouter();
   const eventId = String(params?.id || "");
@@ -193,128 +210,21 @@ export default function AccountEventLiveViewPage() {
   const [standbyParticipants, setStandbyParticipants] = useState<StandbyParticipant[]>([]);
   const [participantTotal, setParticipantTotal] = useState(0);
   const [liveMessage, setLiveMessage] = useState("");
+  const [currentUser, setCurrentUser] = useState<CurrentUser>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [leftCollapsed, setLeftCollapsed] = useState(true);
-  const [rightCollapsed, setRightCollapsed] = useState(true);
-  const layoutRef = useRef<SidebarLayoutRef | null>(null);
+  const [leftOpen, setLeftOpen] = useState(false);
+  const [rightOpen, setRightOpen] = useState(false);
 
   const title = getEventTitle(event, eventId);
 
   useEffect(() => {
-    const marker = document.querySelector("[data-amost-live-fit-page]") as HTMLElement | null;
-    const shellContent = marker?.closest("section.space-y-5") as HTMLElement | null;
-    const heroCard = shellContent?.querySelector(":scope > section:first-child") as HTMLElement | null;
-    const pageContainer = marker?.parentElement as HTMLElement | null;
-    const footer = Array.from(document.querySelectorAll("footer")).find((item) => item.textContent?.includes("AMOST")) as HTMLElement | undefined;
-    const leftAside = document.querySelector("aside") as HTMLElement | null;
-    const leftWrapper = leftAside?.parentElement as HTMLElement | null;
-    const rightSidebarRoot = document.querySelector("[data-live-right-sidebar]") as HTMLElement | null;
-    const rightSidebarContainer = rightSidebarRoot?.parentElement as HTMLElement | null;
-    const rightSidebarGrid = rightSidebarContainer?.parentElement as HTMLElement | null;
-
-    layoutRef.current = {
-      heroCard,
-      pageContainer,
-      footer: footer || null,
-      leftAside,
-      leftWrapper,
-      rightSidebarRoot,
-      rightSidebarContainer,
-      rightSidebarGrid,
-      heroCardDisplay: heroCard?.style.display || "",
-      pageContainerMinHeight: pageContainer?.style.minHeight || "",
-      pageContainerHeight: pageContainer?.style.height || "",
-      pageContainerOverflow: pageContainer?.style.overflow || "",
-      footerDisplay: footer?.style.display || "",
-      leftAsideDisplay: leftAside?.style.display || "",
-      leftAsideWidth: leftAside?.style.width || "",
-      leftWrapperGridTemplate: leftWrapper?.style.gridTemplateColumns || "",
-      leftWrapperDisplay: leftWrapper?.style.display || "",
-      rightSidebarDisplay: rightSidebarContainer?.style.display || "",
-      rightSidebarWidth: rightSidebarContainer?.style.width || "",
-      rightGridTemplate: rightSidebarGrid?.style.gridTemplateColumns || "",
-      rightGridGap: rightSidebarGrid?.style.gap || "",
-    };
-
-    if (heroCard && !heroCard.contains(marker as Node)) {
-      heroCard.style.display = "none";
-    }
-
-    if (pageContainer) {
-      pageContainer.style.minHeight = "calc(100vh - 170px)";
-      pageContainer.style.height = "calc(100vh - 170px)";
-      pageContainer.style.overflow = "hidden";
-    }
-
-    if (footer) {
-      footer.style.display = "none";
-    }
-
+    document.body.style.overflow = "hidden";
     return () => {
-      const layout = layoutRef.current;
-      if (!layout) return;
-
-      if (layout.heroCard) layout.heroCard.style.display = layout.heroCardDisplay;
-      if (layout.pageContainer) {
-        layout.pageContainer.style.minHeight = layout.pageContainerMinHeight;
-        layout.pageContainer.style.height = layout.pageContainerHeight;
-        layout.pageContainer.style.overflow = layout.pageContainerOverflow;
-      }
-      if (layout.footer) layout.footer.style.display = layout.footerDisplay;
-      if (layout.leftAside) {
-        layout.leftAside.style.display = layout.leftAsideDisplay;
-        layout.leftAside.style.width = layout.leftAsideWidth;
-      }
-      if (layout.leftWrapper) {
-        layout.leftWrapper.style.gridTemplateColumns = layout.leftWrapperGridTemplate;
-        layout.leftWrapper.style.display = layout.leftWrapperDisplay;
-      }
-      if (layout.rightSidebarContainer) {
-        layout.rightSidebarContainer.style.display = layout.rightSidebarDisplay;
-        layout.rightSidebarContainer.style.width = layout.rightSidebarWidth;
-      }
-      if (layout.rightSidebarGrid) {
-        layout.rightSidebarGrid.style.gridTemplateColumns = layout.rightGridTemplate;
-        layout.rightSidebarGrid.style.gap = layout.rightGridGap;
-      }
+      document.body.style.overflow = "";
     };
   }, []);
-
-  useEffect(() => {
-    const layout = layoutRef.current;
-    if (!layout) return;
-
-    if (layout.leftAside) {
-      layout.leftAside.style.display = leftCollapsed ? "none" : layout.leftAsideDisplay || "";
-      layout.leftAside.style.width = leftCollapsed ? "0px" : layout.leftAsideWidth || "";
-    }
-
-    if (layout.leftWrapper) {
-      const computed = window.getComputedStyle(layout.leftWrapper).display;
-      if (computed.includes("grid") || layout.leftWrapperDisplay.includes("grid")) {
-        layout.leftWrapper.style.gridTemplateColumns = leftCollapsed ? "minmax(0,1fr)" : layout.leftWrapperGridTemplate || "";
-      }
-    }
-
-    if (layout.rightSidebarContainer) {
-      layout.rightSidebarContainer.style.display = rightCollapsed ? "none" : layout.rightSidebarDisplay || "";
-      layout.rightSidebarContainer.style.width = rightCollapsed ? "0px" : layout.rightSidebarWidth || "";
-    }
-
-    if (layout.rightSidebarGrid) {
-      const computed = window.getComputedStyle(layout.rightSidebarGrid).display;
-      if (computed.includes("grid")) {
-        layout.rightSidebarGrid.style.gridTemplateColumns = rightCollapsed ? "minmax(0,1fr)" : layout.rightGridTemplate || "";
-      }
-      if (rightCollapsed) {
-        layout.rightSidebarGrid.style.gap = "0px";
-      } else {
-        layout.rightSidebarGrid.style.gap = layout.rightGridGap || "";
-      }
-    }
-  }, [leftCollapsed, rightCollapsed]);
 
   const stats = useMemo(() => {
     const participantCount = Number(event?.participant_count || participantTotal || 0);
@@ -361,10 +271,11 @@ export default function AccountEventLiveViewPage() {
     setLiveMessage("");
 
     try {
-      const [eventResponse, resultsResponse, liveResponse] = await Promise.all([
+      const [eventResponse, resultsResponse, liveResponse, accountResponse] = await Promise.all([
         fetch(`/api/events/${eventId}`, { method: "GET", cache: "no-store", credentials: "include" }),
         fetch(`/api/events/${eventId}/results`, { method: "GET", cache: "no-store", credentials: "include" }).catch(() => null),
         fetch(`/api/events/${eventId}/live`, { method: "GET", cache: "no-store", credentials: "include" }).catch(() => null),
+        fetch("/api/account/tracking", { method: "GET", cache: "no-store", credentials: "include" }).catch(() => null),
       ]);
 
       const eventData = await eventResponse.json().catch(() => null);
@@ -394,6 +305,15 @@ export default function AccountEventLiveViewPage() {
         setParticipantTotal(Number(liveData?.participant_total || 0));
         setLiveMessage(liveData?.debug?.reason || liveData?.message || "");
       }
+
+      if (accountResponse) {
+        const accountData = await accountResponse.json().catch(() => null);
+        setCurrentUser({
+          name: accountData?.user?.name || accountData?.user?.username || accountData?.user?.email || null,
+          email: accountData?.user?.email || null,
+          role: accountData?.user?.role || null,
+        });
+      }
     } catch (error) {
       console.error(error);
       setErrorMessage("Koneksi ke server bermasalah.");
@@ -407,93 +327,83 @@ export default function AccountEventLiveViewPage() {
     if (eventId) void loadData();
   }, [eventId]);
 
-  const rightPanel = (
-    <div data-live-right-sidebar className="flex h-full min-h-0 flex-col gap-4">
-      <section className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-black text-slate-950">Ringkasan Live</h3>
-          <Zap className="text-purple-700" size={20} />
-        </div>
-
-        <div className="mt-3 grid grid-cols-2 gap-2.5">
-          <InfoBox label="Peserta" value={String(stats.participantCount)} />
-          <InfoBox label="Live" value={String(stats.liveCount)} />
-          <InfoBox label="Online" value={String(stats.onlineCount)} accent="green" />
-          <InfoBox label="Standby" value={String(stats.standbyCount)} />
-          <InfoBox label="Finish" value={String(stats.finishCount)} />
-          <InfoBox label="Progress" value={`${stats.progress}%`} />
-        </div>
-
-        <Link
-          href={`/account/events/${eventId}/results`}
-          className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm font-black text-slate-700 hover:bg-slate-50"
-        >
-          <Trophy size={16} />
-          Hasil Event
-        </Link>
-      </section>
-
-      <section className="flex min-h-0 flex-1 flex-col rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-black text-slate-950">Live/Result Ringkas</h3>
-          <List className="text-purple-700" size={20} />
-        </div>
-
-        {results.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center text-center">
-            <p className="text-sm font-black text-slate-950">Belum ada hasil.</p>
-            <p className="mt-2 max-w-[220px] text-sm leading-6 text-slate-500">
-              Hasil peserta tampil setelah event selesai dan data dikirim.
-            </p>
-          </div>
-        ) : (
-          <div className="mt-3 flex-1 space-y-2 overflow-auto pr-1">
-            {results.slice(0, 6).map((item) => (
-              <div key={String(item.result_id || `${item.user_id}-${item.event_id}`)} className="rounded-2xl bg-slate-50 p-3">
-                <p className="truncate text-sm font-black text-slate-950">{item.full_name || "Peserta AMOST"}</p>
-                <p className="mt-1 text-xs font-semibold text-slate-500">
-                  {item.participant_number || "-"} · {formatDistance(item.distance)}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-    </div>
-  );
-
   return (
-    <AccountAppShell
-      active="events"
-      title="Tracking Live"
-      eyebrow="AMOST LIVE"
-      description={`Live tracking event ${title}.`}
-      icon={Satellite}
-      rightPanel={rightPanel}
-    >
-      <div data-amost-live-fit-page className="relative flex h-full min-h-0 flex-col gap-4 overflow-hidden">
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between px-2 sm:px-3">
+    <main className="fixed inset-0 overflow-hidden bg-slate-50 text-slate-950">
+      <LeftDrawer open={leftOpen} onClose={() => setLeftOpen(false)} />
+      <RightDrawer
+        open={rightOpen}
+        onClose={() => setRightOpen(false)}
+        user={currentUser}
+        stats={stats}
+        eventId={eventId}
+        results={results}
+      />
+
+      <header className="flex h-[76px] items-center justify-between border-b border-slate-200 bg-white px-4 lg:px-7">
+        <div className="flex min-w-0 items-center gap-4">
           <button
             type="button"
-            onClick={() => setLeftCollapsed((prev) => !prev)}
-            className="pointer-events-auto inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white/95 px-3 py-2 text-xs font-black text-slate-700 shadow-sm backdrop-blur hover:bg-slate-50"
+            onClick={() => setLeftOpen(true)}
+            className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 hover:bg-purple-50 hover:text-purple-700"
           >
-            <span className="text-sm">{leftCollapsed ? "☰" : "←"}</span>
-            {leftCollapsed ? "Maximize Sidebar Kiri" : "Minimize Sidebar Kiri"}
+            <Menu size={18} />
+            Maximize Sidebar Kiri
           </button>
 
-          <button
-            type="button"
-            onClick={() => setRightCollapsed((prev) => !prev)}
-            className="pointer-events-auto inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white/95 px-3 py-2 text-xs font-black text-slate-700 shadow-sm backdrop-blur hover:bg-slate-50"
-          >
-            {rightCollapsed ? "Maximize Sidebar Kanan" : "Minimize Sidebar Kanan"}
-            <span className="text-sm">{rightCollapsed ? "☷" : "→"}</span>
-          </button>
+          <div className="min-w-0">
+            <h1 className="truncate text-2xl font-black tracking-tight text-slate-950">Tracking Live</h1>
+            <p className="truncate text-sm font-semibold text-slate-500">Live tracking event {title}.</p>
+          </div>
         </div>
 
+        <div className="flex shrink-0 items-center gap-2">
+          <StatusPill icon={Signal} title="GPS Signal" subtitle="Standby" />
+          <StatusPill icon={CloudSun} title="26°C" subtitle="Cerah" />
+          <TopIcon icon={Search} />
+          <TopIcon icon={Bell} badge="3" />
+          <button
+            type="button"
+            onClick={() => loadData(true)}
+            className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50"
+          >
+            <RefreshCw className={refreshing ? "animate-spin" : ""} size={17} />
+            Refresh
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setRightOpen(true)}
+            className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 hover:bg-purple-50 hover:text-purple-700"
+          >
+            Maximize Sidebar Kanan
+            <Maximize2 size={17} />
+          </button>
+
+          <div className="hidden items-center gap-3 rounded-2xl bg-purple-50 px-3 py-2 lg:flex">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-700 text-sm font-black text-white">
+              {initialsFrom(currentUser.name, currentUser.email)}
+            </div>
+            <div className="leading-tight">
+              <p className="max-w-[140px] truncate text-sm font-black text-slate-950">
+                {currentUser.name || "AMOST User"}
+              </p>
+              <p className="text-xs font-black text-purple-700">{currentUser.role || "Umum"}</p>
+            </div>
+          </div>
+
+          <Link
+            href="/logout"
+            className="hidden h-11 items-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-black text-white hover:bg-slate-800 lg:inline-flex"
+          >
+            <LogOut size={17} />
+            Keluar
+          </Link>
+        </div>
+      </header>
+
+      <section className="h-[calc(100vh-76px)] overflow-hidden p-4 lg:p-5">
         {loading ? (
-          <section className="flex h-full min-h-[420px] flex-col items-center justify-center rounded-[2rem] border border-slate-200 bg-white text-center shadow-sm">
+          <section className="flex h-full flex-col items-center justify-center rounded-[2rem] border border-slate-200 bg-white text-center shadow-sm">
             <Loader2 className="h-12 w-12 animate-spin text-purple-700" />
             <p className="mt-4 text-xl font-black text-slate-950">Memuat live tracking...</p>
             <p className="mt-2 text-sm text-slate-500">Mengambil data event, result, dan posisi live.</p>
@@ -503,26 +413,19 @@ export default function AccountEventLiveViewPage() {
             {errorMessage}
           </section>
         ) : (
-          <>
-            <section className="mt-12 flex-none rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex h-full min-h-0 flex-col gap-4">
+            <section className="flex-none rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm">
               <div className="mb-3 flex items-center justify-between">
                 <p className="text-xs font-black uppercase tracking-[0.24em] text-purple-700">Peta Live Tracking</p>
-                <button
-                  onClick={() => loadData(true)}
-                  className="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 hover:bg-slate-50"
-                >
-                  {refreshing ? "Refresh..." : "Refresh"}
-                </button>
+                <div className="flex items-center gap-2">
+                  <CompactStat label="Peserta" value={stats.participantCount} />
+                  <CompactStat label="Live" value={stats.liveCount} />
+                  <CompactStat label="Standby" value={stats.standbyCount} />
+                </div>
               </div>
 
-              <section className="relative h-[290px] overflow-hidden rounded-[1.5rem] border border-slate-200 bg-[#eaf1f0] xl:h-[300px]">
-                <div className="absolute inset-0 opacity-90">
-                  <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(15,23,42,0.07)_1px,transparent_1px),linear-gradient(to_bottom,rgba(15,23,42,0.07)_1px,transparent_1px)] bg-[size:44px_44px]" />
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_18%,rgba(34,197,94,0.12),transparent_25%),radial-gradient(circle_at_82%_20%,rgba(59,130,246,0.12),transparent_22%),radial-gradient(circle_at_53%_70%,rgba(124,58,237,0.15),transparent_26%)]" />
-                  <div className="absolute left-0 top-[18%] h-8 w-full rotate-[-4deg] bg-white/45" />
-                  <div className="absolute left-[-10%] top-[55%] h-7 w-[120%] rotate-[8deg] bg-white/40" />
-                  <div className="absolute left-[12%] top-0 h-full w-8 rotate-[12deg] bg-white/35" />
-                </div>
+              <section className="relative h-[310px] overflow-hidden rounded-[1.5rem] border border-slate-200 bg-[#eaf1f0]">
+                <MapBackground />
 
                 <div className="absolute left-4 top-1/2 z-10 flex -translate-y-1/2 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                   <button className="flex h-10 w-10 items-center justify-center border-b border-slate-200 text-lg font-black text-slate-700">+</button>
@@ -563,50 +466,78 @@ export default function AccountEventLiveViewPage() {
               </section>
             </section>
 
-            <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-              <section className="flex min-h-0 flex-col rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="mb-3 flex items-center justify-between">
-                  <h3 className="text-lg font-black text-slate-950">Daftar Posisi Live</h3>
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
-                    {liveMarkers.length} data
-                  </span>
-                </div>
+            <section className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+              <Panel title="Daftar Posisi Live" badge={`${liveMarkers.length} data`}>
+                {liveMarkers.length === 0 ? (
+                  <EmptyState text="Belum ada data live tracking." />
+                ) : (
+                  <LiveTable rows={liveMarkers} />
+                )}
+              </Panel>
 
-                <div className="min-h-0 flex-1 overflow-auto">
-                  {liveMarkers.length === 0 ? (
-                    <div className="flex h-full min-h-[160px] flex-col items-center justify-center rounded-2xl bg-slate-50 text-center">
-                      <Box className="text-slate-300" size={30} />
-                      <p className="mt-3 text-sm font-bold text-slate-500">Belum ada data live tracking.</p>
-                    </div>
-                  ) : (
-                    <LiveTable rows={liveMarkers} />
-                  )}
-                </div>
-              </section>
-
-              <section className="flex min-h-0 flex-col rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="mb-3 flex items-center justify-between">
-                  <h3 className="text-lg font-black text-slate-950">Peserta Standby</h3>
-                  <span className="rounded-full bg-yellow-50 px-3 py-1 text-xs font-black text-yellow-700">
-                    {standbyParticipants.length} standby
-                  </span>
-                </div>
-
-                <div className="min-h-0 flex-1 overflow-auto">
-                  {standbyParticipants.length === 0 ? (
-                    <div className="flex h-full min-h-[160px] items-center justify-center rounded-2xl bg-green-50 text-center text-sm font-bold text-green-700">
-                      Tidak ada peserta standby.
-                    </div>
-                  ) : (
-                    <StandbyTable rows={standbyParticipants} />
-                  )}
-                </div>
-              </section>
-            </div>
-          </>
+              <Panel title="Peserta Standby" badge={`${standbyParticipants.length} standby`} badgeClass="bg-yellow-50 text-yellow-700">
+                {standbyParticipants.length === 0 ? (
+                  <EmptyState text="Tidak ada peserta standby." />
+                ) : (
+                  <StandbyTable rows={standbyParticipants} />
+                )}
+              </Panel>
+            </section>
+          </div>
         )}
+      </section>
+    </main>
+  );
+}
+
+function MapBackground() {
+  return (
+    <div className="absolute inset-0 opacity-90">
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(15,23,42,0.07)_1px,transparent_1px),linear-gradient(to_bottom,rgba(15,23,42,0.07)_1px,transparent_1px)] bg-[size:44px_44px]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_18%,rgba(34,197,94,0.12),transparent_25%),radial-gradient(circle_at_82%_20%,rgba(59,130,246,0.12),transparent_22%),radial-gradient(circle_at_53%_70%,rgba(124,58,237,0.15),transparent_26%)]" />
+      <div className="absolute left-0 top-[18%] h-8 w-full rotate-[-4deg] bg-white/45" />
+      <div className="absolute left-[-10%] top-[55%] h-7 w-[120%] rotate-[8deg] bg-white/40" />
+      <div className="absolute left-[12%] top-0 h-full w-8 rotate-[12deg] bg-white/35" />
+    </div>
+  );
+}
+
+function CompactStat({ label, value }: { label: string; value: number }) {
+  return (
+    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
+      {label}: {value}
+    </span>
+  );
+}
+
+function Panel({
+  title,
+  badge,
+  badgeClass = "bg-slate-100 text-slate-600",
+  children,
+}: {
+  title: string;
+  badge: string;
+  badgeClass?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="flex min-h-0 flex-col rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-lg font-black text-slate-950">{title}</h3>
+        <span className={`rounded-full px-3 py-1 text-xs font-black ${badgeClass}`}>{badge}</span>
       </div>
-    </AccountAppShell>
+      <div className="min-h-0 flex-1 overflow-auto">{children}</div>
+    </section>
+  );
+}
+
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div className="flex h-full min-h-[150px] flex-col items-center justify-center rounded-2xl bg-slate-50 text-center">
+      <Box className="text-slate-300" size={30} />
+      <p className="mt-3 text-sm font-bold text-slate-500">{text}</p>
+    </div>
   );
 }
 
@@ -626,6 +557,191 @@ function InfoBox({
       <p className="text-[10px] font-black uppercase opacity-70">{label}</p>
       <p className="mt-1 text-2xl font-black">{value}</p>
     </div>
+  );
+}
+
+function StatusPill({ icon: Icon, title, subtitle }: { icon: any; title: string; subtitle: string }) {
+  return (
+    <div className="hidden h-11 items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 lg:flex">
+      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-50 text-green-700">
+        <Icon size={16} />
+      </div>
+      <div className="leading-tight">
+        <p className="text-xs font-black text-slate-950">{title}</p>
+        <p className="text-[11px] font-bold text-slate-500">{subtitle}</p>
+      </div>
+    </div>
+  );
+}
+
+function TopIcon({ icon: Icon, badge }: { icon: any; badge?: string }) {
+  return (
+    <button className="relative hidden h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 lg:flex">
+      <Icon size={18} />
+      {badge ? (
+        <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-purple-700 px-1 text-[10px] font-black text-white">
+          {badge}
+        </span>
+      ) : null}
+    </button>
+  );
+}
+
+function LeftDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const nav = [
+    { href: "/account", icon: Home, label: "Dashboard" },
+    { href: "/account/tracking", icon: Navigation, label: "Tracking" },
+    { href: "/account/activities", icon: Activity, label: "My Activities" },
+    { href: "/account/events", icon: CalendarDays, label: "My Events" },
+    { href: "/account/tickets", icon: Ticket, label: "My Tickets" },
+    { href: "/account/achievement", icon: Star, label: "Achievement" },
+    { href: "/account/statistics", icon: Gauge, label: "Statistics" },
+    { href: "/account/notification", icon: Bell, label: "Notification" },
+    { href: "/account/profile", icon: User, label: "Profile" },
+    { href: "/account/settings", icon: Settings, label: "Settings" },
+  ];
+
+  return (
+    <>
+      {open ? <button className="fixed inset-0 z-40 bg-slate-950/20" onClick={onClose} aria-label="Tutup sidebar kiri" /> : null}
+      <aside
+        className={`fixed left-0 top-0 z-50 h-full w-[285px] border-r border-slate-200 bg-white p-6 shadow-2xl transition-transform duration-300 ${
+          open ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="flex items-center justify-between">
+          <Link href="/account" className="text-3xl font-black tracking-tight text-purple-700">
+            AMOST
+          </Link>
+          <button onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-700">
+            <ChevronLeft size={20} />
+          </button>
+        </div>
+
+        <nav className="mt-8 space-y-2">
+          {nav.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex h-12 items-center gap-3 rounded-2xl px-3 text-sm font-black text-slate-700 hover:bg-purple-50 hover:text-purple-700"
+            >
+              <item.icon size={20} />
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="absolute inset-x-6 bottom-6 rounded-2xl bg-purple-50 p-4">
+          <p className="text-sm font-black text-purple-800">Tracking lebih seru</p>
+          <p className="mt-2 text-xs font-semibold leading-5 text-slate-600">
+            Undang teman dan ikuti lebih banyak event.
+          </p>
+        </div>
+      </aside>
+    </>
+  );
+}
+
+function RightDrawer({
+  open,
+  onClose,
+  user,
+  stats,
+  eventId,
+  results,
+}: {
+  open: boolean;
+  onClose: () => void;
+  user: CurrentUser;
+  stats: {
+    participantCount: number;
+    finishCount: number;
+    liveCount: number;
+    onlineCount: number;
+    standbyCount: number;
+    progress: number;
+  };
+  eventId: string;
+  results: EventResult[];
+}) {
+  return (
+    <>
+      {open ? <button className="fixed inset-0 z-40 bg-slate-950/20" onClick={onClose} aria-label="Tutup sidebar kanan" /> : null}
+      <aside
+        className={`fixed right-0 top-0 z-50 h-full w-[360px] border-l border-slate-200 bg-white p-5 shadow-2xl transition-transform duration-300 ${
+          open ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-black text-slate-950">Sidebar Kanan</h2>
+          <button onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-700">
+            <ChevronRight size={20} />
+          </button>
+        </div>
+
+        <section className="mt-5 rounded-[2rem] border border-slate-200 bg-white p-5 text-center shadow-sm">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-purple-700 text-2xl font-black text-white">
+            {initialsFrom(user.name, user.email)}
+          </div>
+          <h3 className="mt-4 text-xl font-black text-slate-950">{user.name || "AMOST User"}</h3>
+          <p className="mt-1 text-sm font-semibold text-slate-500">{user.email || "-"}</p>
+          <span className="mt-3 inline-flex rounded-full bg-purple-50 px-3 py-1 text-xs font-black uppercase text-purple-700">
+            {user.role || "Umum"}
+          </span>
+        </section>
+
+        <section className="mt-5 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-black text-slate-950">Ringkasan Live</h3>
+            <Zap className="text-purple-700" size={20} />
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-2.5">
+            <InfoBox label="Peserta" value={String(stats.participantCount)} />
+            <InfoBox label="Live" value={String(stats.liveCount)} />
+            <InfoBox label="Online" value={String(stats.onlineCount)} accent="green" />
+            <InfoBox label="Standby" value={String(stats.standbyCount)} />
+            <InfoBox label="Finish" value={String(stats.finishCount)} />
+            <InfoBox label="Progress" value={`${stats.progress}%`} />
+          </div>
+
+          <Link
+            href={`/account/events/${eventId}/results`}
+            className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm font-black text-slate-700 hover:bg-slate-50"
+          >
+            <Trophy size={16} />
+            Hasil Event
+          </Link>
+        </section>
+
+        <section className="mt-5 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-black text-slate-950">Live/Result Ringkas</h3>
+            <List className="text-purple-700" size={20} />
+          </div>
+
+          {results.length === 0 ? (
+            <div className="flex min-h-[130px] flex-col items-center justify-center text-center">
+              <p className="text-sm font-black text-slate-950">Belum ada hasil.</p>
+              <p className="mt-2 max-w-[220px] text-sm leading-6 text-slate-500">
+                Hasil peserta tampil setelah event selesai dan data dikirim.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-3 max-h-[180px] space-y-2 overflow-auto pr-1">
+              {results.slice(0, 6).map((item) => (
+                <div key={String(item.result_id || `${item.user_id}-${item.event_id}`)} className="rounded-2xl bg-slate-50 p-3">
+                  <p className="truncate text-sm font-black text-slate-950">{item.full_name || "Peserta AMOST"}</p>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">
+                    {item.participant_number || "-"} · {formatDistance(item.distance)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </aside>
+    </>
   );
 }
 
