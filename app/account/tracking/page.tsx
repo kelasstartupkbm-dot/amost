@@ -312,7 +312,7 @@ function actionUrl(item: EventTracking, key: "detail" | "live" | "result" | "gpx
   if (key === "detail") return item.detail_url || `/events/${item.event_id}`;
   if (key === "live") return `/account/events/${item.event_id}/view`;
   if (key === "result") return `/account/events/${item.event_id}/results`;
-  return item.gpx_url || `/api/gpx-download?id=${encodeURIComponent(item.event_id)}`;
+  return `/account/events/${item.event_id}/gpx`;
 }
 
 function getEventInitials(name: string) {
