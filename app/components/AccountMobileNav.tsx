@@ -11,20 +11,25 @@ import {
   Navigation,
   Trophy,
   UserRound,
+  type LucideIcon,
 } from "lucide-react";
 
 type BottomItem = {
   href: string;
   label: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: LucideIcon;
+  active: boolean;
+};
+
+type EventShortcutItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
   active: boolean;
 };
 
 function isAccountArea(pathname: string) {
-  return (
-    pathname === "/home" ||
-    pathname.startsWith("/account")
-  );
+  return pathname === "/home" || pathname.startsWith("/account");
 }
 
 function getEventId(pathname: string) {
@@ -32,7 +37,6 @@ function getEventId(pathname: string) {
   const eventId = match?.[1];
 
   if (!eventId) return "";
-
   if (["new", "create", "edit"].includes(eventId.toLowerCase())) return "";
 
   return eventId;
@@ -42,10 +46,15 @@ function isExactOrChild(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function isEventSubPage(pathname: string, eventId: string, key: "detail" | "view" | "results" | "doorprize" | "gpx") {
+function isEventSubPage(
+  pathname: string,
+  eventId: string,
+  key: "detail" | "view" | "results" | "doorprize" | "gpx",
+) {
   if (!eventId) return false;
 
   if (key === "detail") return pathname === `/account/events/${eventId}`;
+
   return pathname === `/account/events/${eventId}/${key}`;
 }
 
@@ -57,7 +66,6 @@ export default function AccountMobileNav() {
   }
 
   const eventId = getEventId(pathname);
-
   const liveHref = eventId ? `/account/events/${eventId}/view` : "/account/live-view";
 
   const bottomItems: BottomItem[] = [
@@ -93,7 +101,7 @@ export default function AccountMobileNav() {
     },
   ];
 
-  const eventItems = eventId
+  const eventItems: EventShortcutItem[] = eventId
     ? [
         {
           href: `/account/events/${eventId}`,
