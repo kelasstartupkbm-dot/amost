@@ -25,6 +25,12 @@ type EventTracking = {
   avg_speed_kmh: number | null;
   result_status: string | null;
   result_at: string | null;
+  can_download_gpx?: boolean;
+  detail_url?: string;
+  live_url?: string;
+  result_url?: string;
+  gpx_url?: string;
+  source?: string;
 };
 
 type PersonalTracking = {
@@ -52,7 +58,6 @@ type LiveTracking = {
 type TrackingResponse = {
   ok: boolean;
   message?: string;
-  debug?: unknown;
   user?: {
     id: string;
     email: string;
@@ -68,141 +73,6 @@ type TrackingResponse = {
   personal_tracking?: PersonalTracking[];
 };
 
-function getStorageValue(storage: Storage | null, key: string) {
-  try {
-    return storage?.getItem(key) || "";
-  } catch {
-    return "";
-  }
-}
-
-function tryJsonParse(value: string): any | null {
-  try {
-    const parsed = JSON.parse(value);
-    if (parsed && typeof parsed === "object") return parsed;
-  } catch {
-    // ignore
-  }
-  return null;
-}
-
-function encodeBase64Utf8(value: string) {
-  const bytes = new TextEncoder().encode(value);
-  let binary = "";
-  bytes.forEach((byte) => {
-    binary += String.fromCharCode(byte);
-  });
-  return btoa(binary);
-}
-
-function readNestedUser(obj: any) {
-  if (!obj || typeof obj !== "object") return null;
-  const nested = obj.user || obj.member || obj.account || obj.profile || null;
-  if (nested && typeof nested === "object") return { ...nested, ...obj };
-  return obj;
-}
-
-function pickFirst(...values: unknown[]) {
-  for (const value of values) {
-    const text = value === null || value === undefined ? "" : String(value).trim();
-    if (text) return text;
-  }
-  return "";
-}
-
-function buildAmostAuthHeaders(): HeadersInit {
-  if (typeof window === "undefined") return {};
-
-  const storages = [window.localStorage, window.sessionStorage].filter(Boolean) as Storage[];
-  const tokenKeys = [
-    "amost_token",
-    "amost_user_token",
-    "amost_auth_token",
-    "auth_token",
-    "account_token",
-    "session_token",
-    "user_token",
-    "access_token",
-    "jwt",
-    "token",
-    "admin_token",
-  ];
-  const userKeys = [
-    "amost_user",
-    "amost_current_user",
-    "amost_member",
-    "current_user",
-    "currentUser",
-    "auth_user",
-    "authUser",
-    "account_user",
-    "accountUser",
-    "profile",
-    "member",
-    "user",
-  ];
-
-  let token = "";
-  let user: any = null;
-
-  for (const storage of storages) {
-    for (const key of tokenKeys) {
-      token = token || getStorageValue(storage, key);
-    }
-    for (const key of userKeys) {
-      const raw = getStorageValue(storage, key);
-      const parsed = raw ? tryJsonParse(raw) : null;
-      if (!user && parsed) user = readNestedUser(parsed);
-      if (!token && parsed) {
-        token = pickFirst(
-          parsed.token,
-          parsed.access_token,
-          parsed.accessToken,
-          parsed.auth_token,
-          parsed.authToken,
-          parsed.jwt,
-          parsed.session_token,
-          parsed.sessionToken
-        );
-      }
-    }
-
-    for (let i = 0; i < storage.length; i += 1) {
-      const key = storage.key(i) || "";
-      const lower = key.toLowerCase();
-      if (!lower.includes("amost") && !lower.includes("auth") && !lower.includes("user") && !lower.includes("member") && !lower.includes("account") && !lower.includes("token") && !lower.includes("session")) continue;
-      const raw = getStorageValue(storage, key);
-      if (!raw) continue;
-      const parsed = tryJsonParse(raw);
-      if (!user && parsed) user = readNestedUser(parsed);
-      if (!token && lower.includes("token")) token = raw;
-      if (!token && parsed) {
-        token = pickFirst(parsed.token, parsed.access_token, parsed.accessToken, parsed.auth_token, parsed.authToken, parsed.jwt);
-      }
-    }
-  }
-
-  user = readNestedUser(user);
-
-  const headers: Record<string, string> = {};
-  if (token) headers.Authorization = `Bearer ${token}`;
-
-  const id = pickFirst(user?.id, user?.user_id, user?.userId, user?.uid, user?.member_id, user?.memberId, user?.athlete_id, user?.athleteId);
-  const email = pickFirst(user?.email, user?.user_email, user?.userEmail, user?.mail);
-  const username = pickFirst(user?.username, user?.user_name, user?.userName, user?.login, user?.phone, user?.no_hp);
-
-  if (id) headers["X-AMOST-User-Id"] = id;
-  if (email) headers["X-AMOST-Email"] = email;
-  if (username) headers["X-AMOST-Username"] = username;
-
-  if (user && (id || email || username || token)) {
-    const safeUser = { id, email, username, token };
-    headers["X-AMOST-Client-User"] = encodeBase64Utf8(JSON.stringify(safeUser));
-  }
-
-  return headers;
-}
-
 function formatKm(value?: number | null) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return "-";
   return `${Number(value).toFixed(2)} km`;
@@ -215,19 +85,24 @@ function formatSpeed(value?: number | null) {
 
 function formatDuration(seconds?: number | null) {
   if (!seconds || seconds <= 0) return "-";
+
   const total = Math.floor(seconds);
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);
   const s = total % 60;
+
   if (h > 0) return `${h}j ${m}m`;
-  if (m > 0) return `${m}m ${s}d`;
-  return `${s}d`;
+  if (m > 0) return `${m}m ${s}dtk`;
+  return `${s}dtk`;
 }
 
 function formatDate(value?: string | null) {
   if (!value) return "-";
+
   const date = new Date(value);
+
   if (Number.isNaN(date.getTime())) return "-";
+
   return new Intl.DateTimeFormat("id-ID", {
     day: "2-digit",
     month: "short",
@@ -237,9 +112,98 @@ function formatDate(value?: string | null) {
   }).format(date);
 }
 
-function statusLabel(value?: string | null) {
-  if (!value) return "BELUM ADA RESULT";
-  return value.replace(/_/g, " ").toUpperCase();
+function cleanStatus(value?: string | null) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function joinStatusLabel(value?: string | null) {
+  const status = cleanStatus(value);
+
+  if (["registered", "join", "joined", "active", "approved"].includes(status)) return "Terdaftar";
+  if (["pending", "menunggu"].includes(status)) return "Menunggu";
+  if (["cancelled", "canceled", "batal"].includes(status)) return "Batal";
+
+  return status ? status.replace(/_/g, " ").toUpperCase() : "Terdaftar";
+}
+
+function resultStatusLabel(value?: string | null) {
+  const status = cleanStatus(value);
+
+  if (!status) return "Belum Start / Belum Ada Result";
+  if (["finish", "finished", "finisher", "selesai"].includes(status)) return "Finish";
+  if (status === "dnf") return "DNF";
+  if (status === "dns") return "DNS";
+  if (status === "off_route") return "Off Route";
+  if (status === "review") return "Review";
+
+  return status.replace(/_/g, " ").toUpperCase();
+}
+
+function liveStatusLabel(value?: string | null) {
+  const status = cleanStatus(value);
+
+  if (!status) return "Live";
+  if (status === "live") return "Live";
+  if (status === "offline") return "Offline";
+  if (status === "finished") return "Finished";
+
+  return status.replace(/_/g, " ").toUpperCase();
+}
+
+function badgeClass(kind: "join" | "result" | "live", value?: string | null) {
+  const status = cleanStatus(value);
+
+  if (kind === "result" && !status) {
+    return "bg-slate-100 text-slate-600";
+  }
+
+  if (["finish", "finished", "finisher", "selesai", "registered", "joined", "active", "approved", "live"].includes(status)) {
+    return "bg-green-50 text-green-700";
+  }
+
+  if (["dnf", "dns", "off_route", "offline", "cancelled", "canceled", "batal"].includes(status)) {
+    return "bg-red-50 text-red-700";
+  }
+
+  if (["pending", "review", "menunggu"].includes(status)) {
+    return "bg-yellow-50 text-yellow-700";
+  }
+
+  return "bg-slate-100 text-slate-700";
+}
+
+function actionUrl(item: EventTracking, key: "detail" | "live" | "result" | "gpx") {
+  if (key === "detail") return item.detail_url || `/events/${item.event_id}`;
+  if (key === "live") return item.live_url || `/event/${item.event_id}/view`;
+  if (key === "result") return item.result_url || `/event/${item.event_id}/view?panel=result`;
+  return item.gpx_url || `/api/gpx-download?id=${encodeURIComponent(item.event_id)}`;
+}
+
+function EventActionButton({
+  href,
+  children,
+  disabled = false,
+}: {
+  href: string;
+  children: React.ReactNode;
+  disabled?: boolean;
+}) {
+  if (disabled) {
+    return (
+      <span className="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-black text-slate-400">
+        {children}
+      </span>
+    );
+  }
+
+  return (
+    <a
+      href={href}
+      className="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 hover:bg-slate-50"
+    >
+      {children}
+    </a>
+  );
 }
 
 export default function AccountTrackingData() {
@@ -256,10 +220,14 @@ export default function AccountTrackingData() {
         method: "GET",
         cache: "no-store",
         credentials: "include",
-        headers: buildAmostAuthHeaders(),
       });
+
       const json = (await res.json()) as TrackingResponse;
-      if (!res.ok || !json.ok) throw new Error(json.message || "Gagal mengambil data tracking.");
+
+      if (!res.ok || !json.ok) {
+        throw new Error(json.message || "Gagal mengambil data tracking.");
+      }
+
       setData(json);
     } catch (err: any) {
       setError(err?.message || "Gagal mengambil data tracking.");
@@ -321,7 +289,7 @@ export default function AccountTrackingData() {
             <p className="text-sm font-semibold uppercase tracking-wide text-orange-600">AMOST Tracking</p>
             <h1 className="mt-1 text-2xl font-black text-slate-950">Data Tracking Saya</h1>
             <p className="mt-1 text-sm text-slate-500">
-              Terhubung ke database real: event join, result event, live tracking, dan latihan mandiri.
+              Terhubung ke database real: registrasi event, result event, live tracking, dan latihan mandiri.
             </p>
           </div>
           <button
@@ -386,7 +354,11 @@ export default function AccountTrackingData() {
                 liveTracking.map((item, index) => (
                   <tr key={`${item.event_id || "live"}-${index}`} className="border-b border-slate-100">
                     <td className="py-3 pr-3 font-semibold text-slate-900">{item.event_id || "Latihan Mandiri"}</td>
-                    <td className="py-3 pr-3">{statusLabel(item.status)}</td>
+                    <td className="py-3 pr-3">
+                      <span className={`rounded-full px-3 py-1 text-xs font-black ${badgeClass("live", item.status)}`}>
+                        {liveStatusLabel(item.status)}
+                      </span>
+                    </td>
                     <td className="py-3 pr-3 text-slate-600">{item.lat.toFixed(6)}, {item.lng.toFixed(6)}</td>
                     <td className="py-3 pr-3">{formatKm(item.distance_km)}</td>
                     <td className="py-3 pr-3">{formatSpeed(item.speed_kmh)}</td>
@@ -401,10 +373,12 @@ export default function AccountTrackingData() {
 
       <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="text-lg font-black text-slate-950">Tracking Event</h2>
-        <p className="text-sm text-slate-500">Data berasal dari event_joins, events, dan training_results.</p>
+        <p className="text-sm text-slate-500">
+          Data berasal dari registrasi event, join event, dan hasil tracking yang tersimpan.
+        </p>
 
         <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[860px] text-left text-sm">
+          <table className="w-full min-w-[980px] text-left text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-xs uppercase text-slate-500">
                 <th className="py-3 pr-3">Event</th>
@@ -415,24 +389,46 @@ export default function AccountTrackingData() {
                 <th className="py-3 pr-3">Durasi</th>
                 <th className="py-3 pr-3">Avg Speed</th>
                 <th className="py-3 pr-3">Tanggal</th>
+                <th className="py-3 pr-3">Aksi</th>
               </tr>
             </thead>
             <tbody>
               {eventTracking.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-6 text-center text-slate-500">Belum ada event yang diikuti.</td>
+                  <td colSpan={9} className="py-6 text-center text-slate-500">Belum ada event yang diikuti.</td>
                 </tr>
               ) : (
-                eventTracking.map((item) => (
-                  <tr key={item.event_id} className="border-b border-slate-100">
-                    <td className="py-3 pr-3 font-semibold text-slate-900">{item.event_name}</td>
+                eventTracking.map((item, index) => (
+                  <tr key={`${item.event_id}-${item.bib_number || index}`} className="border-b border-slate-100 align-top">
+                    <td className="py-3 pr-3">
+                      <p className="font-semibold text-slate-900">{item.event_name}</p>
+                      <p className="mt-1 text-xs font-semibold uppercase text-slate-400">
+                        Source: {item.source || "registration"}
+                      </p>
+                    </td>
                     <td className="py-3 pr-3">{item.bib_number || "-"}</td>
-                    <td className="py-3 pr-3">{statusLabel(item.join_status)}</td>
-                    <td className="py-3 pr-3">{statusLabel(item.result_status)}</td>
+                    <td className="py-3 pr-3">
+                      <span className={`rounded-full px-3 py-1 text-xs font-black ${badgeClass("join", item.join_status)}`}>
+                        {joinStatusLabel(item.join_status)}
+                      </span>
+                    </td>
+                    <td className="py-3 pr-3">
+                      <span className={`rounded-full px-3 py-1 text-xs font-black ${badgeClass("result", item.result_status)}`}>
+                        {resultStatusLabel(item.result_status)}
+                      </span>
+                    </td>
                     <td className="py-3 pr-3">{formatKm(item.distance_km)}</td>
                     <td className="py-3 pr-3">{formatDuration(item.moving_time_seconds)}</td>
                     <td className="py-3 pr-3">{formatSpeed(item.avg_speed_kmh)}</td>
                     <td className="py-3 pr-3 text-slate-500">{formatDate(item.result_at || item.event_date || item.joined_at)}</td>
+                    <td className="py-3 pr-3">
+                      <div className="flex flex-wrap gap-2">
+                        <EventActionButton href={actionUrl(item, "detail")}>Detail</EventActionButton>
+                        <EventActionButton href={actionUrl(item, "live")}>Live</EventActionButton>
+                        <EventActionButton href={actionUrl(item, "result")}>Result</EventActionButton>
+                        <EventActionButton href={actionUrl(item, "gpx")} disabled={!item.can_download_gpx}>GPX</EventActionButton>
+                      </div>
+                    </td>
                   </tr>
                 ))
               )}
@@ -467,7 +463,11 @@ export default function AccountTrackingData() {
                 personalTracking.map((item) => (
                   <tr key={item.id} className="border-b border-slate-100">
                     <td className="py-3 pr-3 font-semibold text-slate-900">{item.title}</td>
-                    <td className="py-3 pr-3">{statusLabel(item.status)}</td>
+                    <td className="py-3 pr-3">
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-700">
+                        {item.status.replace(/_/g, " ").toUpperCase()}
+                      </span>
+                    </td>
                     <td className="py-3 pr-3">{formatKm(item.distance_km)}</td>
                     <td className="py-3 pr-3">{formatDuration(item.moving_time_seconds)}</td>
                     <td className="py-3 pr-3">{formatSpeed(item.avg_speed_kmh)}</td>
