@@ -52,9 +52,11 @@ type LiveTracking = {
 type TrackingResponse = {
   ok: boolean;
   message?: string;
+  debug?: unknown;
   user?: {
     id: string;
     email: string;
+    username?: string;
     name: string;
     role: string;
     athlete_type?: string | null;
@@ -65,6 +67,141 @@ type TrackingResponse = {
   event_tracking?: EventTracking[];
   personal_tracking?: PersonalTracking[];
 };
+
+function getStorageValue(storage: Storage | null, key: string) {
+  try {
+    return storage?.getItem(key) || "";
+  } catch {
+    return "";
+  }
+}
+
+function tryJsonParse(value: string): any | null {
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === "object") return parsed;
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+function encodeBase64Utf8(value: string) {
+  const bytes = new TextEncoder().encode(value);
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary);
+}
+
+function readNestedUser(obj: any) {
+  if (!obj || typeof obj !== "object") return null;
+  const nested = obj.user || obj.member || obj.account || obj.profile || null;
+  if (nested && typeof nested === "object") return { ...nested, ...obj };
+  return obj;
+}
+
+function pickFirst(...values: unknown[]) {
+  for (const value of values) {
+    const text = value === null || value === undefined ? "" : String(value).trim();
+    if (text) return text;
+  }
+  return "";
+}
+
+function buildAmostAuthHeaders(): HeadersInit {
+  if (typeof window === "undefined") return {};
+
+  const storages = [window.localStorage, window.sessionStorage].filter(Boolean) as Storage[];
+  const tokenKeys = [
+    "amost_token",
+    "amost_user_token",
+    "amost_auth_token",
+    "auth_token",
+    "account_token",
+    "session_token",
+    "user_token",
+    "access_token",
+    "jwt",
+    "token",
+    "admin_token",
+  ];
+  const userKeys = [
+    "amost_user",
+    "amost_current_user",
+    "amost_member",
+    "current_user",
+    "currentUser",
+    "auth_user",
+    "authUser",
+    "account_user",
+    "accountUser",
+    "profile",
+    "member",
+    "user",
+  ];
+
+  let token = "";
+  let user: any = null;
+
+  for (const storage of storages) {
+    for (const key of tokenKeys) {
+      token = token || getStorageValue(storage, key);
+    }
+    for (const key of userKeys) {
+      const raw = getStorageValue(storage, key);
+      const parsed = raw ? tryJsonParse(raw) : null;
+      if (!user && parsed) user = readNestedUser(parsed);
+      if (!token && parsed) {
+        token = pickFirst(
+          parsed.token,
+          parsed.access_token,
+          parsed.accessToken,
+          parsed.auth_token,
+          parsed.authToken,
+          parsed.jwt,
+          parsed.session_token,
+          parsed.sessionToken
+        );
+      }
+    }
+
+    for (let i = 0; i < storage.length; i += 1) {
+      const key = storage.key(i) || "";
+      const lower = key.toLowerCase();
+      if (!lower.includes("amost") && !lower.includes("auth") && !lower.includes("user") && !lower.includes("member") && !lower.includes("account") && !lower.includes("token") && !lower.includes("session")) continue;
+      const raw = getStorageValue(storage, key);
+      if (!raw) continue;
+      const parsed = tryJsonParse(raw);
+      if (!user && parsed) user = readNestedUser(parsed);
+      if (!token && lower.includes("token")) token = raw;
+      if (!token && parsed) {
+        token = pickFirst(parsed.token, parsed.access_token, parsed.accessToken, parsed.auth_token, parsed.authToken, parsed.jwt);
+      }
+    }
+  }
+
+  user = readNestedUser(user);
+
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const id = pickFirst(user?.id, user?.user_id, user?.userId, user?.uid, user?.member_id, user?.memberId, user?.athlete_id, user?.athleteId);
+  const email = pickFirst(user?.email, user?.user_email, user?.userEmail, user?.mail);
+  const username = pickFirst(user?.username, user?.user_name, user?.userName, user?.login, user?.phone, user?.no_hp);
+
+  if (id) headers["X-AMOST-User-Id"] = id;
+  if (email) headers["X-AMOST-Email"] = email;
+  if (username) headers["X-AMOST-Username"] = username;
+
+  if (user && (id || email || username || token)) {
+    const safeUser = { id, email, username, token };
+    headers["X-AMOST-Client-User"] = encodeBase64Utf8(JSON.stringify(safeUser));
+  }
+
+  return headers;
+}
 
 function formatKm(value?: number | null) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return "-";
@@ -119,6 +256,7 @@ export default function AccountTrackingData() {
         method: "GET",
         cache: "no-store",
         credentials: "include",
+        headers: buildAmostAuthHeaders(),
       });
       const json = (await res.json()) as TrackingResponse;
       if (!res.ok || !json.ok) throw new Error(json.message || "Gagal mengambil data tracking.");
@@ -157,12 +295,20 @@ export default function AccountTrackingData() {
       <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-red-800">
         <h2 className="text-lg font-bold">Tracking belum bisa dimuat</h2>
         <p className="mt-2 text-sm">{error}</p>
-        <button
-          onClick={loadData}
-          className="mt-4 rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800"
-        >
-          Muat ulang
-        </button>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            onClick={loadData}
+            className="rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800"
+          >
+            Muat ulang
+          </button>
+          <a
+            href="/login"
+            className="rounded-xl border border-red-300 px-4 py-2 text-sm font-semibold text-red-800 hover:bg-red-100"
+          >
+            Login ulang
+          </a>
+        </div>
       </div>
     );
   }
