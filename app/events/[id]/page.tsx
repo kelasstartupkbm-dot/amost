@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState, type ElementType } from "react";
 import {
-  Activity,
   ArrowLeft,
   CalendarDays,
   CheckCircle2,
@@ -74,19 +73,21 @@ function formatCurrency(value: number | string | null | undefined) {
 function normalizeStatus(status: string | null | undefined) {
   const raw = String(status || "published").toLowerCase();
 
-  if (["published", "open", "active", "buka", "live"].includes(raw)) {
-    return "Aktif";
-  }
-
-  if (["upcoming", "draft", "soon", "segera"].includes(raw)) {
-    return "Segera";
-  }
-
-  if (["closed", "selesai", "finish", "finished"].includes(raw)) {
-    return "Selesai";
-  }
+  if (["published", "open", "active", "buka", "live"].includes(raw)) return "Aktif";
+  if (["upcoming", "draft", "soon", "segera"].includes(raw)) return "Segera";
+  if (["closed", "selesai", "finish", "finished"].includes(raw)) return "Selesai";
 
   return status || "Aktif";
+}
+
+function getRegistrationStatus(registration: Registration | null) {
+  return String(
+    registration?.registration_status ||
+      registration?.status ||
+      "registered",
+  )
+    .trim()
+    .toLowerCase();
 }
 
 export default function PublicEventDetailPage() {
@@ -110,6 +111,7 @@ export default function PublicEventDetailPage() {
       const response = await fetch(`/api/events/${eventId}`, {
         method: "GET",
         cache: "no-store",
+        credentials: "include",
       });
 
       const data = await response.json().catch(() => null);
@@ -120,9 +122,12 @@ export default function PublicEventDetailPage() {
         return;
       }
 
-      setEvent(data.event || data.data || null);
-      setRegistration(data.registration || null);
-      setIsRegistered(Boolean(data.isRegistered));
+      const nextEvent = data.event || data.data || null;
+      const nextRegistration = data.registration || null;
+
+      setEvent(nextEvent);
+      setRegistration(nextRegistration);
+      setIsRegistered(Boolean(data.isRegistered || nextRegistration));
     } catch (error) {
       console.error(error);
       setEvent(null);
@@ -143,6 +148,7 @@ export default function PublicEventDetailPage() {
       const response = await fetch(`/api/events/${event.id}/join`, {
         method: "POST",
         cache: "no-store",
+        credentials: "include",
       });
 
       const data = await response.json().catch(() => null);
@@ -161,7 +167,7 @@ export default function PublicEventDetailPage() {
 
       setRegistration(newRegistration);
       setIsRegistered(true);
-      setSuccessMessage(data.message || "Berhasil daftar event.");
+      setSuccessMessage(data.message || "Berhasil daftar event. Akses Live Tracking sudah dibuka.");
       await loadEvent();
     } catch (error) {
       console.error(error);
@@ -202,13 +208,14 @@ export default function PublicEventDetailPage() {
     );
   }
 
-  const title = event.title || `Event #${event.id}`;
-  const participantNumber =
-    registration?.participant_number || registration?.id || "-";
+  const realEventId = String(event.id || eventId);
+  const title = event.title || `Event #${realEventId}`;
+  const participantNumber = registration?.participant_number || registration?.id || "-";
+  const registrationStatus = getRegistrationStatus(registration);
+  const canOpenLive = isRegistered && !["cancelled", "canceled", "batal", "rejected"].includes(registrationStatus);
 
   return (
     <main className="min-h-[calc(100vh-92px)] bg-slate-50 text-slate-950">
-
       <section className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-[88px]">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <Link
@@ -221,27 +228,37 @@ export default function PublicEventDetailPage() {
 
           <div className="flex flex-wrap gap-3">
             <Link
-              href="/account"
+              href="/account/events"
               className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50"
             >
-              Akun Saya
+              My Events
             </Link>
 
-            <Link
-              href={`/event/${event.id}/view`}
-              className="inline-flex h-11 items-center justify-center rounded-xl bg-purple-700 px-4 text-sm font-black text-white hover:bg-purple-800"
-            >
-              Live View Tracking
-            </Link>
+            {canOpenLive ? (
+              <Link
+                href={`/account/events/${realEventId}/view`}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-purple-700 px-4 text-sm font-black text-white hover:bg-purple-800"
+              >
+                <Map size={18} />
+                Buka Live Tracking
+              </Link>
+            ) : (
+              <button
+                type="button"
+                disabled={joining}
+                onClick={handleJoin}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-purple-700 px-4 text-sm font-black text-white hover:bg-purple-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+              >
+                {joining ? <Loader2 className="h-5 w-5 animate-spin" /> : <Ticket size={18} />}
+                {joining ? "Mendaftar..." : "Daftar Event"}
+              </button>
+            )}
           </div>
         </div>
+
         <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
           {event.image_url ? (
-            <img
-              src={event.image_url}
-              alt={title}
-              className="h-[260px] w-full object-cover"
-            />
+            <img src={event.image_url} alt={title} className="h-[260px] w-full object-cover" />
           ) : (
             <div className="flex h-[220px] items-center justify-center bg-gradient-to-br from-purple-50 to-slate-100">
               <CalendarDays className="h-16 w-16 text-purple-700" />
@@ -255,49 +272,49 @@ export default function PublicEventDetailPage() {
                   {normalizeStatus(event.status)}
                 </span>
 
-                <h2 className="mt-4 text-4xl font-black leading-tight text-slate-950">
-                  {title}
-                </h2>
+                <h2 className="mt-4 text-4xl font-black leading-tight text-slate-950">{title}</h2>
 
                 <p className="mt-4 max-w-3xl text-base leading-7 text-slate-600">
                   {event.description || "Event olahraga outdoor AMOST."}
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 lg:min-w-[280px]">
-                <p className="text-xs font-black uppercase text-slate-500">
-                  Status Pendaftaran
-                </p>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 lg:min-w-[300px]">
+                <p className="text-xs font-black uppercase text-slate-500">Status Pendaftaran</p>
 
                 {isRegistered ? (
                   <div className="mt-3">
-                    <p className="text-3xl font-black text-purple-700">
-                      {String(participantNumber)}
-                    </p>
-                    <p className="mt-1 text-sm font-bold text-slate-600">
-                      Nomor peserta aktif
-                    </p>
+                    <p className="text-3xl font-black text-purple-700">{String(participantNumber)}</p>
+                    <p className="mt-1 text-sm font-bold text-slate-600">Nomor peserta aktif</p>
                   </div>
                 ) : (
                   <div className="mt-3">
-                    <p className="text-xl font-black text-slate-950">
-                      Belum Terdaftar
-                    </p>
+                    <p className="text-xl font-black text-slate-950">Belum Terdaftar</p>
                     <p className="mt-1 text-sm font-bold text-slate-600">
-                      Daftar dulu untuk membuka akses peserta.
+                      Daftar dulu untuk membuka akses Live Tracking, Results, dan Doorprize.
                     </p>
                   </div>
                 )}
 
-                <button
-                  type="button"
-                  disabled={joining || isRegistered}
-                  onClick={handleJoin}
-                  className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-purple-700 px-4 text-sm font-black text-white hover:bg-purple-800 disabled:cursor-not-allowed disabled:bg-slate-300"
-                >
-                  {joining ? <Loader2 className="h-5 w-5 animate-spin" /> : null}
-                  {isRegistered ? "Sudah Terdaftar" : joining ? "Mendaftar..." : "Daftar Event Sekarang"}
-                </button>
+                {canOpenLive ? (
+                  <Link
+                    href={`/account/events/${realEventId}/view`}
+                    className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-purple-700 px-4 text-sm font-black text-white hover:bg-purple-800"
+                  >
+                    <Map size={18} />
+                    Buka Live Tracking
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={joining}
+                    onClick={handleJoin}
+                    className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-purple-700 px-4 text-sm font-black text-white hover:bg-purple-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                  >
+                    {joining ? <Loader2 className="h-5 w-5 animate-spin" /> : <Ticket size={18} />}
+                    {joining ? "Mendaftar..." : "Daftar Event Sekarang"}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -314,45 +331,21 @@ export default function PublicEventDetailPage() {
             ) : null}
 
             <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-              <InfoCard
-                icon={CalendarDays}
-                label="Tanggal"
-                value={formatDate(event.event_date)}
-              />
-              <InfoCard
-                icon={MapPin}
-                label="Lokasi"
-                value={event.location || "Lokasi menyusul"}
-              />
-              <InfoCard
-                icon={Route}
-                label="Distance"
-                value={`${Number(event.distance_km || 0).toFixed(2)} KM`}
-              />
-              <InfoCard
-                icon={Users}
-                label="Peserta"
-                value={`${event.participant_count || 0}/${event.quota || 0}`}
-              />
-              <InfoCard
-                icon={Ticket}
-                label="Biaya"
-                value={formatCurrency(event.registration_fee)}
-              />
+              <InfoCard icon={CalendarDays} label="Tanggal" value={formatDate(event.event_date)} />
+              <InfoCard icon={MapPin} label="Lokasi" value={event.location || "Lokasi menyusul"} />
+              <InfoCard icon={Route} label="Distance" value={`${Number(event.distance_km || 0).toFixed(2)} KM`} />
+              <InfoCard icon={Users} label="Peserta" value={`${event.participant_count || 0}/${event.quota || 0}`} />
+              <InfoCard icon={Ticket} label="Biaya" value={formatCurrency(event.registration_fee)} />
             </div>
           </div>
         </section>
 
-        {isRegistered ? (
+        {canOpenLive ? (
           <section className="mt-6 rounded-3xl border border-purple-100 bg-purple-50 p-6 shadow-sm lg:p-8">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <p className="text-sm font-black uppercase tracking-wide text-purple-700">
-                  Akses Peserta
-                </p>
-                <h3 className="mt-2 text-3xl font-black text-slate-950">
-                  Menu Event Kamu
-                </h3>
+                <p className="text-sm font-black uppercase tracking-wide text-purple-700">Akses Peserta</p>
+                <h3 className="mt-2 text-3xl font-black text-slate-950">Menu Event Kamu</h3>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
                   Akses ini muncul karena akunmu sudah terdaftar pada event ini.
                 </p>
@@ -360,17 +353,18 @@ export default function PublicEventDetailPage() {
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:min-w-[620px]">
                 <ParticipantAccessButton
-                  href={`/event/${event.id}/view`}
+                  href={`/account/events/${realEventId}/view`}
                   icon={Map}
-                  label="Live View Tracking"
+                  label="Live Tracking"
+                  primary
                 />
                 <ParticipantAccessButton
-                  href={`/events/${event.id}/results`}
+                  href={`/account/events/${realEventId}/results`}
                   icon={Trophy}
                   label="Results"
                 />
                 <ParticipantAccessButton
-                  href={`/events/${event.id}/doorprize`}
+                  href={`/account/events/${realEventId}/doorprize`}
                   icon={Gift}
                   label="Doorprize"
                 />
@@ -380,11 +374,9 @@ export default function PublicEventDetailPage() {
         ) : (
           <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 text-center shadow-sm lg:p-8">
             <CheckCircle2 className="mx-auto h-12 w-12 text-slate-300" />
-            <h3 className="mt-4 text-2xl font-black text-slate-950">
-              Daftar untuk membuka akses peserta
-            </h3>
+            <h3 className="mt-4 text-2xl font-black text-slate-950">Daftar untuk membuka akses peserta</h3>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Setelah terdaftar, kamu bisa mengakses Live View Tracking, Results, dan Doorprize.
+              Setelah terdaftar, kamu bisa mengakses Live Tracking, Results, dan Doorprize.
             </p>
           </section>
         )}
@@ -408,10 +400,7 @@ function InfoCard({
         <Icon size={22} />
       </div>
 
-      <p className="mt-4 text-xs font-black uppercase tracking-wide text-slate-500">
-        {label}
-      </p>
-
+      <p className="mt-4 text-xs font-black uppercase tracking-wide text-slate-500">{label}</p>
       <p className="mt-2 text-lg font-black text-slate-950">{value}</p>
     </div>
   );
@@ -421,15 +410,21 @@ function ParticipantAccessButton({
   href,
   icon: Icon,
   label,
+  primary = false,
 }: {
   href: string;
   icon: ElementType;
   label: string;
+  primary?: boolean;
 }) {
   return (
     <Link
       href={href}
-      className="flex min-h-[92px] flex-col items-center justify-center rounded-2xl bg-white px-4 py-5 text-center text-sm font-black text-slate-950 shadow-sm ring-1 ring-purple-100 hover:bg-purple-700 hover:text-white"
+      className={`flex min-h-[92px] flex-col items-center justify-center rounded-2xl px-4 py-5 text-center text-sm font-black shadow-sm ring-1 ${
+        primary
+          ? "bg-purple-700 text-white ring-purple-700 hover:bg-purple-800"
+          : "bg-white text-slate-950 ring-purple-100 hover:bg-purple-700 hover:text-white"
+      }`}
     >
       <Icon size={28} />
       <span className="mt-3">{label}</span>
