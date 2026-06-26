@@ -386,7 +386,7 @@ export default function AccountTrackingMockupPage() {
           </div>
         </header>
 
-        <section className="relative h-[calc(100vh-92px)] min-h-[780px] overflow-hidden">
+        <section className="relative h-[calc(100vh-92px)] min-h-[640px] overflow-hidden">
           <div className="absolute inset-0 bg-[#eef2f0]">
             <div className="absolute inset-0 opacity-[0.72] [background-image:radial-gradient(circle_at_20%_20%,rgba(148,163,184,0.28)_0,transparent_30%),radial-gradient(circle_at_70%_10%,rgba(34,197,94,0.18)_0,transparent_28%),linear-gradient(to_right,rgba(15,23,42,0.06)_1px,transparent_1px),linear-gradient(to_bottom,rgba(15,23,42,0.05)_1px,transparent_1px)] [background-size:100%_100%,100%_100%,56px_56px,56px_56px]" />
             <div className="absolute inset-0 opacity-25 [background-image:repeating-radial-gradient(ellipse_at_center,rgba(15,23,42,0.18)_0_1px,transparent_1px_18px)]" />
@@ -483,7 +483,7 @@ export default function AccountTrackingMockupPage() {
             </div>
           </div>
 
-          <div className="absolute bottom-8 left-5 z-10 w-[270px] overflow-hidden rounded-[1rem] border border-slate-200 bg-white/95 shadow-lg backdrop-blur">
+          <div className="absolute bottom-6 left-5 z-10 w-[270px] overflow-hidden rounded-[1rem] border border-slate-200 bg-white/95 shadow-lg backdrop-blur">
             <div className="border-b border-slate-100 px-5 py-4">
               <h3 className="text-sm font-black text-slate-950">
                 Peserta di Sekitarmu (5)
@@ -523,17 +523,17 @@ export default function AccountTrackingMockupPage() {
             </Link>
           </div>
 
-          <div className="absolute bottom-8 left-1/2 z-10 w-[490px] max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-[1rem] border border-slate-200 bg-white/95 p-5 shadow-xl backdrop-blur">
-            <div className="grid grid-cols-[88px_1fr_88px] items-center gap-4">
+          <div className="absolute bottom-6 left-1/2 z-30 w-[490px] max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-[1rem] border border-slate-200 bg-white/95 p-4 shadow-xl backdrop-blur">
+            <div className="grid grid-cols-[76px_1fr_76px] items-center gap-3">
               <TrackingButton icon={Pause} label="Pause" />
               <div className="text-center">
                 <p className="text-xs font-black text-slate-600">
                   Tracking Berlangsung
                 </p>
-                <p className="mt-1 text-3xl font-black tabular-nums text-slate-950">
+                <p className="mt-1 text-2xl font-black tabular-nums text-slate-950">
                   01:25:36
                 </p>
-                <button className="mt-3 inline-flex h-9 items-center justify-center gap-2 rounded-full bg-purple-50 px-6 text-xs font-semibold text-slate-600">
+                <button className="mt-2 inline-flex h-8 items-center justify-center gap-2 rounded-full bg-purple-50 px-5 text-[11px] font-semibold text-slate-600">
                   Geser ke kanan untuk selesai <ChevronRight size={15} className="text-purple-700" />
                 </button>
               </div>
@@ -656,7 +656,7 @@ function TrackingButton({
 }) {
   return (
     <button className="flex flex-col items-center justify-center gap-2">
-      <span className="flex h-16 w-16 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-950 shadow-sm">
+      <span className="flex h-14 w-14 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-950 shadow-sm">
         <Icon size={24} />
       </span>
       <span className="text-xs font-semibold text-slate-600">{label}</span>
