@@ -748,7 +748,76 @@ function HomeTopbar({
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-xl">
-      <div className="flex min-h-[88px] flex-col gap-4 px-4 py-4 md:flex-row md:items-center md:justify-between md:px-6">
+      {/* Mobile topbar: nama dan tombol utama dibuat satu baris */}
+      <div className="px-4 py-4 md:hidden">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-3xl font-black leading-tight text-slate-950">{title}</h1>
+            <p className="mt-1 truncate text-base font-semibold text-slate-500">{subtitle}</p>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm"
+              title="Notifikasi"
+            >
+              <Bell size={20} />
+              <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-purple-700 text-[10px] font-black text-white">
+                3
+              </span>
+            </button>
+
+            {topAction ? (
+              <Link
+                href={topAction.href}
+                prefetch={false}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-purple-700 px-3 text-sm font-black text-white shadow-sm hover:bg-purple-800"
+              >
+                <ShieldCheck size={17} />
+                <span className="hidden min-[420px]:inline">{topAction.label}</span>
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={onRefresh}
+                disabled={refreshing}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-70"
+                title="Refresh"
+              >
+                <RefreshCw size={18} className={refreshing ? "animate-spin" : ""} />
+                <span className="hidden min-[420px]:inline">Refresh</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              disabled={logoutLoading}
+              onClick={onLogout}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-3 text-sm font-black text-white shadow-sm hover:bg-slate-800 disabled:opacity-70"
+              title="Keluar"
+            >
+              <LogOut size={18} />
+              <span className="hidden min-[420px]:inline">
+                {logoutLoading ? "Keluar..." : "Keluar"}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-3 flex items-center gap-3 rounded-2xl border border-purple-100 bg-purple-50 px-4 py-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-purple-700 text-xs font-black text-white">
+            {initials}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-black leading-none text-slate-950">{displayName}</p>
+            <p className="mt-1 text-xs font-bold leading-none text-purple-700">{roleLabel}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop topbar tetap seperti sebelumnya */}
+      <div className="hidden min-h-[88px] items-center justify-between gap-4 px-6 py-4 md:flex">
         <div>
           <h1 className="text-2xl font-black text-slate-950">{title}</h1>
           <p className="mt-1 text-sm font-semibold text-slate-500">{subtitle}</p>
