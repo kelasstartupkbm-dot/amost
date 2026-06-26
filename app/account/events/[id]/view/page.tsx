@@ -3,18 +3,13 @@
 import AccountAppShell from "../../../../components/AccountAppShell";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowLeft,
   Box,
-  Gift,
-  Layers,
   List,
   Loader2,
   LocateFixed,
   MapPin,
-  Navigation,
-  RefreshCw,
   Satellite,
   Trophy,
   Wifi,
@@ -63,10 +58,7 @@ type LiveMarker = {
   status?: string | null;
   seconds_ago?: number | null;
   is_online?: boolean;
-  projected?: {
-    x: number;
-    y: number;
-  };
+  projected?: { x: number; y: number };
 };
 
 type StandbyParticipant = {
@@ -83,29 +75,13 @@ type RoutePoint = {
   lng: number;
 };
 
-function formatDate(value: string | null | undefined) {
-  if (!value) return "Tanggal menyusul";
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return String(value);
-
-  return date.toLocaleDateString("id-ID", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
-
 function formatDateTime(value: string | null | undefined) {
   if (!value) return "-";
-
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
-
   return date.toLocaleString("id-ID", {
     day: "2-digit",
     month: "short",
-    year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -113,25 +89,21 @@ function formatDateTime(value: string | null | undefined) {
 
 function formatDistance(value: number | string | null | undefined) {
   const numberValue = Number(value || 0);
-
   if (!Number.isFinite(numberValue) || numberValue <= 0) return "0.00 KM";
-
   return `${numberValue.toFixed(2)} KM`;
 }
 
 function formatSpeed(value: number | string | null | undefined) {
   const numberValue = Number(value || 0);
-
   if (!Number.isFinite(numberValue) || numberValue <= 0) return "-";
-
   return `${numberValue.toFixed(1)} km/jam`;
 }
 
 function formatSecondsAgo(value: number | null | undefined) {
   if (value === null || value === undefined) return "-";
-  if (value < 60) return `${value} detik lalu`;
-  if (value < 3600) return `${Math.floor(value / 60)} menit lalu`;
-  return `${Math.floor(value / 3600)} jam lalu`;
+  if (value < 60) return `${value} dtk`;
+  if (value < 3600) return `${Math.floor(value / 60)} mnt`;
+  return `${Math.floor(value / 3600)} jam`;
 }
 
 function getEventTitle(event: PublicEvent | null, eventId: string) {
@@ -175,6 +147,7 @@ function projectPoint(point: { lat: number; lng: number }, bounds: ReturnType<ty
 
   const lngRange = bounds.maxLng - bounds.minLng || 1;
   const latRange = bounds.maxLat - bounds.minLat || 1;
+
   const x = ((point.lng - bounds.minLng) / lngRange) * 100;
   const y = (1 - (point.lat - bounds.minLat) / latRange) * 100;
 
@@ -183,6 +156,30 @@ function projectPoint(point: { lat: number; lng: number }, bounds: ReturnType<ty
     y: Math.min(96, Math.max(4, y)),
   };
 }
+
+type SidebarLayoutRef = {
+  heroCard: HTMLElement | null;
+  pageContainer: HTMLElement | null;
+  footer: HTMLElement | null;
+  leftAside: HTMLElement | null;
+  leftWrapper: HTMLElement | null;
+  rightSidebarRoot: HTMLElement | null;
+  rightSidebarContainer: HTMLElement | null;
+  rightSidebarGrid: HTMLElement | null;
+  heroCardDisplay: string;
+  pageContainerMinHeight: string;
+  pageContainerHeight: string;
+  pageContainerOverflow: string;
+  footerDisplay: string;
+  leftAsideDisplay: string;
+  leftAsideWidth: string;
+  leftWrapperGridTemplate: string;
+  leftWrapperDisplay: string;
+  rightSidebarDisplay: string;
+  rightSidebarWidth: string;
+  rightGridTemplate: string;
+  rightGridGap: string;
+};
 
 export default function AccountEventLiveViewPage() {
   const params = useParams();
@@ -199,45 +196,130 @@ export default function AccountEventLiveViewPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [leftCollapsed, setLeftCollapsed] = useState(true);
+  const [rightCollapsed, setRightCollapsed] = useState(true);
+  const layoutRef = useRef<SidebarLayoutRef | null>(null);
 
   const title = getEventTitle(event, eventId);
 
-  /*
-    AccountAppShell otomatis membuat hero card di awal content.
-    Untuk halaman Live View ini, target UI adalah langsung membuka Peta Live Tracking.
-    Efek ini hanya menyembunyikan hero card shell pada halaman ini saja.
-  */
   useEffect(() => {
-    const marker = document.querySelector("[data-amost-live-exact-page]");
-    const shellContent = marker?.closest("section.space-y-5");
-    const firstCard = shellContent?.querySelector(":scope > section:first-child") as HTMLElement | null;
+    const marker = document.querySelector("[data-amost-live-fit-page]") as HTMLElement | null;
+    const shellContent = marker?.closest("section.space-y-5") as HTMLElement | null;
+    const heroCard = shellContent?.querySelector(":scope > section:first-child") as HTMLElement | null;
+    const pageContainer = marker?.parentElement as HTMLElement | null;
+    const footer = Array.from(document.querySelectorAll("footer")).find((item) => item.textContent?.includes("AMOST")) as HTMLElement | undefined;
+    const leftAside = document.querySelector("aside") as HTMLElement | null;
+    const leftWrapper = leftAside?.parentElement as HTMLElement | null;
+    const rightSidebarRoot = document.querySelector("[data-live-right-sidebar]") as HTMLElement | null;
+    const rightSidebarContainer = rightSidebarRoot?.parentElement as HTMLElement | null;
+    const rightSidebarGrid = rightSidebarContainer?.parentElement as HTMLElement | null;
 
-    if (firstCard && !firstCard.contains(marker)) {
-      firstCard.style.display = "none";
+    layoutRef.current = {
+      heroCard,
+      pageContainer,
+      footer: footer || null,
+      leftAside,
+      leftWrapper,
+      rightSidebarRoot,
+      rightSidebarContainer,
+      rightSidebarGrid,
+      heroCardDisplay: heroCard?.style.display || "",
+      pageContainerMinHeight: pageContainer?.style.minHeight || "",
+      pageContainerHeight: pageContainer?.style.height || "",
+      pageContainerOverflow: pageContainer?.style.overflow || "",
+      footerDisplay: footer?.style.display || "",
+      leftAsideDisplay: leftAside?.style.display || "",
+      leftAsideWidth: leftAside?.style.width || "",
+      leftWrapperGridTemplate: leftWrapper?.style.gridTemplateColumns || "",
+      leftWrapperDisplay: leftWrapper?.style.display || "",
+      rightSidebarDisplay: rightSidebarContainer?.style.display || "",
+      rightSidebarWidth: rightSidebarContainer?.style.width || "",
+      rightGridTemplate: rightSidebarGrid?.style.gridTemplateColumns || "",
+      rightGridGap: rightSidebarGrid?.style.gap || "",
+    };
+
+    if (heroCard && !heroCard.contains(marker as Node)) {
+      heroCard.style.display = "none";
+    }
+
+    if (pageContainer) {
+      pageContainer.style.minHeight = "calc(100vh - 170px)";
+      pageContainer.style.height = "calc(100vh - 170px)";
+      pageContainer.style.overflow = "hidden";
+    }
+
+    if (footer) {
+      footer.style.display = "none";
     }
 
     return () => {
-      if (firstCard) firstCard.style.display = "";
+      const layout = layoutRef.current;
+      if (!layout) return;
+
+      if (layout.heroCard) layout.heroCard.style.display = layout.heroCardDisplay;
+      if (layout.pageContainer) {
+        layout.pageContainer.style.minHeight = layout.pageContainerMinHeight;
+        layout.pageContainer.style.height = layout.pageContainerHeight;
+        layout.pageContainer.style.overflow = layout.pageContainerOverflow;
+      }
+      if (layout.footer) layout.footer.style.display = layout.footerDisplay;
+      if (layout.leftAside) {
+        layout.leftAside.style.display = layout.leftAsideDisplay;
+        layout.leftAside.style.width = layout.leftAsideWidth;
+      }
+      if (layout.leftWrapper) {
+        layout.leftWrapper.style.gridTemplateColumns = layout.leftWrapperGridTemplate;
+        layout.leftWrapper.style.display = layout.leftWrapperDisplay;
+      }
+      if (layout.rightSidebarContainer) {
+        layout.rightSidebarContainer.style.display = layout.rightSidebarDisplay;
+        layout.rightSidebarContainer.style.width = layout.rightSidebarWidth;
+      }
+      if (layout.rightSidebarGrid) {
+        layout.rightSidebarGrid.style.gridTemplateColumns = layout.rightGridTemplate;
+        layout.rightSidebarGrid.style.gap = layout.rightGridGap;
+      }
     };
   }, []);
 
+  useEffect(() => {
+    const layout = layoutRef.current;
+    if (!layout) return;
+
+    if (layout.leftAside) {
+      layout.leftAside.style.display = leftCollapsed ? "none" : layout.leftAsideDisplay || "";
+      layout.leftAside.style.width = leftCollapsed ? "0px" : layout.leftAsideWidth || "";
+    }
+
+    if (layout.leftWrapper) {
+      const computed = window.getComputedStyle(layout.leftWrapper).display;
+      if (computed.includes("grid") || layout.leftWrapperDisplay.includes("grid")) {
+        layout.leftWrapper.style.gridTemplateColumns = leftCollapsed ? "minmax(0,1fr)" : layout.leftWrapperGridTemplate || "";
+      }
+    }
+
+    if (layout.rightSidebarContainer) {
+      layout.rightSidebarContainer.style.display = rightCollapsed ? "none" : layout.rightSidebarDisplay || "";
+      layout.rightSidebarContainer.style.width = rightCollapsed ? "0px" : layout.rightSidebarWidth || "";
+    }
+
+    if (layout.rightSidebarGrid) {
+      const computed = window.getComputedStyle(layout.rightSidebarGrid).display;
+      if (computed.includes("grid")) {
+        layout.rightSidebarGrid.style.gridTemplateColumns = rightCollapsed ? "minmax(0,1fr)" : layout.rightGridTemplate || "";
+      }
+      if (rightCollapsed) {
+        layout.rightSidebarGrid.style.gap = "0px";
+      } else {
+        layout.rightSidebarGrid.style.gap = layout.rightGridGap || "";
+      }
+    }
+  }, [leftCollapsed, rightCollapsed]);
+
   const stats = useMemo(() => {
     const participantCount = Number(event?.participant_count || participantTotal || 0);
-    const finishCount = results.filter(
-      (item) => String(item.result_status || "").toUpperCase() === "FINISH",
-    ).length;
+    const finishCount = results.filter((item) => String(item.result_status || "").toUpperCase() === "FINISH").length;
     const onlineCount = liveMarkers.filter((item) => item.is_online).length;
-    const totalDistance = results.reduce((sum, item) => {
-      const value = Number(item.distance || 0);
-      return Number.isFinite(value) ? sum + value : sum;
-    }, 0);
-    const speedRows = results
-      .map((item) => Number(item.avg_speed || 0))
-      .filter((value) => Number.isFinite(value) && value > 0);
-    const avgSpeed =
-      speedRows.length > 0
-        ? speedRows.reduce((sum, value) => sum + value, 0) / speedRows.length
-        : 0;
 
     return {
       participantCount,
@@ -246,8 +328,6 @@ export default function AccountEventLiveViewPage() {
       onlineCount,
       standbyCount: standbyParticipants.length,
       progress: calculatePercent(finishCount, participantCount || 1),
-      totalDistance,
-      avgSpeed,
     };
   }, [event, participantTotal, results, liveMarkers, standbyParticipants.length]);
 
@@ -282,21 +362,9 @@ export default function AccountEventLiveViewPage() {
 
     try {
       const [eventResponse, resultsResponse, liveResponse] = await Promise.all([
-        fetch(`/api/events/${eventId}`, {
-          method: "GET",
-          cache: "no-store",
-          credentials: "include",
-        }),
-        fetch(`/api/events/${eventId}/results`, {
-          method: "GET",
-          cache: "no-store",
-          credentials: "include",
-        }).catch(() => null),
-        fetch(`/api/events/${eventId}/live`, {
-          method: "GET",
-          cache: "no-store",
-          credentials: "include",
-        }).catch(() => null),
+        fetch(`/api/events/${eventId}`, { method: "GET", cache: "no-store", credentials: "include" }),
+        fetch(`/api/events/${eventId}/results`, { method: "GET", cache: "no-store", credentials: "include" }).catch(() => null),
+        fetch(`/api/events/${eventId}/live`, { method: "GET", cache: "no-store", credentials: "include" }).catch(() => null),
       ]);
 
       const eventData = await eventResponse.json().catch(() => null);
@@ -315,28 +383,14 @@ export default function AccountEventLiveViewPage() {
 
       if (resultsResponse) {
         const resultsData = await resultsResponse.json().catch(() => null);
-        setResults(
-          Array.isArray(resultsData?.data)
-            ? resultsData.data
-            : Array.isArray(resultsData?.items)
-              ? resultsData.items
-              : [],
-        );
+        setResults(Array.isArray(resultsData?.data) ? resultsData.data : Array.isArray(resultsData?.items) ? resultsData.items : []);
       }
 
       if (liveResponse) {
         const liveData = await liveResponse.json().catch(() => null);
-        setLiveMarkers(
-          Array.isArray(liveData?.data)
-            ? liveData.data
-            : Array.isArray(liveData?.items)
-              ? liveData.items
-              : [],
-        );
+        setLiveMarkers(Array.isArray(liveData?.data) ? liveData.data : Array.isArray(liveData?.items) ? liveData.items : []);
         setRoutePoints(Array.isArray(liveData?.route_points) ? liveData.route_points : []);
-        setStandbyParticipants(
-          Array.isArray(liveData?.standby_participants) ? liveData.standby_participants : [],
-        );
+        setStandbyParticipants(Array.isArray(liveData?.standby_participants) ? liveData.standby_participants : []);
         setParticipantTotal(Number(liveData?.participant_total || 0));
         setLiveMessage(liveData?.debug?.reason || liveData?.message || "");
       }
@@ -354,52 +408,49 @@ export default function AccountEventLiveViewPage() {
   }, [eventId]);
 
   const rightPanel = (
-    <section className="space-y-5">
-      <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+    <div data-live-right-sidebar className="flex h-full min-h-0 flex-col gap-4">
+      <section className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-black text-slate-950">Ringkasan Live</h3>
-          <Zap className="text-purple-700" size={22} />
+          <Zap className="text-purple-700" size={20} />
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="mt-3 grid grid-cols-2 gap-2.5">
           <InfoBox label="Peserta" value={String(stats.participantCount)} />
           <InfoBox label="Live" value={String(stats.liveCount)} />
           <InfoBox label="Online" value={String(stats.onlineCount)} accent="green" />
           <InfoBox label="Standby" value={String(stats.standbyCount)} />
           <InfoBox label="Finish" value={String(stats.finishCount)} />
-          <InfoBox label="Progress Result" value={`${stats.progress}%`} />
+          <InfoBox label="Progress" value={`${stats.progress}%`} />
         </div>
 
         <Link
           href={`/account/events/${eventId}/results`}
-          className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm font-black text-slate-700 hover:bg-slate-50"
+          className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm font-black text-slate-700 hover:bg-slate-50"
         >
-          <Trophy size={17} />
-          Lihat Hasil Event
+          <Trophy size={16} />
+          Hasil Event
         </Link>
       </section>
 
-      <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="flex min-h-0 flex-1 flex-col rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-black text-slate-950">Live/Result Ringkas</h3>
-          <List className="text-purple-700" size={22} />
+          <List className="text-purple-700" size={20} />
         </div>
 
         {results.length === 0 ? (
-          <div className="flex min-h-[150px] flex-col items-center justify-center text-center">
+          <div className="flex flex-1 flex-col items-center justify-center text-center">
             <p className="text-sm font-black text-slate-950">Belum ada hasil.</p>
-            <p className="mt-2 max-w-[230px] text-sm leading-6 text-slate-500">
-              Hasil peserta akan tampil setelah event selesai dan data dikirim.
+            <p className="mt-2 max-w-[220px] text-sm leading-6 text-slate-500">
+              Hasil peserta tampil setelah event selesai dan data dikirim.
             </p>
           </div>
         ) : (
-          <div className="mt-4 space-y-3">
-            {results.slice(0, 4).map((item) => (
-              <div
-                key={String(item.result_id || `${item.user_id}-${item.event_id}`)}
-                className="rounded-2xl bg-slate-50 p-4"
-              >
-                <p className="font-black text-slate-950">{item.full_name || "Peserta AMOST"}</p>
+          <div className="mt-3 flex-1 space-y-2 overflow-auto pr-1">
+            {results.slice(0, 6).map((item) => (
+              <div key={String(item.result_id || `${item.user_id}-${item.event_id}`)} className="rounded-2xl bg-slate-50 p-3">
+                <p className="truncate text-sm font-black text-slate-950">{item.full_name || "Peserta AMOST"}</p>
                 <p className="mt-1 text-xs font-semibold text-slate-500">
                   {item.participant_number || "-"} · {formatDistance(item.distance)}
                 </p>
@@ -408,7 +459,7 @@ export default function AccountEventLiveViewPage() {
           </div>
         )}
       </section>
-    </section>
+    </div>
   );
 
   return (
@@ -420,9 +471,29 @@ export default function AccountEventLiveViewPage() {
       icon={Satellite}
       rightPanel={rightPanel}
     >
-      <div data-amost-live-exact-page className="space-y-5">
+      <div data-amost-live-fit-page className="relative flex h-full min-h-0 flex-col gap-4 overflow-hidden">
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between px-2 sm:px-3">
+          <button
+            type="button"
+            onClick={() => setLeftCollapsed((prev) => !prev)}
+            className="pointer-events-auto inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white/95 px-3 py-2 text-xs font-black text-slate-700 shadow-sm backdrop-blur hover:bg-slate-50"
+          >
+            <span className="text-sm">{leftCollapsed ? "☰" : "←"}</span>
+            {leftCollapsed ? "Maximize Sidebar Kiri" : "Minimize Sidebar Kiri"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setRightCollapsed((prev) => !prev)}
+            className="pointer-events-auto inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white/95 px-3 py-2 text-xs font-black text-slate-700 shadow-sm backdrop-blur hover:bg-slate-50"
+          >
+            {rightCollapsed ? "Maximize Sidebar Kanan" : "Minimize Sidebar Kanan"}
+            <span className="text-sm">{rightCollapsed ? "☷" : "→"}</span>
+          </button>
+        </div>
+
         {loading ? (
-          <section className="flex min-h-[520px] flex-col items-center justify-center rounded-[2rem] border border-slate-200 bg-white text-center shadow-sm">
+          <section className="flex h-full min-h-[420px] flex-col items-center justify-center rounded-[2rem] border border-slate-200 bg-white text-center shadow-sm">
             <Loader2 className="h-12 w-12 animate-spin text-purple-700" />
             <p className="mt-4 text-xl font-black text-slate-950">Memuat live tracking...</p>
             <p className="mt-2 text-sm text-slate-500">Mengambil data event, result, dan posisi live.</p>
@@ -433,12 +504,18 @@ export default function AccountEventLiveViewPage() {
           </section>
         ) : (
           <>
-            <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
-              <p className="text-xs font-black uppercase tracking-[0.24em] text-purple-700">
-                Peta Live Tracking
-              </p>
+            <section className="mt-12 flex-none rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-xs font-black uppercase tracking-[0.24em] text-purple-700">Peta Live Tracking</p>
+                <button
+                  onClick={() => loadData(true)}
+                  className="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 hover:bg-slate-50"
+                >
+                  {refreshing ? "Refresh..." : "Refresh"}
+                </button>
+              </div>
 
-              <section className="relative mt-5 min-h-[360px] overflow-hidden rounded-[1.5rem] border border-slate-200 bg-[#eaf1f0]">
+              <section className="relative h-[290px] overflow-hidden rounded-[1.5rem] border border-slate-200 bg-[#eaf1f0] xl:h-[300px]">
                 <div className="absolute inset-0 opacity-90">
                   <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(15,23,42,0.07)_1px,transparent_1px),linear-gradient(to_bottom,rgba(15,23,42,0.07)_1px,transparent_1px)] bg-[size:44px_44px]" />
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_18%,rgba(34,197,94,0.12),transparent_25%),radial-gradient(circle_at_82%_20%,rgba(59,130,246,0.12),transparent_22%),radial-gradient(circle_at_53%_70%,rgba(124,58,237,0.15),transparent_26%)]" />
@@ -455,48 +532,26 @@ export default function AccountEventLiveViewPage() {
                   </button>
                 </div>
 
-                <svg
-                  className="absolute inset-0 h-full w-full"
-                  viewBox="0 0 100 100"
-                  preserveAspectRatio="none"
-                >
+                <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
                   {projected.routePath ? (
                     <>
-                      <path
-                        d={projected.routePath}
-                        fill="none"
-                        stroke="rgba(126, 34, 206, 0.95)"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="1.8"
-                      />
-                      <path
-                        d={projected.routePath}
-                        fill="none"
-                        stroke="rgba(255, 255, 255, 0.9)"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="0.6"
-                      />
+                      <path d={projected.routePath} fill="none" stroke="rgba(126, 34, 206, 0.95)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+                      <path d={projected.routePath} fill="none" stroke="rgba(255, 255, 255, 0.9)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="0.6" />
                     </>
                   ) : null}
                 </svg>
 
                 {projected.markers.map((marker) => (
-                  <LiveMarkerBubble
-                    key={String(marker.position_id || marker.user_id || `${marker.lat}-${marker.lng}`)}
-                    marker={marker}
-                  />
+                  <LiveMarkerBubble key={String(marker.position_id || marker.user_id || `${marker.lat}-${marker.lng}`)} marker={marker} />
                 ))}
 
                 {liveMarkers.length === 0 ? (
                   <div className="absolute inset-0 z-10 flex items-center justify-center px-8">
-                    <div className="max-w-xl rounded-[1.5rem] bg-white/75 p-7 text-center backdrop-blur">
+                    <div className="max-w-xl rounded-[1.5rem] bg-white/78 p-7 text-center backdrop-blur">
                       <MapPin className="mx-auto h-11 w-11 text-purple-700" />
                       <h2 className="mt-4 text-2xl font-black text-slate-950">Belum ada posisi live.</h2>
                       <p className="mt-3 text-sm font-semibold leading-6 text-slate-700">
-                        Peserta event sudah dapat muncul sebagai Standby, tetapi marker peta baru tampil setelah
-                        Android mengirim lat/lng ke live_tracking_positions.
+                        Peserta event sudah dapat muncul sebagai Standby, tetapi marker peta baru tampil setelah Android mengirim lat/lng ke live_tracking_positions.
                       </p>
                       <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-slate-50 px-4 py-2 text-xs font-bold text-slate-500">
                         <Box size={15} />
@@ -508,41 +563,46 @@ export default function AccountEventLiveViewPage() {
               </section>
             </section>
 
-            <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
-              <h3 className="text-lg font-black text-slate-950">Daftar Posisi Live</h3>
-
-              {liveMarkers.length === 0 ? (
-                <div className="mt-4 flex min-h-[120px] flex-col items-center justify-center rounded-2xl bg-slate-50 text-center">
-                  <Box className="text-slate-300" size={30} />
-                  <p className="mt-3 text-sm font-bold text-slate-500">Belum ada data live tracking.</p>
+            <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+              <section className="flex min-h-0 flex-col rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="text-lg font-black text-slate-950">Daftar Posisi Live</h3>
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
+                    {liveMarkers.length} data
+                  </span>
                 </div>
-              ) : (
-                <LiveTable rows={liveMarkers} />
-              )}
-            </section>
 
-            <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
-              <h3 className="text-lg font-black text-slate-950">Peserta Standby</h3>
-
-              {standbyParticipants.length === 0 ? (
-                <div className="mt-4 rounded-2xl bg-green-50 p-6 text-center text-sm font-bold text-green-700">
-                  Tidak ada peserta standby.
+                <div className="min-h-0 flex-1 overflow-auto">
+                  {liveMarkers.length === 0 ? (
+                    <div className="flex h-full min-h-[160px] flex-col items-center justify-center rounded-2xl bg-slate-50 text-center">
+                      <Box className="text-slate-300" size={30} />
+                      <p className="mt-3 text-sm font-bold text-slate-500">Belum ada data live tracking.</p>
+                    </div>
+                  ) : (
+                    <LiveTable rows={liveMarkers} />
+                  )}
                 </div>
-              ) : (
-                <StandbyTable rows={standbyParticipants} />
-              )}
-            </section>
+              </section>
 
-            <footer className="flex flex-wrap items-center justify-between gap-3 px-2 py-4 text-xs font-semibold text-slate-500">
-              <p>
-                © 2026 <span className="font-black text-slate-900">AMOST.</span> Semua hak dilindungi.
-              </p>
-              <div className="flex flex-wrap gap-6">
-                <Link href="/privacy" className="hover:text-purple-700">Kebijakan Privasi</Link>
-                <Link href="/terms" className="hover:text-purple-700">Syarat & Ketentuan</Link>
-                <Link href="/help" className="hover:text-purple-700">Bantuan</Link>
-              </div>
-            </footer>
+              <section className="flex min-h-0 flex-col rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="text-lg font-black text-slate-950">Peserta Standby</h3>
+                  <span className="rounded-full bg-yellow-50 px-3 py-1 text-xs font-black text-yellow-700">
+                    {standbyParticipants.length} standby
+                  </span>
+                </div>
+
+                <div className="min-h-0 flex-1 overflow-auto">
+                  {standbyParticipants.length === 0 ? (
+                    <div className="flex h-full min-h-[160px] items-center justify-center rounded-2xl bg-green-50 text-center text-sm font-bold text-green-700">
+                      Tidak ada peserta standby.
+                    </div>
+                  ) : (
+                    <StandbyTable rows={standbyParticipants} />
+                  )}
+                </div>
+              </section>
+            </div>
           </>
         )}
       </div>
@@ -562,8 +622,8 @@ function InfoBox({
   const cls = accent === "green" ? "bg-green-50 text-green-700" : "bg-slate-50 text-slate-950";
 
   return (
-    <div className={`rounded-2xl p-4 ${cls}`}>
-      <p className="text-xs font-black uppercase opacity-70">{label}</p>
+    <div className={`rounded-2xl p-3 ${cls}`}>
+      <p className="text-[10px] font-black uppercase opacity-70">{label}</p>
       <p className="mt-1 text-2xl font-black">{value}</p>
     </div>
   );
@@ -572,6 +632,7 @@ function InfoBox({
 function LiveMarkerBubble({ marker }: { marker: LiveMarker }) {
   const x = marker.projected?.x ?? 50;
   const y = marker.projected?.y ?? 50;
+
   const initials =
     String(marker.full_name || "A")
       .split(" ")
@@ -582,21 +643,10 @@ function LiveMarkerBubble({ marker }: { marker: LiveMarker }) {
 
   return (
     <div className="absolute z-20 -translate-x-1/2 -translate-y-1/2" style={{ left: `${x}%`, top: `${y}%` }}>
-      <div className="relative">
-        <div className={`absolute -inset-4 rounded-full ${marker.is_online ? "bg-green-500/20" : "bg-slate-500/20"}`} />
-        <div
-          className={`relative flex h-14 w-14 items-center justify-center rounded-full border-4 border-white text-sm font-black text-white shadow-xl ${
-            marker.is_online ? "bg-green-600" : "bg-slate-500"
-          }`}
-        >
-          {initials}
-        </div>
-        <div className="absolute left-1/2 top-[58px] min-w-[160px] -translate-x-1/2 rounded-xl border border-slate-200 bg-white/95 px-3 py-2 text-center shadow-lg">
-          <p className="truncate text-xs font-black text-slate-950">{marker.full_name || "Peserta AMOST"}</p>
-          <p className="mt-1 text-[11px] font-bold text-slate-500">
-            {marker.participant_number || "-"} · {formatSpeed(marker.speed_kmh)}
-          </p>
-        </div>
+      <div className={`relative flex h-12 w-12 items-center justify-center rounded-full border-4 border-white text-xs font-black text-white shadow-xl ${
+        marker.is_online ? "bg-green-600" : "bg-slate-500"
+      }`}>
+        {initials}
       </div>
     </div>
   );
@@ -604,89 +654,81 @@ function LiveMarkerBubble({ marker }: { marker: LiveMarker }) {
 
 function LiveTable({ rows }: { rows: LiveMarker[] }) {
   return (
-    <div className="mt-4 overflow-x-auto">
-      <table className="w-full min-w-[920px] border-separate border-spacing-y-3 text-left">
-        <thead>
-          <tr className="text-xs font-black uppercase tracking-wide text-slate-400">
-            <th className="px-4 py-2">No</th>
-            <th className="px-4 py-2">Nomor</th>
-            <th className="px-4 py-2">Nama Peserta</th>
-            <th className="px-4 py-2">Status</th>
-            <th className="px-4 py-2">Waktu Update</th>
-            <th className="px-4 py-2">Koordinat</th>
-            <th className="px-4 py-2">Jarak</th>
-            <th className="px-4 py-2">Speed</th>
+    <table className="w-full min-w-[760px] border-separate border-spacing-y-2 text-left">
+      <thead className="sticky top-0 z-10 bg-white">
+        <tr className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+          <th className="px-3 py-2">No</th>
+          <th className="px-3 py-2">Nomor</th>
+          <th className="px-3 py-2">Nama</th>
+          <th className="px-3 py-2">Status</th>
+          <th className="px-3 py-2">Update</th>
+          <th className="px-3 py-2">Koordinat</th>
+          <th className="px-3 py-2">Jarak</th>
+          <th className="px-3 py-2">Speed</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((item, index) => (
+          <tr key={String(item.position_id || `${item.user_id}-${item.event_id}`)} className="bg-slate-50 text-sm">
+            <td className="rounded-l-2xl px-3 py-3 font-black text-slate-500">{index + 1}</td>
+            <td className="px-3 py-3 font-black text-purple-700">{item.participant_number || "-"}</td>
+            <td className="px-3 py-3">
+              <p className="font-black text-slate-950">{item.full_name || "Peserta AMOST"}</p>
+              <p className="mt-0.5 text-xs font-semibold text-slate-500">{item.email || "-"}</p>
+            </td>
+            <td className="px-3 py-3">
+              <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-black uppercase ${
+                item.is_online ? "bg-green-50 text-green-700" : "bg-slate-100 text-slate-700"
+              }`}>
+                {item.is_online ? <Wifi size={12} /> : <WifiOff size={12} />}
+                {item.is_online ? "ONLINE" : "OFFLINE"}
+              </span>
+            </td>
+            <td className="px-3 py-3 text-xs font-semibold text-slate-600">
+              {formatDateTime(item.updated_at)} · {formatSecondsAgo(item.seconds_ago)}
+            </td>
+            <td className="px-3 py-3 text-xs font-semibold text-slate-600">
+              {Number(item.lat).toFixed(5)}, {Number(item.lng).toFixed(5)}
+            </td>
+            <td className="px-3 py-3 font-black text-slate-950">{formatDistance(item.distance_km)}</td>
+            <td className="rounded-r-2xl px-3 py-3 text-xs font-semibold text-slate-600">{formatSpeed(item.speed_kmh)}</td>
           </tr>
-        </thead>
-        <tbody>
-          {rows.map((item, index) => (
-            <tr key={String(item.position_id || `${item.user_id}-${item.event_id}`)} className="bg-slate-50 text-sm">
-              <td className="rounded-l-2xl px-4 py-4 font-black text-slate-500">{index + 1}</td>
-              <td className="px-4 py-4 font-black text-purple-700">{item.participant_number || "-"}</td>
-              <td className="px-4 py-4">
-                <p className="font-black text-slate-950">{item.full_name || "Peserta AMOST"}</p>
-                <p className="mt-1 text-xs font-semibold text-slate-500">{item.email || "-"}</p>
-              </td>
-              <td className="px-4 py-4">
-                <span
-                  className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-black uppercase ${
-                    item.is_online ? "bg-green-50 text-green-700" : "bg-slate-100 text-slate-700"
-                  }`}
-                >
-                  {item.is_online ? <Wifi size={14} /> : <WifiOff size={14} />}
-                  {item.is_online ? "ONLINE" : "OFFLINE"}
-                </span>
-              </td>
-              <td className="px-4 py-4 font-semibold text-slate-600">
-                {formatDateTime(item.updated_at)} · {formatSecondsAgo(item.seconds_ago)}
-              </td>
-              <td className="px-4 py-4 font-semibold text-slate-600">
-                {Number(item.lat).toFixed(6)}, {Number(item.lng).toFixed(6)}
-              </td>
-              <td className="px-4 py-4 font-black text-slate-950">{formatDistance(item.distance_km)}</td>
-              <td className="rounded-r-2xl px-4 py-4 font-semibold text-slate-600">{formatSpeed(item.speed_kmh)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
 function StandbyTable({ rows }: { rows: StandbyParticipant[] }) {
   return (
-    <div className="mt-4 overflow-x-auto">
-      <table className="w-full min-w-[760px] border-separate border-spacing-y-3 text-left">
-        <thead>
-          <tr className="text-xs font-black uppercase tracking-wide text-slate-400">
-            <th className="px-4 py-2">No</th>
-            <th className="px-4 py-2">Nomor</th>
-            <th className="px-4 py-2">Nama Peserta</th>
-            <th className="px-4 py-2">Status</th>
-            <th className="px-4 py-2">Terdaftar</th>
+    <table className="w-full min-w-[640px] border-separate border-spacing-y-2 text-left">
+      <thead className="sticky top-0 z-10 bg-white">
+        <tr className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+          <th className="px-3 py-2">No</th>
+          <th className="px-3 py-2">Nomor</th>
+          <th className="px-3 py-2">Nama Peserta</th>
+          <th className="px-3 py-2">Status</th>
+          <th className="px-3 py-2">Terdaftar</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((item, index) => (
+          <tr key={String(item.user_id || index)} className="bg-slate-50 text-sm">
+            <td className="rounded-l-2xl px-3 py-3 font-black text-slate-500">{index + 1}</td>
+            <td className="px-3 py-3 font-black text-purple-700">{item.participant_number || "-"}</td>
+            <td className="px-3 py-3">
+              <p className="font-black text-slate-950">{item.full_name || "Peserta AMOST"}</p>
+              <p className="mt-0.5 text-xs font-semibold text-slate-500">{item.email || "-"}</p>
+            </td>
+            <td className="px-3 py-3">
+              <span className="rounded-full bg-yellow-50 px-2.5 py-1 text-[11px] font-black uppercase text-yellow-700">
+                Standby
+              </span>
+            </td>
+            <td className="rounded-r-2xl px-3 py-3 text-xs font-semibold text-slate-600">{formatDateTime(item.registered_at)}</td>
           </tr>
-        </thead>
-        <tbody>
-          {rows.map((item, index) => (
-            <tr key={String(item.user_id || index)} className="bg-slate-50 text-sm">
-              <td className="rounded-l-2xl px-4 py-4 font-black text-slate-500">{index + 1}</td>
-              <td className="px-4 py-4 font-black text-purple-700">{item.participant_number || "-"}</td>
-              <td className="px-4 py-4">
-                <p className="font-black text-slate-950">{item.full_name || "Peserta AMOST"}</p>
-                <p className="mt-1 text-xs font-semibold text-slate-500">{item.email || "-"}</p>
-              </td>
-              <td className="px-4 py-4">
-                <span className="rounded-full bg-yellow-50 px-3 py-1 text-xs font-black uppercase text-yellow-700">
-                  Standby
-                </span>
-              </td>
-              <td className="rounded-r-2xl px-4 py-4 font-semibold text-slate-600">
-                {formatDateTime(item.registered_at)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+        ))}
+      </tbody>
+    </table>
   );
 }
