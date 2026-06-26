@@ -21,11 +21,7 @@ import {
 
 const EVENTS_REQUEST_TIMEOUT_MS = 5000;
 
-async function fetchEventsJson(
-  url: string,
-  init: RequestInit = {},
-  timeoutMs = EVENTS_REQUEST_TIMEOUT_MS,
-) {
+async function fetchEventsJson(url: string, init: RequestInit = {}, timeoutMs = EVENTS_REQUEST_TIMEOUT_MS) {
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), timeoutMs);
 
@@ -38,7 +34,6 @@ async function fetchEventsJson(
     });
 
     const data = await response.json().catch(() => null);
-
     return { response, data };
   } finally {
     window.clearTimeout(timer);
@@ -106,7 +101,7 @@ function getParticipantNumber(event: EventItem) {
       (event as any).participantNo ||
       (event as any).participant_no ||
       (event as any).registration_number ||
-      ""
+      "",
   ).trim() || "-";
 }
 
@@ -125,11 +120,7 @@ export default function AccountMyEventsPage() {
     setErrorMessage("");
 
     try {
-      const { response, data } = await fetchEventsJson(
-        "/api/events",
-        { method: "GET" },
-        5000,
-      );
+      const { response, data } = await fetchEventsJson("/api/events", { method: "GET" }, 5000);
 
       if (!response.ok || data?.ok === false) {
         setEvents([]);
@@ -216,12 +207,12 @@ export default function AccountMyEventsPage() {
       </section>
 
       <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
-        <h3 className="text-lg font-black text-slate-950">Alur Event</h3>
+        <h3 className="text-lg font-black text-slate-950">Alur Akses</h3>
         <div className="mt-4 space-y-3">
-          <FlowItem number="1" title="Detail" text="Lihat informasi event." />
-          <FlowItem number="2" title="Live" text="Pantau tracking event." />
-          <FlowItem number="3" title="Results" text="Lihat hasil peserta." />
-          <FlowItem number="4" title="Doorprize" text="Lihat undian pemenang." />
+          <FlowItem number="1" title="Pilih event" text="Masuk dari My Events atau Tracking." />
+          <FlowItem number="2" title="Buka Live Tracking" text="Pantau marker dan peserta standby." />
+          <FlowItem number="3" title="Results" text="Lihat hasil saat data finish masuk." />
+          <FlowItem number="4" title="GPX/Doorprize" text="Akses fitur event lain jika tersedia." />
         </div>
       </section>
     </section>
@@ -239,7 +230,7 @@ export default function AccountMyEventsPage() {
       <section className="space-y-5">
         <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
           <div className="mb-4 rounded-2xl bg-green-50 px-4 py-3 text-xs font-black uppercase tracking-[0.18em] text-green-700">
-            Account Menu Active · My Events
+            Alur Akses Event · Klik Live Tracking untuk membuka halaman pantau event
           </div>
 
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -360,7 +351,7 @@ function EventCard({ event }: { event: EventItem }) {
 
       <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <ActionLink href={`/events/${event.id}`} icon={CalendarDays} label="Detail" />
-        <ActionLink href={`/account/events/${event.id}/view`} icon={Navigation} label="Live" primary />
+        <ActionLink href={`/account/events/${event.id}/view`} icon={Navigation} label="Live Tracking" primary />
         <ActionLink href={`/account/events/${event.id}/results`} icon={Trophy} label="Results" />
         <ActionLink href={`/account/events/${event.id}/doorprize`} icon={Gift} label="Doorprize" />
       </div>
