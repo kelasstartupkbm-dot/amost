@@ -222,7 +222,7 @@ export default function AccountLiveViewHubPage() {
 
   return (
     <AccountAppShell
-      active="live-view"
+      active={"live-view" as any}
       title="Live View"
       eyebrow="AMOST LIVE VIEW"
       description="Halaman pintas untuk membuka live tracking event yang sedang aktif atau bisa dipantau."
