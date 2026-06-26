@@ -14,6 +14,7 @@ import {
   History,
   Home,
   LogOut,
+  Map,
   Medal,
   Navigation,
   RefreshCw,
@@ -37,6 +38,7 @@ type CurrentUser = {
 
 type AppMenuKey =
   | "home"
+  | "live-view"
   | "tracking"
   | "activities"
   | "events"
@@ -353,9 +355,9 @@ export default function AccountAppShellPage({
 
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <QuickAccess href="/home" icon={Home} label="Home" />
+                <QuickAccess href="/account/live-view" icon={Map} label="Live View" />
                 <QuickAccess href="/account/tracking" icon={Navigation} label="Tracking" />
                 <QuickAccess href="/account/events" icon={CalendarDays} label="Events" />
-                <QuickAccess href="/account" icon={UserRound} label="Profile" />
               </div>
             </section>
           </aside>
@@ -380,6 +382,7 @@ function AppSidebar({ active }: { active: AppMenuKey }) {
 
       <nav className="flex-1 space-y-2 px-5 py-5">
         <SidebarLink href="/home" icon={Home} label="Dashboard" active={active === "home"} />
+        <SidebarLink href="/account/live-view" icon={Map} label="Live View" active={active === "live-view"} />
         <SidebarLink href="/account/tracking" icon={Navigation} label="Tracking" active={active === "tracking"} />
         <SidebarLink href="/account/activities" icon={History} label="My Activities" active={active === "activities"} />
         <SidebarLink href="/account/events" icon={CalendarDays} label="My Events" active={active === "events"} />
