@@ -5,14 +5,15 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ElementType } from "react";
 import {
   Activity,
-  ArrowLeft,
   Bell,
   CalendarDays,
   CheckCircle2,
   Clock3,
   CloudSun,
+  Copy,
   Download,
   Eye,
+  FileText,
   Gauge,
   HelpCircle,
   History,
@@ -20,18 +21,18 @@ import {
   Loader2,
   LogOut,
   Map,
+  MapPin,
   Medal,
   Navigation,
   RefreshCw,
   Search,
   Settings,
   ShieldCheck,
-  Signal,
   Ticket,
   Trophy,
   UserRound,
-  UsersRound,
   Wifi,
+  XCircle,
 } from "lucide-react";
 
 type CurrentUser = {
@@ -46,7 +47,7 @@ type CurrentUser = {
 };
 
 type PublicEvent = {
-  id: number | string;
+  id?: number | string;
   title?: string | null;
   event_title?: string | null;
   name?: string | null;
@@ -56,36 +57,16 @@ type PublicEvent = {
   participant_count?: number | string | null;
   quota?: number | string | null;
   distance_km?: number | string | null;
+  route_file?: string | null;
   gpx_filename?: string | null;
-  gpx_content?: string | null;
 };
 
-type EventResult = {
-  result_id?: number | string;
-  id?: number | string;
-  event_id?: number | string;
-  user_id?: number | string;
-  rank?: number | string | null;
-  ranking?: number | string | null;
-  full_name?: string | null;
-  name?: string | null;
-  username?: string | null;
-  email?: string | null;
-  participant_number?: string | null;
-  bib_number?: string | null;
-  distance?: number | string | null;
-  distance_km?: number | string | null;
-  duration?: number | string | null;
-  duration_seconds?: number | string | null;
-  moving_time_seconds?: number | string | null;
-  avg_speed?: number | string | null;
-  avg_speed_kmh?: number | string | null;
-  result_status?: string | null;
-  status?: string | null;
-  submitted_at?: string | null;
-  finished_at?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
+type GpxStatus = {
+  state: "checking" | "available" | "unavailable" | "forbidden" | "error";
+  message: string;
+  filename: string;
+  sizeBytes: number;
+  contentType: string;
 };
 
 const REQUEST_TIMEOUT_MS = 8000;
@@ -109,6 +90,51 @@ async function fetchJsonWithTimeout(
     const data = await response.json().catch(() => null);
 
     return { response, data };
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
+async function fetchBlobWithTimeout(url: string, timeoutMs = REQUEST_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      cache: "no-store",
+      credentials: "include",
+      signal: controller.signal,
+    });
+
+    const contentType = response.headers.get("content-type") || "";
+    const contentDisposition = response.headers.get("content-disposition") || "";
+
+    if (!response.ok) {
+      const errorText = contentType.includes("application/json")
+        ? await response.json().catch(() => null)
+        : null;
+
+      return {
+        response,
+        ok: false,
+        blob: null as Blob | null,
+        contentType,
+        contentDisposition,
+        message: errorText?.message || errorText?.error || "GPX belum bisa diunduh.",
+      };
+    }
+
+    const blob = await response.blob();
+
+    return {
+      response,
+      ok: true,
+      blob,
+      contentType,
+      contentDisposition,
+      message: "GPX tersedia.",
+    };
   } finally {
     window.clearTimeout(timer);
   }
@@ -162,89 +188,6 @@ function getEventTitle(event: PublicEvent | null, eventId: string) {
   return String(event?.title || event?.event_title || event?.name || "").trim() || `Event #${eventId}`;
 }
 
-function normalizeStatus(value?: string | null) {
-  return String(value || "").trim().toUpperCase();
-}
-
-function getResultStatus(item: EventResult) {
-  return normalizeStatus(item.result_status || item.status || "REVIEW") || "REVIEW";
-}
-
-function statusLabel(value?: string | null) {
-  const clean = normalizeStatus(value);
-
-  if (clean === "FINISH" || clean === "FINISHED" || clean === "SELESAI") return "Finish";
-  if (clean === "DNF") return "DNF";
-  if (clean === "DNS") return "DNS";
-  if (clean === "OFF_ROUTE") return "Off Route";
-  if (clean === "REVIEW") return "Review";
-
-  return clean || "Review";
-}
-
-function statusBadgeClass(value?: string | null) {
-  const clean = normalizeStatus(value);
-
-  if (clean === "FINISH" || clean === "FINISHED" || clean === "SELESAI") return "bg-green-50 text-green-700";
-  if (clean === "DNF") return "bg-orange-50 text-orange-700";
-  if (clean === "DNS") return "bg-slate-100 text-slate-700";
-  if (clean === "OFF_ROUTE") return "bg-red-50 text-red-700";
-  if (clean === "REVIEW") return "bg-yellow-50 text-yellow-700";
-
-  return "bg-purple-50 text-purple-700";
-}
-
-function getResultDistance(item: EventResult) {
-  const value = Number(item.distance_km ?? item.distance ?? 0);
-  return Number.isFinite(value) ? value : 0;
-}
-
-function getResultDuration(item: EventResult) {
-  const value = Number(item.moving_time_seconds ?? item.duration_seconds ?? item.duration ?? 0);
-  return Number.isFinite(value) ? value : 0;
-}
-
-function getResultSpeed(item: EventResult) {
-  const value = Number(item.avg_speed_kmh ?? item.avg_speed ?? 0);
-  return Number.isFinite(value) ? value : 0;
-}
-
-function getResultDate(item: EventResult) {
-  return item.finished_at || item.submitted_at || item.updated_at || item.created_at || null;
-}
-
-function formatKm(value?: number | string | null) {
-  const numberValue = Number(value || 0);
-
-  if (!Number.isFinite(numberValue) || numberValue <= 0) return "-";
-
-  return `${numberValue.toFixed(2)} KM`;
-}
-
-function formatSpeed(value?: number | string | null) {
-  const numberValue = Number(value || 0);
-
-  if (!Number.isFinite(numberValue) || numberValue <= 0) return "-";
-
-  return `${numberValue.toFixed(1)} km/jam`;
-}
-
-function formatDuration(seconds?: number | string | null) {
-  const value = Number(seconds || 0);
-
-  if (!Number.isFinite(value) || value <= 0) return "-";
-
-  const total = Math.floor(value);
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-
-  if (h > 0) return `${h}j ${m}m ${s}d`;
-  if (m > 0) return `${m}m ${s}d`;
-
-  return `${s}d`;
-}
-
 function formatDate(value?: string | null) {
   if (!value) return "-";
 
@@ -261,82 +204,158 @@ function formatDate(value?: string | null) {
   }).format(date);
 }
 
-function getParticipantNumber(item: EventResult) {
-  return String(item.participant_number || item.bib_number || "-").trim() || "-";
+function formatKm(value?: number | string | null) {
+  const numberValue = Number(value || 0);
+
+  if (!Number.isFinite(numberValue) || numberValue <= 0) return "-";
+
+  return `${numberValue.toFixed(2)} KM`;
 }
 
-function getParticipantName(item: EventResult) {
-  return String(item.full_name || item.name || item.username || "Tanpa Nama").trim();
+function parseFilename(contentDisposition: string, fallback: string) {
+  const match = contentDisposition.match(/filename\*?=(?:UTF-8''|")?([^";]+)/i);
+  const raw = match?.[1] ? decodeURIComponent(match[1].replace(/"/g, "")) : fallback;
+
+  return raw || fallback;
 }
 
-function rankValue(item: EventResult, fallbackIndex: number) {
-  const value = Number(item.rank || item.ranking || 0);
+function sanitizeFilename(value: string) {
+  const clean = String(value || "amost-route.gpx")
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "-");
 
-  if (Number.isFinite(value) && value > 0) return value;
-
-  return fallbackIndex + 1;
+  return clean.toLowerCase().endsWith(".gpx") ? clean : `${clean}.gpx`;
 }
 
-function finishComparable(item: EventResult) {
-  const status = getResultStatus(item);
-  return status === "FINISH" || status === "FINISHED" || status === "SELESAI";
+function formatFileSize(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "-";
+
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+
+  return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
 }
 
-function sortResults(rows: EventResult[]) {
-  return [...rows].sort((a, b) => {
-    const aFinish = finishComparable(a);
-    const bFinish = finishComparable(b);
+function statusBadge(status: GpxStatus["state"]) {
+  if (status === "available") return "bg-green-50 text-green-700";
+  if (status === "checking") return "bg-blue-50 text-blue-700";
+  if (status === "forbidden") return "bg-red-50 text-red-700";
+  if (status === "unavailable") return "bg-yellow-50 text-yellow-700";
 
-    if (aFinish !== bFinish) return aFinish ? -1 : 1;
-
-    const aDuration = getResultDuration(a);
-    const bDuration = getResultDuration(b);
-
-    if (aFinish && bFinish && aDuration > 0 && bDuration > 0 && aDuration !== bDuration) {
-      return aDuration - bDuration;
-    }
-
-    const aDistance = getResultDistance(a);
-    const bDistance = getResultDistance(b);
-
-    if (aDistance !== bDistance) return bDistance - aDistance;
-
-    const aTime = new Date(getResultDate(a) || "").getTime() || 0;
-    const bTime = new Date(getResultDate(b) || "").getTime() || 0;
-
-    return bTime - aTime;
-  });
+  return "bg-red-50 text-red-700";
 }
 
-export default function AccountEventResultsPage() {
+function statusLabel(status: GpxStatus["state"]) {
+  if (status === "available") return "Siap Diunduh";
+  if (status === "checking") return "Mengecek";
+  if (status === "forbidden") return "Tidak Ada Akses";
+  if (status === "unavailable") return "Belum Tersedia";
+
+  return "Error";
+}
+
+export default function AccountEventGpxPage() {
   const params = useParams();
   const router = useRouter();
   const eventId = String(params?.id || "");
 
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [event, setEvent] = useState<PublicEvent | null>(null);
-  const [results, setResults] = useState<EventResult[]>([]);
-  const [participantTotal, setParticipantTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
+  const [copyMessage, setCopyMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+
+  const [gpxStatus, setGpxStatus] = useState<GpxStatus>({
+    state: "checking",
+    message: "Mengecek file GPX.",
+    filename: "",
+    sizeBytes: 0,
+    contentType: "",
+  });
+
+  const downloadUrl = `/api/gpx-download?id=${encodeURIComponent(eventId)}`;
+
+  async function checkGpxAvailability(eventTitle: string) {
+    setGpxStatus({
+      state: "checking",
+      message: "Mengecek file GPX.",
+      filename: "",
+      sizeBytes: 0,
+      contentType: "",
+    });
+
+    try {
+      const result = await fetchBlobWithTimeout(downloadUrl, 9000);
+
+      if (result.response.status === 401) {
+        router.replace(`/login?next=/account/events/${eventId}/gpx`);
+        return;
+      }
+
+      if (result.response.status === 403) {
+        setGpxStatus({
+          state: "forbidden",
+          message: result.message || "GPX hanya dapat diunduh oleh peserta event atau admin.",
+          filename: "",
+          sizeBytes: 0,
+          contentType: result.contentType,
+        });
+        return;
+      }
+
+      if (!result.ok || !result.blob) {
+        const unavailable = result.response.status === 404;
+
+        setGpxStatus({
+          state: unavailable ? "unavailable" : "error",
+          message: result.message || "GPX belum tersedia untuk event ini.",
+          filename: "",
+          sizeBytes: 0,
+          contentType: result.contentType,
+        });
+        return;
+      }
+
+      const fallbackFilename = sanitizeFilename(eventTitle || `amost-event-${eventId}.gpx`);
+      const filename = sanitizeFilename(parseFilename(result.contentDisposition, fallbackFilename));
+
+      setGpxStatus({
+        state: "available",
+        message: "GPX siap diunduh.",
+        filename,
+        sizeBytes: result.blob.size,
+        contentType: result.contentType || "application/gpx+xml",
+      });
+    } catch (error) {
+      console.error(error);
+      setGpxStatus({
+        state: "error",
+        message: "Koneksi ke server bermasalah saat mengecek GPX.",
+        filename: "",
+        sizeBytes: 0,
+        contentType: "",
+      });
+    }
+  }
 
   async function loadData(silent = false) {
     if (silent) setRefreshing(true);
     else setLoading(true);
 
     setErrorMessage("");
+    setCopyMessage("");
 
     try {
-      const [meResponse, eventResponse, resultsResponse] = await Promise.all([
+      const [meResponse, eventResponse] = await Promise.all([
         fetchJsonWithTimeout("/api/auth/me", { method: "GET" }, 6000).catch(() => null),
         fetchJsonWithTimeout(`/api/events/${eventId}`, { method: "GET" }, 7000),
-        fetchJsonWithTimeout(`/api/events/${eventId}/results`, { method: "GET" }, 8000),
       ]);
 
-      if (meResponse?.response.status === 401 || resultsResponse.response.status === 401) {
-        router.replace(`/login?next=/account/events/${eventId}/results`);
+      if (meResponse?.response.status === 401) {
+        router.replace(`/login?next=/account/events/${eventId}/gpx`);
         return;
       }
 
@@ -344,35 +363,39 @@ export default function AccountEventResultsPage() {
         setUser(meResponse.data.user);
       }
 
-      if (eventResponse.response.ok && eventResponse.data?.ok !== false) {
-        const nextEvent = eventResponse.data?.event || eventResponse.data?.data || null;
-        setEvent(nextEvent);
-        setParticipantTotal(Number(nextEvent?.participant_count || eventResponse.data?.participant_total || 0));
-      }
-
-      if (!resultsResponse.response.ok || resultsResponse.data?.ok === false) {
-        setResults([]);
-        setErrorMessage(resultsResponse.data?.message || resultsResponse.data?.error || "Results belum bisa dimuat.");
+      if (!eventResponse.response.ok || eventResponse.data?.ok === false) {
+        setEvent(null);
+        setErrorMessage(eventResponse.data?.message || eventResponse.data?.error || "Event tidak ditemukan.");
         return;
       }
 
-      const rows = Array.isArray(resultsResponse.data?.data)
-        ? resultsResponse.data.data
-        : Array.isArray(resultsResponse.data?.results)
-          ? resultsResponse.data.results
-          : Array.isArray(resultsResponse.data?.items)
-            ? resultsResponse.data.items
-            : [];
+      const nextEvent = eventResponse.data?.event || eventResponse.data?.data || null;
+      const title = getEventTitle(nextEvent, eventId);
 
-      setResults(rows);
-      setParticipantTotal((prev) => Number(resultsResponse.data?.participant_total || prev || rows.length || 0));
+      setEvent(nextEvent);
+      await checkGpxAvailability(title);
     } catch (error) {
       console.error(error);
-      setResults([]);
       setErrorMessage("Koneksi ke server bermasalah.");
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  }
+
+  async function copyDownloadLink() {
+    setCopyMessage("");
+
+    try {
+      const absoluteUrl =
+        typeof window !== "undefined"
+          ? `${window.location.origin}${downloadUrl}`
+          : downloadUrl;
+
+      await navigator.clipboard.writeText(absoluteUrl);
+      setCopyMessage("Link download GPX berhasil disalin.");
+    } catch {
+      setCopyMessage("Browser belum mengizinkan copy otomatis.");
     }
   }
 
@@ -405,50 +428,28 @@ export default function AccountEventResultsPage() {
   const displayName = getDisplayName(user);
   const initials = getInitials(displayName);
   const roleLabel = formatRole(user?.role);
-  const rankedResults = useMemo(() => sortResults(results), [results]);
 
-  const stats = useMemo(() => {
-    const finishCount = results.filter((item) => finishComparable(item)).length;
-    const dnfCount = results.filter((item) => getResultStatus(item) === "DNF").length;
-    const dnsCount = results.filter((item) => getResultStatus(item) === "DNS").length;
-    const reviewCount = results.filter((item) => ["REVIEW", ""].includes(getResultStatus(item))).length;
+  const canDownload = gpxStatus.state === "available";
 
-    const totalDistance = results.reduce((sum, item) => sum + getResultDistance(item), 0);
-
-    const speedRows = results
-      .map((item) => getResultSpeed(item))
-      .filter((value) => Number.isFinite(value) && value > 0);
-
-    const avgSpeed = speedRows.length > 0
-      ? speedRows.reduce((sum, value) => sum + value, 0) / speedRows.length
-      : 0;
-
-    const totalParticipants = Number(participantTotal || event?.participant_count || results.length || 0);
-    const progress = totalParticipants > 0
-      ? Math.min(100, Math.round((finishCount / totalParticipants) * 100))
-      : 0;
-
+  const summary = useMemo(() => {
     return {
-      total: results.length,
-      participantTotal: totalParticipants,
-      finishCount,
-      dnfCount,
-      dnsCount,
-      reviewCount,
-      totalDistance,
-      avgSpeed,
-      progress,
+      eventName: title,
+      date: formatDate(event?.event_date),
+      location: event?.location || "-",
+      distance: formatKm(event?.distance_km),
+      participants: String(event?.participant_count || 0),
+      filename: gpxStatus.filename || event?.route_file || event?.gpx_filename || "-",
     };
-  }, [event, participantTotal, results]);
+  }, [event, gpxStatus.filename, title]);
 
   return (
     <main className="min-h-screen bg-[#f7f8fb] text-slate-950">
-      <ResultsSidebar />
+      <GpxSidebar />
 
       <section className="min-h-screen lg:pl-[260px]">
-        <ResultsTopbar
-          title="Results Event"
-          subtitle={`Hasil peserta event ${title}.`}
+        <GpxTopbar
+          title="GPX Event"
+          subtitle={`Download route GPX untuk event ${title}.`}
           initials={initials}
           displayName={displayName}
           roleLabel={roleLabel}
@@ -462,12 +463,12 @@ export default function AccountEventResultsPage() {
           {loading ? (
             <section className="xl:col-span-2 flex min-h-[420px] flex-col items-center justify-center rounded-[2rem] border border-slate-200 bg-white text-center shadow-sm">
               <Loader2 className="h-12 w-12 animate-spin text-purple-700" />
-              <p className="mt-4 text-xl font-black text-slate-950">Memuat results...</p>
-              <p className="mt-2 text-sm text-slate-500">Mengambil data peserta, result, ranking, dan statistik event.</p>
+              <p className="mt-4 text-xl font-black text-slate-950">Mengecek GPX...</p>
+              <p className="mt-2 text-sm text-slate-500">Mengambil detail event dan status file route.</p>
             </section>
           ) : errorMessage ? (
             <section className="xl:col-span-2 rounded-[2rem] border border-red-200 bg-red-50 p-6 text-red-800 shadow-sm">
-              <h2 className="text-lg font-black">Results belum bisa dimuat</h2>
+              <h2 className="text-lg font-black">GPX belum bisa dimuat</h2>
               <p className="mt-2 text-sm font-semibold">{errorMessage}</p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <button
@@ -490,10 +491,10 @@ export default function AccountEventResultsPage() {
                 <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                      <p className="text-xs font-black uppercase tracking-[0.22em] text-purple-700">AMOST Results</p>
+                      <p className="text-xs font-black uppercase tracking-[0.22em] text-purple-700">AMOST GPX</p>
                       <h1 className="mt-2 text-3xl font-black text-slate-950">{title}</h1>
                       <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-                        Ranking dan hasil peserta yang sudah dikirim dari tracking event.
+                        GPX digunakan peserta untuk route guidance dan arsip rute event.
                       </p>
                     </div>
 
@@ -506,144 +507,117 @@ export default function AccountEventResultsPage() {
                         Live View
                       </Link>
                       <Link
+                        href={`/account/events/${eventId}/results`}
+                        className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50"
+                      >
+                        <Trophy size={17} />
+                        Results
+                      </Link>
+                      <Link
                         href={`/events/${eventId}`}
                         className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50"
                       >
                         <Eye size={17} />
                         Detail Event
                       </Link>
-                      <Link
-                        href={`/account/events/${eventId}/gpx`}
-                        className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50"
-                      >
-                        <Download size={17} />
-                        GPX
-                      </Link>
                     </div>
                   </div>
                 </section>
 
                 <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                  <SummaryCard icon={UsersRound} title="Total Peserta" value={String(stats.participantTotal)} note="Peserta event" />
-                  <SummaryCard icon={Trophy} title="Total Finish" value={String(stats.finishCount)} note={`${stats.progress}% progress`} />
-                  <SummaryCard icon={Activity} title="Total Jarak" value={formatKm(stats.totalDistance)} note="Akumulasi result" />
-                  <SummaryCard icon={Gauge} title="Avg Speed" value={formatSpeed(stats.avgSpeed)} note="Rata-rata peserta" />
+                  <SummaryCard icon={FileText} title="Status GPX" value={statusLabel(gpxStatus.state)} note="Status file" />
+                  <SummaryCard icon={Download} title="Ukuran File" value={formatFileSize(gpxStatus.sizeBytes)} note="Estimasi download" />
+                  <SummaryCard icon={Navigation} title="Distance" value={summary.distance} note="Route event" />
+                  <SummaryCard icon={UsersRoundSafe} title="Peserta" value={summary.participants} note="Peserta terdaftar" />
                 </section>
 
-                <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-purple-50 text-purple-700">
-                        <Trophy size={23} />
+                <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+                    <div className="overflow-hidden rounded-[2rem] bg-slate-950 p-6 text-white">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-600 text-white">
+                          <FileText size={30} />
+                        </div>
+
+                        <div>
+                          <p className="text-xs font-black uppercase tracking-[0.22em] text-purple-300">GPX Route File</p>
+                          <h2 className="mt-1 text-2xl font-black text-white">{summary.filename}</h2>
+                        </div>
                       </div>
-                      <div>
-                        <h2 className="text-xl font-black text-slate-950">Ranking Results</h2>
-                        <p className="text-sm font-semibold text-slate-500">Data berasal dari hasil tracking peserta.</p>
+
+                      <div className="mt-8 rounded-[2rem] border border-white/10 bg-white/5 p-6">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <span className={`rounded-full px-4 py-2 text-sm font-black ${statusBadge(gpxStatus.state)}`}>
+                            {statusLabel(gpxStatus.state)}
+                          </span>
+
+                          <p className="text-sm font-bold text-slate-300">{gpxStatus.contentType || "application/gpx+xml"}</p>
+                        </div>
+
+                        <p className="mt-5 text-base font-semibold leading-7 text-slate-300">{gpxStatus.message}</p>
+
+                        <div className="mt-6 grid gap-3 md:grid-cols-3">
+                          <DarkMetric label="Event" value={summary.eventName} />
+                          <DarkMetric label="Tanggal" value={summary.date} />
+                          <DarkMetric label="Lokasi" value={summary.location} />
+                        </div>
+
+                        <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+                          {canDownload ? (
+                            <a
+                              href={downloadUrl}
+                              className="inline-flex h-13 min-h-[52px] flex-1 items-center justify-center gap-2 rounded-xl bg-purple-700 px-5 text-sm font-black text-white hover:bg-purple-800"
+                            >
+                              <Download size={19} />
+                              Download GPX
+                            </a>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled
+                              className="inline-flex h-13 min-h-[52px] flex-1 cursor-not-allowed items-center justify-center gap-2 rounded-xl bg-slate-700 px-5 text-sm font-black text-slate-300"
+                            >
+                              <XCircle size={19} />
+                              GPX Belum Bisa Diunduh
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={copyDownloadLink}
+                            disabled={!canDownload}
+                            className="inline-flex h-13 min-h-[52px] items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/10 px-5 text-sm font-black text-white hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <Copy size={18} />
+                            Copy Link
+                          </button>
+                        </div>
+
+                        {copyMessage ? (
+                          <div className="mt-4 rounded-xl border border-white/10 bg-white/10 p-3 text-sm font-black text-white">
+                            {copyMessage}
+                          </div>
+                        ) : null}
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => loadData(true)}
-                      disabled={refreshing}
-                      className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:opacity-70"
-                    >
-                      <RefreshCw size={17} className={refreshing ? "animate-spin" : ""} />
-                      Refresh
-                    </button>
+                    <div className="rounded-[2rem] border border-slate-200 bg-slate-50 p-6">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-50 text-purple-700">
+                        <CheckCircle2 size={30} />
+                      </div>
+                      <h3 className="mt-5 text-2xl font-black text-slate-950">Aturan Download GPX</h3>
+                      <p className="mt-3 text-sm font-semibold leading-7 text-slate-600">
+                        GPX hanya dapat diunduh oleh peserta yang sudah terdaftar/join event atau akun admin.
+                        Jika tombol belum aktif, pastikan kamu sudah login dan sudah mengikuti event.
+                      </p>
+
+                      <div className="mt-6 space-y-3">
+                        <RuleItem label="Peserta Event" text="Akun harus sudah terdaftar pada event." />
+                        <RuleItem label="Admin" text="Super Admin dan Staff AMOST dapat mengunduh GPX event." />
+                        <RuleItem label="File Route" text="GPX diambil dari gpx_content, file GPX, atau route_path_json." />
+                      </div>
+                    </div>
                   </div>
-
-                  <div className="mt-5 overflow-x-auto rounded-2xl border border-slate-200">
-                    <table className="w-full min-w-[980px] text-left text-sm">
-                      <thead className="bg-white">
-                        <tr className="border-b border-slate-200 text-xs font-black uppercase tracking-wide text-slate-500">
-                          <th className="px-4 py-4">Rank</th>
-                          <th className="px-4 py-4">Nomor</th>
-                          <th className="px-4 py-4">Peserta</th>
-                          <th className="px-4 py-4">Status</th>
-                          <th className="px-4 py-4">Jarak</th>
-                          <th className="px-4 py-4">Durasi</th>
-                          <th className="px-4 py-4">Avg Speed</th>
-                          <th className="px-4 py-4">Tanggal Finish</th>
-                        </tr>
-                      </thead>
-
-                      <tbody>
-                        {rankedResults.length === 0 ? (
-                          <tr>
-                            <td colSpan={8} className="px-4 py-16">
-                              <div className="flex flex-col items-center justify-center text-center">
-                                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-slate-300">
-                                  <Trophy size={30} />
-                                </div>
-                                <h2 className="mt-4 text-2xl font-black text-slate-950">Belum ada results.</h2>
-                                <p className="mt-2 max-w-[420px] text-sm font-semibold leading-6 text-slate-500">
-                                  Results akan muncul setelah peserta menyelesaikan tracking dan data berhasil dikirim ke server.
-                                </p>
-                                <Link
-                                  href={`/account/events/${eventId}/view`}
-                                  className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-purple-700 px-5 text-sm font-black text-white hover:bg-purple-800"
-                                >
-                                  <Map size={17} />
-                                  Buka Live View
-                                </Link>
-                              </div>
-                            </td>
-                          </tr>
-                        ) : (
-                          rankedResults.map((item, index) => (
-                            <tr key={String(item.result_id || item.id || `${item.user_id}-${index}`)} className="border-b border-slate-100 last:border-b-0">
-                              <td className="px-4 py-4">
-                                <div className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-black ${
-                                  index === 0 ? "bg-purple-700 text-white" : "bg-slate-100 text-slate-700"
-                                }`}>
-                                  {rankValue(item, index)}
-                                </div>
-                              </td>
-
-                              <td className="px-4 py-4 font-black text-purple-700">
-                                {getParticipantNumber(item)}
-                              </td>
-
-                              <td className="px-4 py-4">
-                                <p className="font-black text-slate-950">{getParticipantName(item)}</p>
-                                <p className="mt-1 text-xs font-semibold text-slate-500">{item.email || "-"}</p>
-                              </td>
-
-                              <td className="px-4 py-4">
-                                <span className={`rounded-full px-3 py-1 text-xs font-black uppercase ${statusBadgeClass(getResultStatus(item))}`}>
-                                  {statusLabel(getResultStatus(item))}
-                                </span>
-                              </td>
-
-                              <td className="px-4 py-4 font-black text-slate-950">
-                                {formatKm(getResultDistance(item))}
-                              </td>
-
-                              <td className="px-4 py-4 font-semibold text-slate-600">
-                                <span className="inline-flex items-center gap-2">
-                                  <Clock3 size={16} />
-                                  {formatDuration(getResultDuration(item))}
-                                </span>
-                              </td>
-
-                              <td className="px-4 py-4 font-semibold text-slate-600">
-                                {formatSpeed(getResultSpeed(item))}
-                              </td>
-
-                              <td className="px-4 py-4 font-semibold text-slate-600">
-                                {formatDate(getResultDate(item))}
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <p className="mt-4 text-sm font-semibold text-slate-500">
-                    Menampilkan {rankedResults.length} result dari {stats.participantTotal || rankedResults.length} peserta.
-                  </p>
                 </section>
               </section>
 
@@ -651,26 +625,16 @@ export default function AccountEventResultsPage() {
                 <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
                   <div className="flex items-center gap-3">
                     <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-purple-50 text-purple-700">
-                      <Signal size={23} />
+                      <Download size={23} />
                     </div>
-                    <h3 className="text-lg font-black text-slate-950">Ringkasan Results</h3>
+                    <h3 className="text-lg font-black text-slate-950">Ringkasan GPX</h3>
                   </div>
 
                   <div className="mt-4 grid grid-cols-2 gap-3">
-                    <RightMetric label="Peserta" value={String(stats.participantTotal)} />
-                    <RightMetric label="Finish" value={String(stats.finishCount)} />
-                    <RightMetric label="DNF" value={String(stats.dnfCount)} />
-                    <RightMetric label="DNS" value={String(stats.dnsCount)} />
-                  </div>
-
-                  <div className="mt-5">
-                    <div className="flex items-center justify-between text-sm font-black">
-                      <span>Progress Finish</span>
-                      <span className="text-purple-700">{stats.progress}%</span>
-                    </div>
-                    <div className="mt-2 h-3 overflow-hidden rounded-full bg-slate-100">
-                      <div className="h-full rounded-full bg-purple-700" style={{ width: `${stats.progress}%` }} />
-                    </div>
+                    <RightMetric label="Status" value={statusLabel(gpxStatus.state)} />
+                    <RightMetric label="Ukuran" value={formatFileSize(gpxStatus.sizeBytes)} />
+                    <RightMetric label="Distance" value={summary.distance} />
+                    <RightMetric label="Peserta" value={summary.participants} />
                   </div>
                 </section>
 
@@ -678,7 +642,7 @@ export default function AccountEventResultsPage() {
                   <h3 className="text-lg font-black text-slate-950">Event</h3>
                   <h4 className="mt-4 text-xl font-black text-slate-950">{title}</h4>
                   <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-                    {event?.event_date ? formatDate(event.event_date) : "Tanggal event belum tersedia"}
+                    {summary.date}
                     {event?.location ? ` · ${event.location}` : ""}
                   </p>
 
@@ -688,14 +652,14 @@ export default function AccountEventResultsPage() {
                       className="flex h-11 items-center justify-center gap-2 rounded-xl bg-purple-700 text-sm font-black text-white hover:bg-purple-800"
                     >
                       <Map size={17} />
-                      Kembali ke Live View
+                      Live View
                     </Link>
                     <Link
-                      href={`/events/${eventId}`}
+                      href={`/account/events/${eventId}/results`}
                       className="flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm font-black text-slate-700 hover:bg-slate-50"
                     >
-                      <Eye size={17} />
-                      Detail Event
+                      <Trophy size={17} />
+                      Results Event
                     </Link>
                   </div>
                 </section>
@@ -705,9 +669,9 @@ export default function AccountEventResultsPage() {
 
                   <div className="mt-4 grid grid-cols-2 gap-3">
                     <QuickAccess href={`/account/events/${eventId}/view`} icon={Map} label="Live View" />
-                    <QuickAccess href="/account/events" icon={CalendarDays} label="My Events" />
+                    <QuickAccess href={`/account/events/${eventId}/results`} icon={Trophy} label="Results" />
+                    <QuickAccess href={`/account/events/${eventId}/doorprize`} icon={Ticket} label="Doorprize" />
                     <QuickAccess href="/account/tracking" icon={Navigation} label="Tracking" />
-                    <QuickAccess href={`/account/events/${eventId}/gpx`} icon={Download} label="GPX" />
                   </div>
                 </section>
               </aside>
@@ -719,7 +683,11 @@ export default function AccountEventResultsPage() {
   );
 }
 
-function ResultsSidebar() {
+function UsersRoundSafe({ size = 24 }: { size?: number }) {
+  return <UserRound size={size} />;
+}
+
+function GpxSidebar() {
   return (
     <aside className="hidden fixed inset-y-0 left-0 z-[60] w-[260px] border-r border-slate-200 bg-white lg:flex lg:flex-col">
       <div className="flex h-[88px] items-center px-8">
@@ -747,9 +715,9 @@ function ResultsSidebar() {
       </nav>
 
       <div className="m-5 rounded-3xl border border-purple-100 bg-purple-50 p-5">
-        <p className="text-sm font-black text-purple-700">Results lebih jelas</p>
+        <p className="text-sm font-black text-purple-700">GPX Route</p>
         <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
-          Pantau ranking, finish, DNF, DNS, dan hasil peserta dari event.
+          Download route event untuk panduan latihan dan tracking.
         </p>
 
         <Link
@@ -801,7 +769,7 @@ function SidebarLink({
   );
 }
 
-function ResultsTopbar({
+function GpxTopbar({
   title,
   subtitle,
   initials,
@@ -964,11 +932,29 @@ function SparkLine() {
   );
 }
 
+function DarkMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-white/10 p-4">
+      <p className="text-xs font-black uppercase text-slate-400">{label}</p>
+      <p className="mt-1 text-base font-black text-white">{value}</p>
+    </div>
+  );
+}
+
+function RuleItem({ label, text }: { label: string; text: string }) {
+  return (
+    <div className="rounded-2xl bg-white p-4">
+      <p className="text-sm font-black text-slate-950">{label}</p>
+      <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{text}</p>
+    </div>
+  );
+}
+
 function RightMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl bg-slate-50 p-4">
       <p className="text-xs font-black uppercase text-slate-400">{label}</p>
-      <p className="mt-2 text-2xl font-black text-slate-950">{value}</p>
+      <p className="mt-2 text-lg font-black text-slate-950">{value}</p>
     </div>
   );
 }
