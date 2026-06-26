@@ -163,24 +163,48 @@ function candidateFromToken(token: string, source: string): IdentityCandidate | 
 
 function pushCandidate(list: IdentityCandidate[], candidate: IdentityCandidate | null) {
   if (!candidate) return;
+
   const normalized: IdentityCandidate = {
     id: cleanValue(candidate.id),
     email: cleanValue(candidate.email).toLowerCase(),
     username: cleanValue(candidate.username).toLowerCase(),
     token: cleanValue(candidate.token),
-    source: candidate.source,
+    source: candidate.source || "unknown",
   };
+
   if (!normalized.id && !normalized.email && !normalized.username && !normalized.token) return;
+
+  // Hindari duplikasi dan recursive loop.
+  // Bug sebelumnya: token yang tidak bisa didecode dipush lagi sebagai token,
+  // lalu memanggil pushCandidate() terus sampai browser menampilkan
+  // "Maximum call stack size exceeded".
+  const key = [normalized.id, normalized.email, normalized.username, normalized.token, normalized.source].join("|");
+  const exists = list.some((item) =>
+    [item.id, item.email, item.username, item.token, item.source].join("|") === key
+  );
+  if (exists) return;
+
   list.push(normalized);
 
-  if (normalized.token) {
-    const tokenCandidate = candidateFromToken(normalized.token, `${candidate.source}:token`);
-    if (tokenCandidate && tokenCandidate !== candidate) {
-      const hasDifferentIdentity =
-        tokenCandidate.id !== normalized.id ||
-        tokenCandidate.email !== normalized.email ||
-        tokenCandidate.username !== normalized.username;
-      if (hasDifferentIdentity) pushCandidate(list, tokenCandidate);
+  // Decode token hanya sekali per kandidat, dan hanya lanjut jika hasil decode
+  // benar-benar menambahkan identitas user, bukan sekadar token yang sama.
+  if (normalized.token && !normalized.source.includes(":token")) {
+    const tokenCandidate = candidateFromToken(normalized.token, `${normalized.source}:token`);
+    if (!tokenCandidate) return;
+
+    const decodedId = cleanValue(tokenCandidate.id);
+    const decodedEmail = cleanValue(tokenCandidate.email).toLowerCase();
+    const decodedUsername = cleanValue(tokenCandidate.username).toLowerCase();
+
+    const decodedHasIdentity = Boolean(decodedId || decodedEmail || decodedUsername);
+    const decodedAddsIdentity =
+      (decodedId && decodedId !== normalized.id) ||
+      (decodedEmail && decodedEmail !== normalized.email) ||
+      (decodedUsername && decodedUsername !== normalized.username) ||
+      (!normalized.id && !normalized.email && !normalized.username && decodedHasIdentity);
+
+    if (decodedHasIdentity && decodedAddsIdentity) {
+      pushCandidate(list, tokenCandidate);
     }
   }
 }
