@@ -7,10 +7,19 @@ export const dynamic = "force-dynamic";
 type DbUser = {
   id: string;
   email: string;
+  username: string;
   name: string;
   role: string;
   athlete_type?: string | null;
   photo_url?: string | null;
+};
+
+type IdentityCandidate = {
+  id?: string;
+  email?: string;
+  username?: string;
+  token?: string;
+  source: string;
 };
 
 type TableCache = Map<string, boolean>;
@@ -23,75 +32,223 @@ function jsonError(message: string, status = 400, extra?: Record<string, unknown
   );
 }
 
-function firstCookieValue(req: NextRequest, names: string[]) {
-  for (const name of names) {
-    const value = req.cookies.get(name)?.value;
-    if (value) return decodeURIComponent(value);
+function cleanValue(value: unknown) {
+  if (value === null || value === undefined) return "";
+  return String(value).trim();
+}
+
+function safeDecodeURIComponent(value: string) {
+  let output = value;
+  for (let i = 0; i < 3; i += 1) {
+    try {
+      const decoded = decodeURIComponent(output);
+      if (decoded === output) break;
+      output = decoded;
+    } catch {
+      break;
+    }
   }
-  return "";
+  return output;
+}
+
+function tryJsonParse(value: string): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+function tryBase64Text(value: string) {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  if (!/^[A-Za-z0-9+/=]+$/.test(normalized)) return "";
+  try {
+    const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), "=");
+    const text = Buffer.from(padded, "base64").toString("utf8");
+    if (!text || /\u0000/.test(text)) return "";
+    return text;
+  } catch {
+    return "";
+  }
 }
 
 function tryDecodeJwtPayload(token: string): Record<string, unknown> | null {
   const parts = token.split(".");
-  if (parts.length < 2) return null;
+  if (parts.length !== 3) return null;
+  const payload = tryBase64Text(parts[1]);
+  if (!payload) return null;
+  return tryJsonParse(payload);
+}
 
-  try {
-    const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-    const padded = payload.padEnd(payload.length + ((4 - (payload.length % 4)) % 4), "=");
-    return JSON.parse(Buffer.from(padded, "base64").toString("utf8"));
-  } catch {
-    return null;
+function candidateFromObject(obj: Record<string, unknown>, source: string): IdentityCandidate | null {
+  const nestedUser =
+    obj.user && typeof obj.user === "object" && !Array.isArray(obj.user)
+      ? (obj.user as Record<string, unknown>)
+      : null;
+  const nestedMember =
+    obj.member && typeof obj.member === "object" && !Array.isArray(obj.member)
+      ? (obj.member as Record<string, unknown>)
+      : null;
+  const nestedAccount =
+    obj.account && typeof obj.account === "object" && !Array.isArray(obj.account)
+      ? (obj.account as Record<string, unknown>)
+      : null;
+  const merged = { ...(nestedUser || {}), ...(nestedMember || {}), ...(nestedAccount || {}), ...obj };
+
+  const id = cleanValue(
+    merged.id ||
+      merged.user_id ||
+      merged.userId ||
+      merged.uid ||
+      merged.member_id ||
+      merged.memberId ||
+      merged.athlete_id ||
+      merged.athleteId
+  );
+  const email = cleanValue(merged.email || merged.user_email || merged.userEmail || merged.mail);
+  const username = cleanValue(
+    merged.username ||
+      merged.user_name ||
+      merged.userName ||
+      merged.name_login ||
+      merged.login ||
+      merged.phone ||
+      merged.no_hp
+  );
+  const token = cleanValue(
+    merged.token ||
+      merged.access_token ||
+      merged.accessToken ||
+      merged.auth_token ||
+      merged.authToken ||
+      merged.jwt ||
+      merged.session_token ||
+      merged.sessionToken
+  );
+
+  if (!id && !email && !username && !token) return null;
+  return { id, email, username, token, source };
+}
+
+function candidateFromToken(token: string, source: string): IdentityCandidate | null {
+  const cleaned = cleanValue(token);
+  if (!cleaned) return null;
+
+  const jwtPayload = tryDecodeJwtPayload(cleaned);
+  if (jwtPayload) {
+    const jwtCandidate = candidateFromObject(jwtPayload, `${source}:jwt`);
+    if (jwtCandidate) return { ...jwtCandidate, token: cleaned };
+  }
+
+  // AMOST legacy token pernah memakai format:
+  // username.role.issuedAt.expiresAt.signature
+  // Karena username/email bisa berisi titik, identitas diambil dari semua bagian sebelum 4 bagian terakhir.
+  const parts = cleaned.split(".").filter(Boolean);
+  if (parts.length >= 5) {
+    const identityPart = parts.slice(0, -4).join(".");
+    if (identityPart.includes("@")) return { email: identityPart, token: cleaned, source: `${source}:legacy-email` };
+    if (identityPart) return { username: identityPart, token: cleaned, source: `${source}:legacy-username` };
+  }
+
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleaned)) {
+    return { email: cleaned, token: cleaned, source: `${source}:plain-email` };
+  }
+
+  return { token: cleaned, source };
+}
+
+function pushCandidate(list: IdentityCandidate[], candidate: IdentityCandidate | null) {
+  if (!candidate) return;
+  const normalized: IdentityCandidate = {
+    id: cleanValue(candidate.id),
+    email: cleanValue(candidate.email).toLowerCase(),
+    username: cleanValue(candidate.username).toLowerCase(),
+    token: cleanValue(candidate.token),
+    source: candidate.source,
+  };
+  if (!normalized.id && !normalized.email && !normalized.username && !normalized.token) return;
+  list.push(normalized);
+
+  if (normalized.token) {
+    const tokenCandidate = candidateFromToken(normalized.token, `${candidate.source}:token`);
+    if (tokenCandidate && tokenCandidate !== candidate) {
+      const hasDifferentIdentity =
+        tokenCandidate.id !== normalized.id ||
+        tokenCandidate.email !== normalized.email ||
+        tokenCandidate.username !== normalized.username;
+      if (hasDifferentIdentity) pushCandidate(list, tokenCandidate);
+    }
   }
 }
 
-function extractIdentityFromRequest(req: NextRequest) {
-  const directUserId = firstCookieValue(req, [
-    "user_id",
-    "amost_user_id",
-    "current_user_id",
-  ]);
+function extractIdentityCandidates(req: NextRequest) {
+  const candidates: IdentityCandidate[] = [];
 
-  const directEmail = firstCookieValue(req, [
-    "user_email",
-    "amost_user_email",
-    "current_user_email",
-    "email",
-  ]);
+  const authorization = req.headers.get("authorization") || "";
+  const bearer = authorization.match(/^Bearer\s+(.+)$/i)?.[1] || "";
+  pushCandidate(candidates, candidateFromToken(bearer, "authorization"));
 
-  const token = firstCookieValue(req, [
-    "amost_user_token",
-    "user_token",
-    "auth_token",
-    "account_token",
-    "session_token",
-    "amost_session",
-    "session",
-    "token",
-  ]);
+  pushCandidate(candidates, {
+    id: req.headers.get("x-amost-user-id") || req.headers.get("x-user-id") || "",
+    email: req.headers.get("x-amost-email") || req.headers.get("x-user-email") || "",
+    username: req.headers.get("x-amost-username") || req.headers.get("x-username") || "",
+    source: "client-auth-headers",
+  });
 
-  const jwtPayload = token ? tryDecodeJwtPayload(token) : null;
-  const jwtEmail = safeString(jwtPayload?.email || jwtPayload?.user_email || jwtPayload?.sub, "");
-  const jwtId = safeString(jwtPayload?.id || jwtPayload?.user_id || jwtPayload?.uid, "");
+  const clientUserHeader = req.headers.get("x-amost-client-user") || "";
+  if (clientUserHeader) {
+    const clientUserText = tryBase64Text(clientUserHeader) || safeDecodeURIComponent(clientUserHeader);
+    const clientUserJson = tryJsonParse(clientUserText);
+    pushCandidate(candidates, clientUserJson ? candidateFromObject(clientUserJson, "x-amost-client-user") : null);
+  }
 
-  // AMOST lama beberapa route memakai token format: email.role.issuedAt.expiresAt.signature
-  const legacyFirstPart = token && token.includes(".") ? token.split(".")[0] : "";
-  const legacyEmail = legacyFirstPart.includes("@") ? legacyFirstPart : "";
-  const legacyUsername = legacyFirstPart && !legacyFirstPart.includes("@") ? legacyFirstPart : "";
+  const cookieNames = req.cookies.getAll().map((item) => item.name);
+  for (const cookie of req.cookies.getAll()) {
+    const name = cookie.name;
+    const rawValue = safeDecodeURIComponent(cookie.value || "");
+    if (!rawValue) continue;
 
-  return {
-    userId: directUserId || jwtId,
-    email: directEmail || jwtEmail || legacyEmail,
-    username: legacyUsername,
-    rawToken: token,
-  };
+    const lowerName = name.toLowerCase();
+    const source = `cookie:${name}`;
+
+    if (lowerName.includes("id")) {
+      pushCandidate(candidates, { id: rawValue, source });
+    }
+    if (lowerName.includes("email")) {
+      pushCandidate(candidates, { email: rawValue, source });
+    }
+    if (lowerName.includes("username") || lowerName.includes("user_name")) {
+      pushCandidate(candidates, { username: rawValue, source });
+    }
+    if (
+      lowerName.includes("token") ||
+      lowerName.includes("session") ||
+      lowerName.includes("auth") ||
+      lowerName.includes("user") ||
+      lowerName.includes("account") ||
+      lowerName.includes("member")
+    ) {
+      pushCandidate(candidates, candidateFromToken(rawValue, source));
+      const json = tryJsonParse(rawValue) || tryJsonParse(tryBase64Text(rawValue));
+      pushCandidate(candidates, json ? candidateFromObject(json, source) : null);
+    }
+  }
+
+  const sources = Array.from(new Set(candidates.map((item) => item.source))).slice(0, 40);
+  const ids = Array.from(new Set(candidates.map((item) => item.id).filter(Boolean))) as string[];
+  const emails = Array.from(new Set(candidates.map((item) => item.email).filter(Boolean))) as string[];
+  const usernames = Array.from(new Set(candidates.map((item) => item.username).filter(Boolean))) as string[];
+
+  return { candidates, ids, emails, usernames, cookieNames, sources };
 }
 
 async function tableExists(client: any, cache: TableCache, tableName: string) {
   if (cache.has(tableName)) return cache.get(tableName)!;
-  const result = await client.query(
-    `select to_regclass($1) is not null as exists`,
-    [`public.${tableName}`]
-  );
+  const result = await client.query(`select to_regclass($1) is not null as exists`, [`public.${tableName}`]);
   const exists = Boolean(result.rows?.[0]?.exists);
   cache.set(tableName, exists);
   return exists;
@@ -115,12 +272,7 @@ async function columnExists(client: any, cache: ColumnCache, tableName: string, 
   return exists;
 }
 
-async function firstExistingColumn(
-  client: any,
-  cache: ColumnCache,
-  tableName: string,
-  candidates: string[]
-) {
+async function firstExistingColumn(client: any, cache: ColumnCache, tableName: string, candidates: string[]) {
   for (const column of candidates) {
     if (await columnExists(client, cache, tableName, column)) return column;
   }
@@ -131,11 +283,19 @@ function ident(name: string) {
   return `"${name.replace(/"/g, '""')}"`;
 }
 
-async function findCurrentUser(client: any, columnCache: ColumnCache, req: NextRequest): Promise<DbUser | null> {
-  const identity = extractIdentityFromRequest(req);
+function addWhereClause(where: string[], values: string[], clause: string, value: string) {
+  const cleaned = cleanValue(value);
+  if (!cleaned) return;
+  values.push(cleaned);
+  where.push(clause.replace("?", `$${values.length}`));
+}
 
-  const idCol = await firstExistingColumn(client, columnCache, "users", ["id", "user_id"]);
-  const emailCol = await firstExistingColumn(client, columnCache, "users", ["email", "username"]);
+async function findCurrentUser(client: any, columnCache: ColumnCache, req: NextRequest): Promise<{ user: DbUser | null; debug: Record<string, unknown> }> {
+  const identity = extractIdentityCandidates(req);
+
+  const idCol = await firstExistingColumn(client, columnCache, "users", ["id", "user_id", "member_id"]);
+  const emailCol = await firstExistingColumn(client, columnCache, "users", ["email", "user_email"]);
+  const usernameCol = await firstExistingColumn(client, columnCache, "users", ["username", "user_name", "login", "phone", "no_hp"]);
   const nameCol = await firstExistingColumn(client, columnCache, "users", ["name", "full_name", "nama", "display_name", "username", "email"]);
   const roleCol = await firstExistingColumn(client, columnCache, "users", ["role", "level", "user_role"]);
   const athleteTypeCol = await firstExistingColumn(client, columnCache, "users", ["athlete_type", "athlete_level", "category"]);
@@ -146,6 +306,7 @@ async function findCurrentUser(client: any, columnCache: ColumnCache, req: NextR
   const selects = [
     `${ident(idCol)}::text as id`,
     emailCol ? `${ident(emailCol)}::text as email` : `''::text as email`,
+    usernameCol ? `${ident(usernameCol)}::text as username` : `''::text as username`,
     nameCol ? `${ident(nameCol)}::text as name` : `''::text as name`,
     roleCol ? `${ident(roleCol)}::text as role` : `''::text as role`,
     athleteTypeCol ? `${ident(athleteTypeCol)}::text as athlete_type` : `null::text as athlete_type`,
@@ -155,22 +316,28 @@ async function findCurrentUser(client: any, columnCache: ColumnCache, req: NextR
   const where: string[] = [];
   const values: string[] = [];
 
-  if (identity.userId) {
-    values.push(identity.userId);
-    where.push(`${ident(idCol)}::text = $${values.length}`);
+  for (const id of identity.ids) {
+    addWhereClause(where, values, `${ident(idCol)}::text = ?`, id);
+  }
+  for (const email of identity.emails) {
+    if (emailCol) addWhereClause(where, values, `lower(${ident(emailCol)}::text) = lower(?)`, email);
+    if (usernameCol) addWhereClause(where, values, `lower(${ident(usernameCol)}::text) = lower(?)`, email);
+  }
+  for (const username of identity.usernames) {
+    if (usernameCol) addWhereClause(where, values, `lower(${ident(usernameCol)}::text) = lower(?)`, username);
+    if (emailCol) addWhereClause(where, values, `lower(${ident(emailCol)}::text) = lower(?)`, username);
   }
 
-  if (identity.email && emailCol) {
-    values.push(identity.email.toLowerCase());
-    where.push(`lower(${ident(emailCol)}::text) = $${values.length}`);
+  if (!where.length) {
+    return {
+      user: null,
+      debug: {
+        reason: "no_identity_found",
+        cookie_names: identity.cookieNames,
+        sources_tried: identity.sources,
+      },
+    };
   }
-
-  if (identity.username && emailCol) {
-    values.push(identity.username.toLowerCase());
-    where.push(`lower(${ident(emailCol)}::text) = $${values.length}`);
-  }
-
-  if (!where.length) return null;
 
   const result = await client.query(
     `select ${selects.join(", ")}
@@ -181,15 +348,31 @@ async function findCurrentUser(client: any, columnCache: ColumnCache, req: NextR
   );
 
   const row = result.rows?.[0];
-  if (!row) return null;
+  if (!row) {
+    return {
+      user: null,
+      debug: {
+        reason: "identity_not_matched_to_users",
+        ids_found: identity.ids.length,
+        emails_found: identity.emails.length,
+        usernames_found: identity.usernames.length,
+        cookie_names: identity.cookieNames,
+        sources_tried: identity.sources,
+      },
+    };
+  }
 
   return {
-    id: safeString(row.id),
-    email: safeString(row.email),
-    name: safeString(row.name || row.email || "Member AMOST"),
-    role: safeString(row.role || "UMUM"),
-    athlete_type: row.athlete_type ?? null,
-    photo_url: row.photo_url ?? null,
+    user: {
+      id: safeString(row.id),
+      email: safeString(row.email),
+      username: safeString(row.username),
+      name: safeString(row.name || row.email || row.username || "Member AMOST"),
+      role: safeString(row.role || "UMUM"),
+      athlete_type: row.athlete_type ?? null,
+      photo_url: row.photo_url ?? null,
+    },
+    debug: { matched: true, sources_tried: identity.sources },
   };
 }
 
@@ -201,7 +384,7 @@ async function getEventTracking(client: any, tableCache: TableCache, columnCache
   const eventIdCol = await firstExistingColumn(client, columnCache, "events", ["id", "event_id"]);
   const eventNameCol = await firstExistingColumn(client, columnCache, "events", ["title", "name", "event_name"]);
   const eventStatusCol = await firstExistingColumn(client, columnCache, "events", ["status", "event_status"]);
-  const eventDateCol = await firstExistingColumn(client, columnCache, "events", ["start_date", "event_date", "date", "created_at"]);
+  const eventDateCol = await firstExistingColumn(client, columnCache, "events", ["start_date", "event_date", "date", "start_time", "created_at"]);
 
   const joinEventCol = await firstExistingColumn(client, columnCache, "event_joins", ["event_id", "training_id"]);
   const joinUserCol = await firstExistingColumn(client, columnCache, "event_joins", ["user_id", "member_id", "athlete_id"]);
@@ -215,10 +398,10 @@ async function getEventTracking(client: any, tableCache: TableCache, columnCache
   const resultEventCol = hasResults ? await firstExistingColumn(client, columnCache, "training_results", ["event_id", "training_id"]) : null;
   const resultUserCol = hasResults ? await firstExistingColumn(client, columnCache, "training_results", ["user_id", "member_id", "athlete_id"]) : null;
   const resultDistanceCol = hasResults ? await firstExistingColumn(client, columnCache, "training_results", ["distance_km", "distance", "total_distance_km"]) : null;
-  const resultTimeCol = hasResults ? await firstExistingColumn(client, columnCache, "training_results", ["moving_time_seconds", "duration_seconds", "elapsed_time_seconds", "time_seconds"]) : null;
-  const resultAvgSpeedCol = hasResults ? await firstExistingColumn(client, columnCache, "training_results", ["avg_speed_kmh", "average_speed_kmh", "avg_speed"]) : null;
-  const resultStatusCol = hasResults ? await firstExistingColumn(client, columnCache, "training_results", ["status", "result_status", "finish_status"]) : null;
-  const resultCreatedCol = hasResults ? await firstExistingColumn(client, columnCache, "training_results", ["finished_at", "created_at", "updated_at"]) : null;
+  const resultTimeCol = hasResults ? await firstExistingColumn(client, columnCache, "training_results", ["moving_time_seconds", "duration_seconds", "elapsed_time_seconds", "time_seconds"]): null;
+  const resultAvgSpeedCol = hasResults ? await firstExistingColumn(client, columnCache, "training_results", ["avg_speed_kmh", "average_speed_kmh", "avg_speed"]): null;
+  const resultStatusCol = hasResults ? await firstExistingColumn(client, columnCache, "training_results", ["status", "result_status", "finish_status"]): null;
+  const resultCreatedCol = hasResults ? await firstExistingColumn(client, columnCache, "training_results", ["finished_at", "created_at", "updated_at"]): null;
 
   const canJoinResult = Boolean(hasResults && resultEventCol && resultUserCol);
 
@@ -231,8 +414,8 @@ async function getEventTracking(client: any, tableCache: TableCache, columnCache
     ? orderParts.map((part) => `${part} desc nulls last`).join(", ")
     : `e.${ident(eventIdCol)} desc`;
 
-  const query = `
-    select
+  const result = await client.query(
+    `select
       e.${ident(eventIdCol)}::text as event_id,
       ${eventNameCol ? `e.${ident(eventNameCol)}::text` : `('Event #' || e.${ident(eventIdCol)}::text)`} as event_name,
       ${eventStatusCol ? `e.${ident(eventStatusCol)}::text` : `'UNKNOWN'::text`} as event_status,
@@ -254,10 +437,10 @@ async function getEventTracking(client: any, tableCache: TableCache, columnCache
     ` : ""}
     where j.${ident(joinUserCol)}::text = $1
     order by ${orderClause}
-    limit 100
-  `;
+    limit 100`,
+    [user.id]
+  );
 
-  const result = await client.query(query, [user.id]);
   return result.rows.map((row: any) => ({
     event_id: safeString(row.event_id),
     event_name: safeString(row.event_name, "Event AMOST"),
@@ -291,13 +474,8 @@ async function getPersonalTracking(client: any, tableCache: TableCache, columnCa
 
   if (!idCol || !userCol) return [];
 
-  const orderParts = [
-    finishedCol ? ident(finishedCol) : "",
-    startedCol ? ident(startedCol) : "",
-  ].filter(Boolean);
-  const orderClause = orderParts.length
-    ? orderParts.map((part) => `${part} desc nulls last`).join(", ")
-    : `${ident(idCol)} desc`;
+  const orderParts = [finishedCol ? ident(finishedCol) : "", startedCol ? ident(startedCol) : ""].filter(Boolean);
+  const orderClause = orderParts.length ? orderParts.map((part) => `${part} desc nulls last`).join(", ") : `${ident(idCol)} desc`;
 
   const result = await client.query(
     `select
@@ -408,9 +586,11 @@ export async function GET(req: NextRequest) {
     const hasUsers = await tableExists(client, tableCache, "users");
     if (!hasUsers) return jsonError("Tabel users tidak ditemukan di database.", 500);
 
-    const user = await findCurrentUser(client, columnCache, req);
+    const { user, debug } = await findCurrentUser(client, columnCache, req);
     if (!user) {
-      return jsonError("Sesi login tidak ditemukan. Silakan login ulang.", 401);
+      return jsonError("Sesi login tidak ditemukan. Silakan login ulang.", 401, {
+        debug,
+      });
     }
 
     const [eventTracking, personalTracking, liveTracking] = await Promise.all([
