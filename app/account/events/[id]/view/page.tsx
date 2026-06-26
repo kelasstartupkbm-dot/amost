@@ -7,7 +7,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   Box,
-  Gauge,
   Gift,
   Layers,
   List,
@@ -18,9 +17,9 @@ import {
   RefreshCw,
   Satellite,
   Trophy,
-  UsersRound,
   Wifi,
   WifiOff,
+  Zap,
 } from "lucide-react";
 
 type PublicEvent = {
@@ -64,6 +63,10 @@ type LiveMarker = {
   status?: string | null;
   seconds_ago?: number | null;
   is_online?: boolean;
+  projected?: {
+    x: number;
+    y: number;
+  };
 };
 
 type StandbyParticipant = {
@@ -84,7 +87,6 @@ function formatDate(value: string | null | undefined) {
   if (!value) return "Tanggal menyusul";
 
   const date = new Date(value);
-
   if (Number.isNaN(date.getTime())) return String(value);
 
   return date.toLocaleDateString("id-ID", {
@@ -98,7 +100,6 @@ function formatDateTime(value: string | null | undefined) {
   if (!value) return "-";
 
   const date = new Date(value);
-
   if (Number.isNaN(date.getTime())) return "-";
 
   return date.toLocaleString("id-ID", {
@@ -139,13 +140,11 @@ function getEventTitle(event: PublicEvent | null, eventId: string) {
 
 function calculatePercent(value: number, total: number) {
   if (!Number.isFinite(value) || !Number.isFinite(total) || total <= 0) return 0;
-
   return Math.min(100, Math.max(0, Math.round((value / total) * 100)));
 }
 
 function buildBounds(points: Array<{ lat: number; lng: number }>) {
   const valid = points.filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng));
-
   if (valid.length === 0) return null;
 
   let minLat = valid[0].lat;
@@ -202,6 +201,25 @@ export default function AccountEventLiveViewPage() {
   const [errorMessage, setErrorMessage] = useState("");
 
   const title = getEventTitle(event, eventId);
+
+  /*
+    AccountAppShell otomatis membuat hero card di awal content.
+    Untuk halaman Live View ini, target UI adalah langsung membuka Peta Live Tracking.
+    Efek ini hanya menyembunyikan hero card shell pada halaman ini saja.
+  */
+  useEffect(() => {
+    const marker = document.querySelector("[data-amost-live-exact-page]");
+    const shellContent = marker?.closest("section.space-y-5");
+    const firstCard = shellContent?.querySelector(":scope > section:first-child") as HTMLElement | null;
+
+    if (firstCard && !firstCard.contains(marker)) {
+      firstCard.style.display = "none";
+    }
+
+    return () => {
+      if (firstCard) firstCard.style.display = "";
+    };
+  }, []);
 
   const stats = useMemo(() => {
     const participantCount = Number(event?.participant_count || participantTotal || 0);
@@ -340,7 +358,7 @@ export default function AccountEventLiveViewPage() {
       <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-black text-slate-950">Ringkasan Live</h3>
-          <ActivityIcon />
+          <Zap className="text-purple-700" size={22} />
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-3">
@@ -390,35 +408,19 @@ export default function AccountEventLiveViewPage() {
           </div>
         )}
       </section>
-
-      <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
-        <h3 className="text-lg font-black text-slate-950">Event</h3>
-        <p className="mt-2 text-sm font-semibold text-slate-500">{title}</p>
-        <p className="mt-1 text-sm font-semibold text-slate-500">
-          {formatDate(event?.event_date)} · {event?.location || "Lokasi menyusul"}
-        </p>
-
-        <Link
-          href={`/events/${eventId}`}
-          className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm font-black text-slate-700 hover:bg-slate-50"
-        >
-          <ArrowLeft size={17} />
-          Detail Event
-        </Link>
-      </section>
     </section>
   );
 
   return (
     <AccountAppShell
-      active="tracking"
+      active="events"
       title="Tracking Live"
       eyebrow="AMOST LIVE"
       description={`Live tracking event ${title}.`}
       icon={Satellite}
       rightPanel={rightPanel}
     >
-      <section className="space-y-5">
+      <div data-amost-live-exact-page className="space-y-5">
         {loading ? (
           <section className="flex min-h-[520px] flex-col items-center justify-center rounded-[2rem] border border-slate-200 bg-white text-center shadow-sm">
             <Loader2 className="h-12 w-12 animate-spin text-purple-700" />
@@ -432,31 +434,9 @@ export default function AccountEventLiveViewPage() {
         ) : (
           <>
             <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="rounded-2xl bg-purple-50 px-4 py-3 text-xs font-black uppercase tracking-[0.18em] text-purple-700">
-                  Peta Live Tracking
-                </p>
-
-                <div className="flex flex-wrap gap-2">
-                  <Link
-                    href={`/events/${eventId}`}
-                    className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50"
-                  >
-                    <ArrowLeft size={18} />
-                    Detail Event
-                  </Link>
-
-                  <button
-                    type="button"
-                    onClick={() => loadData(true)}
-                    disabled={refreshing}
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:opacity-70"
-                  >
-                    <RefreshCw size={17} className={refreshing ? "animate-spin" : ""} />
-                    Refresh
-                  </button>
-                </div>
-              </div>
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-purple-700">
+                Peta Live Tracking
+              </p>
 
               <section className="relative mt-5 min-h-[360px] overflow-hidden rounded-[1.5rem] border border-slate-200 bg-[#eaf1f0]">
                 <div className="absolute inset-0 opacity-90">
@@ -473,12 +453,6 @@ export default function AccountEventLiveViewPage() {
                   <button className="flex h-10 w-10 items-center justify-center text-slate-700">
                     <LocateFixed size={17} />
                   </button>
-                </div>
-
-                <div className="absolute right-4 top-4 z-10 flex flex-col gap-3">
-                  <MapButton icon={Satellite} label="GPS" />
-                  <MapButton icon={Layers} label="Layer" />
-                  <MapButton icon={Navigation} label="Full" />
                 </div>
 
                 <svg
@@ -517,7 +491,7 @@ export default function AccountEventLiveViewPage() {
 
                 {liveMarkers.length === 0 ? (
                   <div className="absolute inset-0 z-10 flex items-center justify-center px-8">
-                    <div className="max-w-xl rounded-[1.5rem] border border-slate-200 bg-white/88 p-7 text-center shadow-xl backdrop-blur">
+                    <div className="max-w-xl rounded-[1.5rem] bg-white/75 p-7 text-center backdrop-blur">
                       <MapPin className="mx-auto h-11 w-11 text-purple-700" />
                       <h2 className="mt-4 text-2xl font-black text-slate-950">Belum ada posisi live.</h2>
                       <p className="mt-3 text-sm font-semibold leading-6 text-slate-700">
@@ -558,9 +532,20 @@ export default function AccountEventLiveViewPage() {
                 <StandbyTable rows={standbyParticipants} />
               )}
             </section>
+
+            <footer className="flex flex-wrap items-center justify-between gap-3 px-2 py-4 text-xs font-semibold text-slate-500">
+              <p>
+                © 2026 <span className="font-black text-slate-900">AMOST.</span> Semua hak dilindungi.
+              </p>
+              <div className="flex flex-wrap gap-6">
+                <Link href="/privacy" className="hover:text-purple-700">Kebijakan Privasi</Link>
+                <Link href="/terms" className="hover:text-purple-700">Syarat & Ketentuan</Link>
+                <Link href="/help" className="hover:text-purple-700">Bantuan</Link>
+              </div>
+            </footer>
           </>
         )}
-      </section>
+      </div>
     </AccountAppShell>
   );
 }
@@ -584,27 +569,7 @@ function InfoBox({
   );
 }
 
-function ActivityIcon() {
-  return (
-    <div className="text-purple-700">
-      <Gauge size={22} />
-    </div>
-  );
-}
-
-function MapButton({ icon: Icon, label }: { icon: any; label: string }) {
-  return (
-    <button
-      type="button"
-      className="flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-200 bg-white/95 text-slate-700 shadow-lg backdrop-blur"
-      title={label}
-    >
-      <Icon size={22} />
-    </button>
-  );
-}
-
-function LiveMarkerBubble({ marker }: { marker: LiveMarker & { projected?: { x: number; y: number } } }) {
+function LiveMarkerBubble({ marker }: { marker: LiveMarker }) {
   const x = marker.projected?.x ?? 50;
   const y = marker.projected?.y ?? 50;
   const initials =
