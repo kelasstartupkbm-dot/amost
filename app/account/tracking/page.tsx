@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import AccountPageLoader from "../../components/AccountPageLoader";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ElementType, type ReactNode } from "react";
 import {
@@ -418,10 +419,11 @@ export default function AccountTrackingPage() {
 
         <section className="grid min-h-[calc(100vh-88px)] grid-cols-1 gap-5 p-4 xl:grid-cols-[minmax(0,1fr)_340px]">
           {loading ? (
-            <section className="xl:col-span-2 flex min-h-[420px] flex-col items-center justify-center rounded-[2rem] border border-slate-200 bg-white text-center shadow-sm">
-              <Loader2 className="h-12 w-12 animate-spin text-purple-700" />
-              <p className="mt-4 text-xl font-black text-slate-950">Memuat tracking...</p>
-              <p className="mt-2 text-sm text-slate-500">Mengambil data event, live tracking, result, dan latihan mandiri.</p>
+            <section className="xl:col-span-2">
+              <AccountPageLoader
+                title="Memuat tracking..."
+                description="Mengambil data event, live tracking, result, dan latihan mandiri."
+              />
             </section>
           ) : error ? (
             <section className="xl:col-span-2 rounded-[2rem] border border-red-200 bg-red-50 p-6 text-red-800 shadow-sm">
@@ -835,7 +837,55 @@ function TrackingTopbar({
 }) {
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-xl">
-      <div className="flex min-h-[88px] flex-col gap-4 px-4 py-4 md:flex-row md:items-center md:justify-between md:px-6">
+      {/* Mobile: sama seperti Home, tombol berada satu baris dengan judul/nama */}
+      <div className="px-4 py-4 md:hidden">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-3xl font-black leading-tight text-slate-950">{title}</h1>
+            <p className="mt-1 truncate text-base font-semibold text-slate-500">{subtitle}</p>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm"
+              title="Notifikasi"
+            >
+              <Bell size={20} />
+              <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-purple-700 text-[10px] font-black text-white">
+                3
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={refreshing}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-70"
+              title="Refresh"
+            >
+              <RefreshCw size={18} className={refreshing ? "animate-spin" : ""} />
+              <span className="hidden min-[420px]:inline">Refresh</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={logoutLoading}
+              onClick={onLogout}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-3 text-sm font-black text-white shadow-sm hover:bg-slate-800 disabled:opacity-70"
+              title="Keluar"
+            >
+              <LogOut size={18} />
+              <span className="hidden min-[420px]:inline">
+                {logoutLoading ? "Keluar..." : "Keluar"}
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop tetap lengkap */}
+      <div className="hidden min-h-[88px] items-center justify-between gap-4 px-6 py-4 md:flex">
         <div>
           <h1 className="text-2xl font-black text-slate-950">{title}</h1>
           <p className="mt-1 text-sm font-semibold text-slate-500">{subtitle}</p>
