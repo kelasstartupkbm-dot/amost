@@ -3,12 +3,18 @@
 import { usePathname } from "next/navigation";
 import Header from "./Header";
 import Footer from "./Footer";
+import AccountMobileNav from "./AccountMobileNav";
 
 export default function PublicShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "/";
 
   if (shouldHidePublicLayout(pathname)) {
-    return <>{children}</>;
+    return (
+      <>
+        {children}
+        <AccountMobileNav />
+      </>
+    );
   }
 
   return (
