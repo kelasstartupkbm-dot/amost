@@ -133,6 +133,22 @@ function putIfColumn(
   }
 }
 
+
+async function tableExists(tableName: string) {
+  const result = await dbQuery(
+    `
+      SELECT 1
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND table_name = $1
+      LIMIT 1
+    `,
+    [tableName]
+  );
+
+  return getRows(result).length > 0;
+}
+
 export async function GET() {
   try {
     const columns = await getEventColumns();
@@ -151,11 +167,38 @@ export async function GET() {
         columns.includes(column)
       ) || columns[0];
 
+    const hasRegistrations = await tableExists("event_registrations");
+
+    const participantSelect = hasRegistrations
+      ? `
+        COALESCE(reg_stats.participant_count, 0)::int AS participant_count,
+        COALESCE(reg_stats.participant_count, 0)::int AS total_participants
+      `
+      : `
+        0::int AS participant_count,
+        0::int AS total_participants
+      `;
+
+    const participantJoin = hasRegistrations
+      ? `
+        LEFT JOIN (
+          SELECT
+            event_id,
+            COUNT(*)::int AS participant_count
+          FROM event_registrations
+          GROUP BY event_id
+        ) reg_stats ON reg_stats.event_id = e.id
+      `
+      : "";
+
     const result = await dbQuery(
       `
-        SELECT *
-        FROM events
-        ORDER BY ${quoteIdentifier(orderColumn)} DESC
+        SELECT
+          e.*,
+          ${participantSelect}
+        FROM events e
+        ${participantJoin}
+        ORDER BY e.${quoteIdentifier(orderColumn)} DESC NULLS LAST
         LIMIT 200
       `
     );
