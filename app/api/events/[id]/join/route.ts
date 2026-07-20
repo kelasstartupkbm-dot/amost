@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { dbQuery } from "../../../../../lib/amostDb";
-import { getCurrentAmostUser } from "../../../../../lib/amostServerAuth";
-import { isEventRegistrationClosed } from "../../../../../lib/amostEventStatus";
+import { dbQuery } from "../../../../lib/amostDb";
+import { getCurrentAmostUser } from "../../../../lib/amostServerAuth";
+import { isEventRegistrationClosed } from "../../../../lib/amostEventStatus";
 
 type DbRow = Record<string, any>;
 
