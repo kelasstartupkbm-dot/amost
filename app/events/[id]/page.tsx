@@ -2,7 +2,9 @@
 // Tujuan: tombol daftar tidak aktif kalau event status = selesai/closed/cancelled.
 // Jangan langsung replace seluruh file kalau halaman detail event Bapak sudah bagus.
 // Ambil bagian import, konstanta, dan penggantian tombolnya saja.
+"use client";
 
+import { useParams } from "next/navigation";
 import {
   getRegistrationClosedLabel,
   isEventRegistrationClosed,
