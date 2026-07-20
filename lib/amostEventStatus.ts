@@ -6,8 +6,8 @@ export type EventStatusInput = {
   endAt?: unknown;
 };
 
-function toText(value: unknown): string {
-  return String(value ?? "").trim().toLowerCase();
+function normalize(value: unknown): string {
+  return String(value ?? "").trim().toLowerCase().replace(/\s+/g, "_");
 }
 
 function toDate(value: unknown): Date | null {
@@ -17,19 +17,15 @@ function toDate(value: unknown): Date | null {
   return date;
 }
 
-export function normalizeEventStatus(value: unknown): string {
-  return toText(value).replace(/\s+/g, "_");
-}
-
 export function isEventFinishedStatus(value: unknown): boolean {
-  const status = normalizeEventStatus(value);
+  const status = normalize(value);
 
   return [
     "selesai",
-    "finished",
     "finish",
-    "completed",
+    "finished",
     "complete",
+    "completed",
     "ended",
     "closed",
     "ditutup",
@@ -41,7 +37,7 @@ export function isEventFinishedStatus(value: unknown): boolean {
 }
 
 export function isRegistrationClosedStatus(value: unknown): boolean {
-  const status = normalizeEventStatus(value);
+  const status = normalize(value);
 
   return [
     "closed",
@@ -60,9 +56,8 @@ export function isEventRegistrationClosed(event: EventStatusInput): boolean {
   if (isEventFinishedStatus(event.status)) return true;
   if (isRegistrationClosedStatus(event.registrationStatus)) return true;
 
-  const now = Date.now();
   const endAt = toDate(event.endAt);
-  if (endAt && endAt.getTime() < now) return true;
+  if (endAt && endAt.getTime() < Date.now()) return true;
 
   return false;
 }
