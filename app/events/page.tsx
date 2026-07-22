@@ -13,6 +13,15 @@ import {
   Users,
 } from "lucide-react";
 
+type CurrentUser = {
+  id?: number | string | null;
+  fullName?: string | null;
+  name?: string | null;
+  username?: string | null;
+  email?: string | null;
+  role?: string | null;
+};
+
 type EventItem = {
   id: number | string;
   title?: string | null;
@@ -72,6 +81,36 @@ export default function EventsPage() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  const isLoggedIn = Boolean(currentUser?.id);
+
+  async function loadCurrentUser() {
+    setCheckingAuth(true);
+
+    try {
+      const response = await fetch("/api/auth/me", {
+        method: "GET",
+        cache: "no-store",
+        credentials: "include",
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (response.ok && data?.ok && data?.user) {
+        setCurrentUser(data.user);
+      } else {
+        setCurrentUser(null);
+      }
+    } catch (error) {
+      console.error(error);
+      setCurrentUser(null);
+    } finally {
+      setCheckingAuth(false);
+    }
+  }
+
   async function loadEvents() {
     setLoading(true);
     setErrorMessage("");
@@ -109,6 +148,7 @@ export default function EventsPage() {
   }
 
   useEffect(() => {
+    loadCurrentUser();
     loadEvents();
   }, []);
 
@@ -181,12 +221,14 @@ export default function EventsPage() {
                 <ArrowRight size={19} />
               </a>
 
-              <Link
-                href="/register"
-                className="inline-flex h-14 items-center justify-center rounded-xl border border-purple-200 bg-white px-7 text-sm font-black text-purple-700 transition hover:bg-purple-50"
-              >
-                Daftar Akun
-              </Link>
+              {!checkingAuth && !isLoggedIn ? (
+                <Link
+                  href="/register"
+                  className="inline-flex h-14 items-center justify-center rounded-xl border border-purple-200 bg-white px-7 text-sm font-black text-purple-700 transition hover:bg-purple-50"
+                >
+                  Daftar Akun
+                </Link>
+              ) : null}
             </div>
           </div>
 
